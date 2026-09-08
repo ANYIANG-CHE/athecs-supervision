@@ -540,6 +540,71 @@ tbody tr:hover{background:var(--brand-tint)}
   font-size:.66rem;font-weight:730;box-shadow:var(--sh-1)}
 :root[data-theme="dark"] .badge{color:#06121F}
 
+/* ---------- report ---------- */
+.rep-head h2{font-size:1.12rem;letter-spacing:.02em}
+.rep td.k{font-weight:670;color:var(--ink-2);white-space:nowrap;width:1%;font-size:.75rem}
+.rep-foot{text-align:center;font-size:.66rem;color:var(--ink-3);padding:6px 14px 2px;line-height:1.6}
+.sigbox{border:1px dashed var(--line-2);border-radius:var(--r-sm);padding:12px;min-height:96px;
+  display:flex;flex-direction:column}
+.sigbox span{font-size:.7rem;color:var(--ink-2);font-weight:670}
+.sigbox b{font-size:.85rem;margin-top:3px}
+.sigbox i{flex:1;border-bottom:1px solid var(--line-2);margin-top:auto}
+
+@media print{
+  @page{size:A4;margin:12mm 10mm}
+  :root{--bg:#fff;--surface:#fff;--surface-2:#fff;--surface-3:#F4F6F9;
+        --ink:#000;--ink-2:#333;--line:#B9C4D2;--line-2:#9AA8BA}
+  html[data-theme="dark"]{--bg:#fff;--surface:#fff;--ink:#000}
+  body{background:#fff;color:#000;font-size:10.5pt}
+  .topbar,.nav,.bottombar,#toast,.noprint,.foot,.secnav,.secwrap{display:none!important}
+  #app{padding:0;max-width:none}
+  .wrap{padding:0}
+  .card{box-shadow:none;border:1px solid #C3CDDA;margin-bottom:8px;padding:10px;border-radius:6px}
+  .rep-head,.sigbox,.stat,.grid.rings{break-inside:avoid}
+  h3{break-after:avoid}
+  thead{display:table-header-group}
+  tr{break-inside:avoid}
+  .tw{overflow:visible;border:0}
+  table{font-size:8.6pt}
+  th{background:#0B3C71!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .fill-g,.fill-a,.fill-r,.chip,.banner{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rep-foot{display:block}
+  h3{font-size:11pt}
+  .stat{border:1px solid #C3CDDA;box-shadow:none}
+}
+
+/* ---------- login path chooser ---------- */
+.pathcard{
+  display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+  background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-md);
+  padding:15px 16px;margin-bottom:11px;cursor:pointer;color:var(--ink);
+  box-shadow:var(--sh-2);
+  transition:all var(--fast) var(--ease), transform var(--fast) var(--spring);
+}
+.pathcard:hover{border-color:var(--brand-2);background:var(--surface-2);box-shadow:var(--sh-3);transform:translateY(-1px)}
+.pathcard:active{transform:scale(.985)}
+.pathcard .ptxt{flex:1;min-width:0;display:flex;flex-direction:column}
+.pathcard .ptxt b{font-size:.98rem;font-weight:670;margin-bottom:2px}
+.pathcard .ptxt span{font-size:.775rem;color:var(--ink-2);line-height:1.42}
+.pathcard .parr{font-size:1.3rem;color:var(--ink-3);font-weight:700;flex:0 0 auto}
+.pico{
+  flex:0 0 auto;width:46px;height:46px;border-radius:var(--r-sm);
+  display:flex;align-items:center;justify-content:center;font-size:1.3rem;
+  border:1px solid transparent;
+}
+.pico.sm{width:24px;height:24px;font-size:.82rem;border-radius:7px}
+.pico.sup{background:var(--brand-tint);border-color:color-mix(in srgb,var(--brand) 20%,transparent)}
+.pico.adm{background:var(--warn-tint);border-color:var(--warn-line)}
+.pico.site{background:var(--ok-tint);border-color:var(--ok-line)}
+.pathbadge{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  margin-top:12px;font-size:.755rem;font-weight:690;letter-spacing:.04em;
+  color:var(--brand);background:var(--brand-tint);
+  border:1px solid color-mix(in srgb,var(--brand) 18%,transparent);
+  border-radius:var(--r-full);padding:6px 14px;
+}
+.pathbadge.adm{color:var(--warn);background:var(--warn-tint);border-color:var(--warn-line)}
+
 /* ---------- gate & code box ---------- */
 .gate-ico{
   width:66px;height:66px;border-radius:var(--r-lg);margin:0 auto;
@@ -618,7 +683,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '2.0.1';
+const APP_VERSION = '2.2.0';
 /* ---------------------------------------------------------------
    SECURITY TOKEN — change this ONE line, and change the matching
    line  var TOKEN = 'ATHECS';  in Code.gs to exactly the same value.
@@ -1068,14 +1133,18 @@ window.addEventListener('hashchange', render);
 function shell(inner, navKey){
   const u = me();
   const pend = DB.d.outbox.length;
-  const nav = !u ? '' : `
+  const nav = !u ? '' : (isSite() ? `
+   <div class="nav">
+     <a href="#/home" class="${navKey==='home'?'on':''}">${LANG==='fr'?'Ma formation sanitaire':'My facility'}</a>
+     <a href="#/chat" class="${navKey==='chat'?'on':''}">${T('chat')}${unread()?' <span class="badge">'+unread()+'</span>':''}</a>
+   </div>` : `
    <div class="nav">
      <a href="#/home" class="${navKey==='home'?'on':''}">${T('home')}</a>
      <a href="#/visits" class="${navKey==='visits'?'on':''}">${T('visits')}</a>
      <a href="#/dash" class="${navKey==='dash'?'on':''}">${T('dash')}</a>
      <a href="#/chat" class="${navKey==='chat'?'on':''}">${T('chat')}${unread()?' <span class="badge">'+unread()+'</span>':''}</a>
      ${isSuper()?`<a href="#/admin" class="${navKey==='admin'?'on':''}">${T('admin')}</a>`:''}
-   </div>`;
+   </div>`);
   return `
   <div class="topbar">
     <div class="topbar-in">
@@ -1115,8 +1184,17 @@ function render(){
   if(!u){ $('#app').innerHTML = shell(viewLogin()); return; }
   if(!canWork(u)){ $('#app').innerHTML = shell(viewGate(u)); return; }
   let html='', key=r[0];
+  if(isSite()){
+    // facility staff: their own site only
+    if(r[0]==='report' && mySiteIds().includes((DB.d.visits.find(v=>v.id===r[1])||{}).siteId)){
+      $('#app').innerHTML = shell(viewReport(r[1]),'home'); afterRender(r); return;
+    }
+    if(r[0]==='chat'){ $('#app').innerHTML = shell(viewChat(r[1]),'chat'); afterRender(r); return; }
+    $('#app').innerHTML = shell(viewSiteHome(),'home'); afterRender(r); return;
+  }
   switch(r[0]){
     case 'home':   html=viewHome(); break;
+    case 'report': html=viewReport(r[1]); key='visits'; break;
     case 'new':    html=viewNewVisit(); break;
     case 'visit':  html=viewVisit(r[1], r[2]||'q', r[3]); key='visits'; break;
     case 'visits': html=viewVisits(); break;
@@ -1132,34 +1210,133 @@ function render(){
 }
 
 /* ===================== login ===================== */
-function viewLogin(){
-  const users = DB.d.users.filter(u=>u.active!==false);
-  return `
-  <div class="card" style="max-width:460px;margin:24px auto">
-    <div class="logos" style="margin-bottom:14px">
+/* Two distinct entry paths. A supervisor's phone never lists administrators,
+   and the administration path is a deliberate choice rather than the default. */
+let LG_PATH = localStorage.getItem('ath_path') || '';
+function setPath(p){ LG_PATH=p; try{localStorage.setItem('ath_path',p);}catch(e){} render(); }
+function clearPath(){ LG_PATH=''; try{localStorage.removeItem('ath_path');}catch(e){} render(); }
+
+function loginHeader(){
+  return `<div class="logos" style="margin-bottom:16px">
       <img src="${LOGO_ICAP}" style="height:40px"><img src="${LOGO_CNLS}" style="height:40px"><img src="${LOGO_CSU}" style="height:40px">
     </div>
-    <h2 style="text-align:center;color:var(--navy)">${T('app')}<br>${T('region')}</h2>
-    <p class="small muted" style="text-align:center;margin-top:-4px">Projet ATHECS</p>
+    <h2 style="text-align:center">${T('app')}<br>${T('region')}</h2>
+    <p class="small muted" style="text-align:center;margin-top:-2px">Projet ATHECS</p>`;
+}
+
+function viewLogin(){
+  if(!['sup','adm','site'].includes(LG_PATH)) return viewLoginChooser();
+  if(LG_PATH==='adm') return viewLoginAdmin();
+  return viewLoginRole(LG_PATH);
+}
+
+function viewLoginChooser(){
+  const L=LANG==='fr';
+  return `
+  <div class="card" style="max-width:470px;margin:24px auto">
+    ${loginHeader()}
     <hr>
-    <label class="f"><span>${T('name')}</span>
-      <select id="lg-user">${users.map(u=>`<option value="${u.id}">${esc(u.name)} — ${u.role}</option>`).join('')}</select>
-    </label>
-    <label class="f"><span>${T('pin')}</span><input type="password" id="lg-pin" inputmode="numeric" placeholder="••••"></label>
-    <button class="btn blk" onclick="doLogin()">${T('login')}</button>
+    <p class="small muted" style="text-align:center;margin-bottom:14px">
+      ${L?'Choisissez votre espace':'Choose your area'}</p>
+
+    <button class="pathcard" onclick="setPath('sup')">
+      <div class="pico sup">👥</div>
+      <div class="ptxt"><b>${L?'Superviseur':'Supervisor'}</b>
+        <span>${L?'Conduire une supervision sur le terrain'
+                 :'Run a supervision visit in the field'}</span></div>
+      <span class="parr">›</span>
+    </button>
+
+    <button class="pathcard" onclick="setPath('site')">
+      <div class="pico site">🏥</div>
+      <div class="ptxt"><b>${L?'Personnel du site':'Facility staff'}</b>
+        <span>${L?'Voir les scores et le rapport de ma formation sanitaire, suivre les recommandations'
+                 :'See my facility\'s scores and report, follow up recommendations'}</span></div>
+      <span class="parr">›</span>
+    </button>
+
+    <button class="pathcard" onclick="setPath('adm')">
+      <div class="pico adm">🛡</div>
+      <div class="ptxt"><b>${L?'Administration':'Administration'}</b>
+        <span>${L?'Coordination régionale — validations, cycles, tableau de bord'
+                 :'Regional coordination — approvals, cycles, dashboard'}</span></div>
+      <span class="parr">›</span>
+    </button>
+
     <hr>
-    <button class="btn sec blk sm" onclick="enrolModal()">＋ ${LANG==='fr'?'S\'enrôler comme superviseur':'Enrol as a supervisor'}</button>
-    <button class="btn sec blk sm" style="margin-top:8px" onclick="forgotPinModal()">${LANG==='fr'?'Code PIN oublié ?':'Forgotten PIN?'}</button>
-    <button class="btn sec blk sm" style="margin-top:8px" onclick="openTour(0)">？ ${LANG==='fr'?'Guide de navigation':'Navigation guide'}</button>
+    <button class="btn sec blk sm" onclick="openTour(0)">？ ${L?'Guide de navigation':'Navigation guide'}</button>
     <p class="xs muted" style="margin-top:12px;text-align:center">
-      ${LANG==='fr'?'Accès réservé au personnel autorisé.':'Authorised personnel only.'}</p>
+      ${L?'Accès réservé au personnel autorisé.':'Authorised personnel only.'}</p>
   </div>`;
 }
+
+function viewLoginRole(path){
+  const L=LANG==='fr';
+  const want = path==='site' ? 'SITE' : 'SUPERVISOR';
+  const users = DB.d.users.filter(u=>u.role===want && u.active!==false);
+  const isS = path==='site';
+  return `
+  <div class="card" style="max-width:470px;margin:24px auto">
+    ${loginHeader()}
+    <div class="pathbadge"><span class="pico ${isS?'site':'sup'} sm">${isS?'🏥':'👥'}</span> ${
+      isS ? (L?'Espace personnel du site':'Facility staff area') : (L?'Espace superviseur':'Supervisor area')}</div>
+    <hr>
+    ${users.length? `
+      <label class="f"><span>${T('name')}</span>
+        <select id="lg-user">${users.map(u=>
+          `<option value="${u.id}">${esc(u.name)}${userStatus(u)!==U_ACTIVE?' — '+userStatus(u):''}</option>`).join('')}</select></label>
+      <label class="f"><span>${T('pin')}</span>
+        <input type="password" id="lg-pin" inputmode="numeric" placeholder="••••" autocomplete="current-password"></label>
+      <button class="btn blk" onclick="doLogin()">${T('login')}</button>
+      <hr>
+      <button class="btn sec blk sm" onclick="enrolModal('${want}')">＋ ${
+        isS ? (L?'Enrôler un autre agent du site':'Enrol another staff member')
+            : (L?'Enrôler un autre superviseur':'Enrol another supervisor')}</button>
+      <button class="btn sec blk sm" style="margin-top:8px" onclick="forgotPinModal()">${L?'Code PIN oublié ?':'Forgotten PIN?'}</button>
+    ` : `
+      <div class="banner b-info">${L
+        ?'Aucun compte enrôlé sur cet appareil. Commencez par vous enrôler : votre demande sera transmise au niveau central pour validation.'
+        :'No account enrolled on this device. Start by enrolling: your request goes to central level for approval.'}</div>
+      <button class="btn blk" onclick="enrolModal('${want}')">＋ ${
+        isS ? (L?'S\'enrôler comme personnel du site':'Enrol as facility staff')
+            : (L?'S\'enrôler comme superviseur':'Enrol as a supervisor')}</button>
+    `}
+    <hr>
+    <button class="btn sec blk sm" onclick="openTour(0)">？ ${L?'Guide de navigation':'Navigation guide'}</button>
+    <p class="xs muted" style="margin-top:12px;text-align:center">
+      <a href="#" onclick="event.preventDefault();clearPath()">${L?'Changer d\'espace':'Change area'}</a></p>
+  </div>`;
+}
+
+function viewLoginAdmin(){
+  const L=LANG==='fr';
+  const supers = DB.d.users.filter(u=>u.role==='SUPER' && u.active!==false);
+  return `
+  <div class="card" style="max-width:470px;margin:24px auto">
+    ${loginHeader()}
+    <div class="pathbadge adm"><span class="pico adm sm">🛡</span> ${L?'Administration':'Administration'}</div>
+    <hr>
+    <label class="f"><span>${T('name')}</span>
+      <select id="lg-user">${supers.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')
+        || `<option value="">—</option>`}</select></label>
+    <label class="f"><span>${T('pin')}</span>
+      <input type="password" id="lg-pin" inputmode="numeric" placeholder="••••" autocomplete="current-password"></label>
+    <button class="btn blk" onclick="doLogin()">${T('login')}</button>
+    <p class="xs muted" style="margin-top:12px;text-align:center">
+      ${L?'Réservé à la coordination régionale.':'Regional coordination only.'}<br>
+      <a href="#" onclick="event.preventDefault();clearPath()">${L?'Changer d\'espace':'Change area'}</a></p>
+  </div>`;
+}
+
 function doLogin(){
-  const id=$('#lg-user').value, pin=$('#lg-pin').value;
+  const sel=$('#lg-user'); if(!sel||!sel.value) return toast(LANG==='fr'?'Aucun compte disponible':'No account available');
+  const id=sel.value, pin=($('#lg-pin')||{}).value||'';
   const u=DB.d.users.find(x=>x.id===id);
   if(!u) return toast('Utilisateur introuvable');
   if((u.pin||'')!==pin) return toast(LANG==='fr'?'Code PIN incorrect':'Wrong PIN');
+  const path = u.role==='SUPER'?'adm':u.role==='SITE'?'site':'sup';
+  try{ localStorage.setItem('ath_path', path); }catch(e){}
+  LG_PATH = path;
   DB.d.session=u.id; DB.save(); audit('LOGIN','user',u.name); go('#/home'); render();
   if(u.role==='SUPER' && DEFAULT_PINS.includes(u.pin)){ forcePinChange(u.id); return; }
   maybeTour();
@@ -1208,9 +1385,12 @@ function saveForcedPin(uid){
 }
 
 /* Supervisor self-enrolment — ID document captured ONCE here (decision D10) */
-function enrolModal(){
+function enrolModal(role){
+  ENROL_ROLE = role || 'SUPERVISOR';
+  const isS = ENROL_ROLE==='SITE';
   const dis = [...new Set(DB.d.sites.map(s=>s.district))].sort();
-  modal(LANG==='fr'?'Enrôlement superviseur':'Supervisor enrolment', `
+  modal(isS ? (LANG==='fr'?'Enrôlement — personnel du site':'Enrolment — facility staff')
+            : (LANG==='fr'?'Enrôlement superviseur':'Supervisor enrolment'), `
    <p class="small muted">${LANG==='fr'
      ?'La pièce d\'identité est enregistrée une seule fois, ici. Elle sera référencée automatiquement à chaque demande de modification de site.'
      :'The identity document is captured once, here. It is referenced automatically on every later site-change request.'}</p>
@@ -1229,8 +1409,18 @@ function enrolModal(){
      <label class="f"><span>${LANG==='fr'?'Téléphone *':'Phone *'}</span><input type="tel" id="en-tel"></label>
      <label class="f"><span>Email</span><input type="email" id="en-mail"></label>
    </div>
+   ${isS ? `
+   <label class="f"><span>${LANG==='fr'?'District *':'District *'}</span>
+     <select id="en-sdis" onchange="enrolSiteCascade()">
+       <option value="">${T('select')}</option>
+       ${dis.map(d=>`<option>${esc(d)}</option>`).join('')}</select></label>
+   <label class="f"><span>${LANG==='fr'?'Aire de santé *':'Health area *'}</span>
+     <select id="en-sarea" onchange="enrolSiteCascade(1)"><option value="">${T('select')}</option></select></label>
+   <label class="f"><span>${LANG==='fr'?'Ma formation sanitaire *':'My facility *'}</span>
+     <select id="en-site"><option value="">${T('select')}</option></select></label>
+   ` : `
    <label class="f"><span>${LANG==='fr'?'District(s) couvert(s) *':'District(s) covered *'}</span>
-     <select id="en-dis" multiple size="6">${dis.map(d=>`<option>${esc(d)}</option>`).join('')}</select></label>
+     <select id="en-dis" multiple size="6">${dis.map(d=>`<option>${esc(d)}</option>`).join('')}</select></label>`}
    <label class="f"><span>${T('pin')} * (4 ${LANG==='fr'?'chiffres':'digits'})</span><input type="password" id="en-pin" inputmode="numeric"></label>
    <label class="chk"><input type="checkbox" id="en-dec"><span>${LANG==='fr'
      ?'Je certifie que les informations et pièces fournies sont exactes.'
@@ -1238,23 +1428,44 @@ function enrolModal(){
   `, `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
       <button class="btn" onclick="doEnrol()">${T('save')}</button>`);
 }
+let ENROL_ROLE='SUPERVISOR';
 const FUNCTIONS=['Chef de Centre','Major','Cordo/Major','Point Focal UPEC','APS','Responsable données / S&E',
                  'Chef de District','Point Focal Régional','Mentor / Superviseur','Autre'];
+function enrolSiteCascade(level){
+  const d=($('#en-sdis')||{}).value||'', aSel=$('#en-sarea'), fSel=$('#en-site');
+  if(!level){
+    const areas=[...new Set(DB.d.sites.filter(s=>s.district===d&&s.status!=='CLOSED').map(s=>s.area))].sort();
+    aSel.innerHTML='<option value="">'+T('select')+'</option>'+areas.map(a=>`<option>${esc(a)}</option>`).join('');
+    fSel.innerHTML='<option value="">'+T('select')+'</option>';
+    return;
+  }
+  const a=aSel.value;
+  const facs=DB.d.sites.filter(s=>s.district===d&&s.area===a&&s.status!=='CLOSED');
+  fSel.innerHTML='<option value="">'+T('select')+'</option>'+
+    facs.map(f=>`<option value="${f.id}">${esc(f.facility)}</option>`).join('');
+}
 const IDTYPES=['CNI','Passeport','Badge de service','Carte professionnelle','Ordre national'];
 
 async function doEnrol(){
   const g=id=>$('#'+id)?$('#'+id).value.trim():'';
   const name=g('en-name'), fn=g('en-fn'), idt=g('en-idt'), idn=g('en-idn'),
         tel=g('en-tel'), pin=g('en-pin');
-  const dis=Array.from($('#en-dis').selectedOptions).map(o=>o.value);
+  const isS = ENROL_ROLE==='SITE';
+  const dis = isS ? (($('#en-sdis')||{}).value ? [$('#en-sdis').value] : [])
+                  : Array.from($('#en-dis').selectedOptions).map(o=>o.value);
+  const siteId = isS ? (($('#en-site')||{}).value||'') : '';
   const file=$('#en-idf').files[0];
   const miss=[];
   if(!name)miss.push(T('name')); if(!idn)miss.push('N° pièce'); if(!file)miss.push('Photo pièce');
-  if(!tel)miss.push('Téléphone'); if(!dis.length)miss.push('District'); if(pin.length<4)miss.push('PIN');
+  if(!tel)miss.push('Téléphone');
+  if(isS){ if(!siteId) miss.push(LANG==='fr'?'Formation sanitaire':'Facility'); }
+  else if(!dis.length) miss.push('District');
+  if(pin.length<4)miss.push('PIN');
   if(!$('#en-dec').checked)miss.push('Déclaration');
   if(miss.length) return blockedModal(miss);
   const b64 = await fileToB64(file);
-  const u={id:DB.id('U'), name, role:'SUPERVISOR', fn, matricule:g('en-mat'),
+  const u={id:DB.id('U'), name, role:ENROL_ROLE, fn, matricule:g('en-mat'),
+    sites: siteId?[siteId]:undefined, siteId: siteId||undefined,
     idType:idt, idNumber:idn, idFile:b64, phone:tel, email:g('en-mail'),
     districts:dis, pin, status:U_PENDING, active:true, enrolled:Date.now(),
     device:(navigator.userAgent||'').slice(0,80)};
@@ -1533,6 +1744,7 @@ async function refreshMyState(loud){
     u.status = s.status || U_PENDING;
     u.active = s.active !== false;
     if(Array.isArray(s.districts) && s.districts.length) u.districts = s.districts;
+    if(Array.isArray(s.sites) && s.sites.length){ u.sites = s.sites; u.siteId = s.sites[0]; }
     u.decisionNote = s.decisionNote || '';
     u.pinResetCode = s.pinResetCode || '';
     DB.save();
@@ -1567,6 +1779,7 @@ async function refreshRoster(loud){
           local.status=s.status; local.active=s.active!==false;
           if(Array.isArray(s.districts)&&s.districts.length) local.districts=s.districts;
           local.fn=s.fn||local.fn; local.phone=s.phone||local.phone; local.email=s.email||local.email;
+          if(s.sites&&s.sites.length){ local.sites=s.sites; local.siteId=s.sites[0]; }
           updated++;
         }
       } else {
@@ -1588,9 +1801,15 @@ function pushUser(u){ queue('user', u); }
 
 function approveUser(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
+  if(u.role==='SITE'){
+    if(!(u.sites&&u.sites.length)) return toast(LANG==='fr'?'Attribuez une formation sanitaire avant de valider'
+                                                           :'Assign a facility before approving');
+  } else {
+    const dis=Array.isArray(u.districts)?u.districts:[];
+    if(!dis.length) return toast(LANG==='fr'?'Attribuez au moins un district avant de valider'
+                                            :'Assign at least one district before approving');
+  }
   const dis=Array.isArray(u.districts)?u.districts:[];
-  if(!dis.length) return toast(LANG==='fr'?'Attribuez au moins un district avant de valider'
-                                          :'Assign at least one district before approving');
   u.status=U_ACTIVE; u.active=true; u.approvedBy=(me()||{}).name; u.approvedAt=Date.now(); u.decisionNote='';
   DB.save(); audit('USER_APPROVE','user',u.name+' · '+dis.join(', ')); pushUser(u);
   toast(LANG==='fr'?'✓ '+u.name+' validé':'✓ '+u.name+' approved'); render();
@@ -1758,7 +1977,10 @@ function visitRow(v){
   return `<div class="item" onclick="go('#/visit/${v.id}')">
     <div style="min-width:0"><b>${esc(s.facility)}</b>
       <div class="s">${esc(s.district)} · ${esc(v.date||'')} · ${statusChip(v.status)}</div></div>
-    <span class="chip ${b}">${pc(sc.pct)}</span></div>`;
+    <span class="row" style="gap:6px;flex-wrap:nowrap">
+      ${reportReady(v)?`<button class="btn sec sm" title="${LANG==='fr'?'Rapport de supervision':'Supervision report'}"
+        onclick="event.stopPropagation();go('#/report/${v.id}')">📄</button>`:''}
+      <span class="chip ${b}">${pc(sc.pct)}</span></span></div>`;
 }
 function statusChip(st){
   const m={DRAFT:['n',T('draft')],SUBMITTED:['a',T('submitted')],APPROVED:['g',T('approved')],
@@ -1852,7 +2074,8 @@ function viewVisit(vid, tab, arg){
   const sc=visitScores(v);
   const locked = v.status==='SUBMITTED'||v.status==='APPROVED';
   const tabs=[['q',LANG==='fr'?'Questionnaire':'Questionnaire'],['swot',T('swot')],
-              ['plan',T('actionPlan')],['fu',T('followup')],['rev',T('review')]];
+              ['plan',T('actionPlan')],['fu',T('followup')],['rev',T('review')],
+              ['rep',LANG==='fr'?'📄 Rapport':'📄 Report']];
   return `
   <div class="card tight">
     <div class="spread">
@@ -1891,6 +2114,7 @@ function viewVisit(vid, tab, arg){
    : tab==='plan' ? visitPlan(v,locked)
    : tab==='fu'   ? visitFollowup(v)
    : tab==='rev'  ? visitReview(v,sc)
+   : tab==='rep'  ? viewReport(vid)
    : visitQuestions(v, sc, locked) }`;
 }
 
@@ -2390,7 +2614,16 @@ function submitVisit(vid){
   const c=DB.d.cycles.find(x=>x.id===v.cycleId);
   if(c) queue('cycle', c);
   queue('visit', {visit:visitForSync(v), answers:answersForSync(vid), actions:visitActions(vid)});
-  toast(LANG==='fr'?'Supervision soumise':'Visit submitted'); render();
+  modal(LANG==='fr'?'Supervision soumise':'Visit submitted', `
+    <div class="banner b-ok">${LANG==='fr'
+      ?'La supervision est verrouillée et transmise à la coordination.'
+      :'The visit is locked and sent to the coordination team.'}</div>
+    <p class="small">${LANG==='fr'
+      ?'Le rapport de restitution est prêt. Ouvrez-le pour le débriefing avec l\'équipe de la formation sanitaire — il fonctionne sans réseau et peut être imprimé ou enregistré en PDF.'
+      :'The debriefing report is ready. Open it for the debriefing with the facility team — it works with no network and can be printed or saved as PDF.'}</p>`,
+    `<button class="btn sec" onclick="closeModal()">${LANG==='fr'?'Plus tard':'Later'}</button>
+     <button class="btn" onclick="closeModal();go('#/report/${vid}')">📄 ${LANG==='fr'?'Ouvrir le rapport':'Open the report'}</button>`);
+  render();
 }
 function approveVisit(vid){
   const v=DB.d.visits.find(x=>x.id===vid);
@@ -2430,6 +2663,356 @@ function downloadCSV(rows, name){
   const csv='﻿'+rows.map(r=>r.map(c=>'"'+String(c==null?'':c).replace(/"/g,'""')+'"').join(';')).join('\n');
   const b=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; a.click();
+}
+
+/* =====================================================================
+   SUPERVISION REPORT — produced the moment a visit is submitted.
+   Built entirely from data already on the device: no network, no server.
+   Works in a facility with no signal, and prints to PDF from the browser.
+   ===================================================================== */
+
+function reportReady(v){ return v && (v.status==='SUBMITTED' || v.status==='APPROVED'); }
+
+/* every answered question, worst first */
+function rankedQuestions(v){
+  const A=DB.d.answers[v.id]||{};
+  const c=DB.d.cycles.find(x=>x.id===v.cycleId)||activeCycle();
+  return activeQuestions().map(q=>{
+    const a=A[q.id]||{}; const r=scoreAnswer(q,a);
+    return {q, a, r, txt:resolvePeriod(q.q,c)};
+  }).filter(x=>x.r.answered);
+}
+function failingQuestions(v){
+  return rankedQuestions(v).filter(x=>!x.r.na && x.r.band!=='g')
+    .sort((x,y)=>{
+      const bx=x.r.band==='r'?0:1, by=y.r.band==='r'?0:1;
+      if(bx!==by) return bx-by;
+      return (x.r.pct??0)-(y.r.pct??0);
+    });
+}
+function rankedSections(v){
+  const sc=visitScores(v);
+  return sc.sections.filter(s=>s.answered>0)
+    .sort((a,b)=>(a.pct===null?101:a.pct)-(b.pct===null?101:b.pct));
+}
+
+function viewReport(vid){
+  const v=DB.d.visits.find(x=>x.id===vid);
+  if(!v) return '<div class="banner b-err">Introuvable</div>';
+  const L=LANG==='fr';
+  if(!reportReady(v)) return `<div class="card">
+    <div class="banner b-warn">${L
+      ?'Le rapport est disponible dès que la supervision est soumise. Complétez et soumettez d\'abord.'
+      :'The report is available as soon as the visit is submitted. Complete and submit first.'}</div>
+    <button class="btn blk" onclick="go('#/visit/${vid}/rev')">${T('review')} →</button></div>`;
+
+  const s=siteById(v.siteId)||{}; const c=DB.d.cycles.find(x=>x.id===v.cycleId)||{};
+  const sc=visitScores(v);
+  const secs=rankedSections(v);
+  const fails=failingQuestions(v);
+  const nas=rankedQuestions(v).filter(x=>x.r.na);
+  const acts=visitActions(v.id);
+  const prev=DB.d.actions.filter(a=>a.siteId===v.siteId && a.visitId!==v.id)
+    .sort((a,b)=>(b.created||0)-(a.created||0));
+
+  const bandWord=b=>b==='g'?(L?'Performant':'Performant'):b==='a'?(L?'Acceptable':'Acceptable')
+                    :b==='r'?(L?'Critique':'Critical'):'—';
+
+  return `
+  <div class="rep">
+    <!-- ---------- letterhead ---------- -->
+    <div class="card rep-head">
+      <div class="logos" style="margin-bottom:10px">
+        <img src="${LOGO_ICAP}" style="height:34px"><img src="${LOGO_CNLS}" style="height:34px"><img src="${LOGO_CSU}" style="height:34px">
+      </div>
+      <h2 style="text-align:center;margin-bottom:2px">${L?'RAPPORT DE SUPERVISION INTÉGRÉE':'INTEGRATED SUPERVISION REPORT'}</h2>
+      <p class="small muted" style="text-align:center;margin:0">
+        ${L?'Projet ATHECS — Région de l\'Ouest':'Project ATHECS — West Region'}</p>
+      <hr>
+      <div class="tw"><table><tbody>
+        <tr><td class="k">${T('facility')}</td><td><b>${esc(s.facility||'')}</b>
+          ${s.status==='PROVISIONAL'?` <span class="chip a">${L?'provisoire':'provisional'}</span>`:''}</td></tr>
+        <tr><td class="k">${T('district')} / ${T('area')}</td><td>${esc(s.district||'')} › ${esc(s.area||'')}</td></tr>
+        <tr><td class="k">${T('cycle')}</td><td>${esc(c.name||'')} — ${esc(c.name?cyclePeriodLabel(c):'')}</td></tr>
+        <tr><td class="k">${L?'Date de la visite':'Visit date'}</td><td>${esc(v.date||'')}</td></tr>
+        <tr><td class="k">${L?'Superviseur':'Supervisor'}</td><td>${esc(v.supervisor||'')}</td></tr>
+        <tr><td class="k">${T('status')}</td><td>${statusChip(v.status)}
+          ${v.submitted?' · '+fmtDT(v.submitted):''}</td></tr>
+        ${v.reviewedBy?`<tr><td class="k">${L?'Validé par':'Approved by'}</td><td>${esc(v.reviewedBy)}
+          ${v.reviewedAt?' · '+fmtDT(v.reviewedAt):''}</td></tr>`:''}
+      </tbody></table></div>
+    </div>
+
+    <!-- ---------- headline scores ---------- -->
+    <div class="card">
+      <h3>1. ${L?'Score global du site':'Overall site score'}</h3>
+      <div class="grid g3 rings">
+        <div class="stat">${ring(sc.clinical.pct,60,T('clinical'))}</div>
+        <div class="stat">${ring(sc.mne.pct,60,T('mne'))}</div>
+        <div class="stat">${ring(sc.overall.pct,60,T('synth'))}</div>
+      </div>
+      <div class="banner ${sc.overall.band==='g'?'b-ok':sc.overall.band==='a'?'b-warn':'b-err'}" style="margin-top:12px">
+        <b>${bandWord(sc.overall.band)}</b> — ${pc(sc.overall.pct)}.
+        ${L?`${sc.overall.answered} question(s) répondues sur ${sc.overall.total}, dont ${sc.overall.na} non applicable(s) exclue(s) du calcul.`
+           :`${sc.overall.answered} of ${sc.overall.total} questions answered, ${sc.overall.na} not applicable and excluded.`}
+      </div>
+      <p class="xs muted">${L
+        ?'Méthode : ratio agrégé. Tous les numérateurs et dénominateurs sont additionnés puis divisés — les pourcentages ne sont jamais moyennés. Seuils : 100 % vert · 90–99,9 % jaune · moins de 90 % rouge.'
+        :'Method: pooled ratio. All numerators and denominators are summed then divided — percentages are never averaged. Bands: 100 % green · 90–99.9 % yellow · below 90 % red.'}</p>
+    </div>
+
+    <!-- ---------- sections, worst first ---------- -->
+    <div class="card">
+      <h3>2. ${L?'Performance par section — de la plus faible à la meilleure':'Performance by section — weakest first'}</h3>
+      <div class="tw"><table>
+        <thead><tr><th>#</th><th>Section</th><th>${L?'Domaine':'Domain'}</th>
+          <th>${L?'Répondu':'Answered'}</th><th>N/A</th><th>Score</th><th>${L?'Appréciation':'Rating'}</th></tr></thead>
+        <tbody>${secs.map((x,i)=>{
+          const dom=activeQuestions().filter(q=>q.sec===x.sec)[0];
+          return `<tr class="${x.pct===null?'':'fill-'+x.band}">
+            <td class="xs">${i+1}</td><td class="small"><b>${esc(x.sec)}</b></td>
+            <td class="xs">${dom&&dom.dom==='MNE'?T('mne'):T('clinical')}</td>
+            <td class="xs">${x.answered}/${x.total}</td><td class="xs">${x.na}</td>
+            <td class="sc">${pc(x.pct)}</td><td class="xs">${bandWord(x.band)}</td></tr>`;}).join('')}
+          <tr style="font-weight:800"><td></td><td>${T('synth')}</td><td></td>
+            <td class="xs">${sc.overall.answered}/${sc.overall.total}</td><td class="xs">${sc.overall.na}</td>
+            <td class="sc">${pc(sc.overall.pct)}</td><td class="xs">${bandWord(sc.overall.band)}</td></tr>
+        </tbody></table></div>
+    </div>
+
+    <!-- ---------- failing questions, worst first ---------- -->
+    <div class="card">
+      <h3>3. ${L?'Questions à améliorer — classées de la plus critique':'Questions to improve — most critical first'}
+        <span class="chip ${fails.length?'r':'g'}">${fails.length}</span></h3>
+      ${fails.length? `<div class="tw"><table>
+        <thead><tr><th>#</th><th>Q</th><th>Section</th><th>${L?'Constat':'Finding'}</th>
+          <th>Score</th><th>${L?'Commentaire du superviseur':'Supervisor comment'}</th></tr></thead>
+        <tbody>${fails.map((x,i)=>`<tr class="fill-${x.r.band}">
+          <td class="xs">${i+1}</td><td class="xs"><b>${x.q.n}</b></td>
+          <td class="xs">${esc(x.q.sec)}</td>
+          <td class="small">${esc(x.txt.slice(0,190))}${x.txt.length>190?'…':''}</td>
+          <td class="sc xs">${x.r.dqa
+            ? (L?'Écart ':'Gap ')+(x.r.dqa.diff>0?'+':'')+x.r.dqa.diff+' ('+x.r.dqa.pct.toFixed(1)+' %)'
+            : pc(x.r.pct)}</td>
+          <td class="xs">${esc(x.a.comment||'')}</td></tr>`).join('')}
+        </tbody></table></div>`
+       : `<div class="banner b-ok">${L?'Aucune question en dessous du seuil. Toutes les questions applicables sont vertes.'
+                                      :'No question below the threshold. Every applicable question is green.'}</div>`}
+    </div>
+
+    ${nas.length?`<div class="card">
+      <h3>4. ${L?'Questions non applicables sur la période':'Questions not applicable in the period'}
+        <span class="chip n">${nas.length}</span></h3>
+      <div class="tw"><table><thead><tr><th>Q</th><th>Section</th><th>${T('reason')}</th></tr></thead>
+        <tbody>${nas.map(x=>`<tr><td class="xs"><b>${x.q.n}</b></td><td class="xs">${esc(x.q.sec)}</td>
+          <td class="small">${esc(x.a.naReason||x.a.comment||'—')}</td></tr>`).join('')}
+        </tbody></table></div>
+      <p class="xs muted">${L?'Ces questions sont exclues du numérateur et du dénominateur : elles ne pénalisent pas le score.'
+                             :'These are excluded from both numerator and denominator: they do not penalise the score.'}</p>
+    </div>`:''}
+
+    <!-- ---------- SWOT ---------- -->
+    <div class="card">
+      <h3>${nas.length?5:4}. ${T('swot')}</h3>
+      <div class="grid g2">
+        ${[['f',T('forces')],['o',T('opportunites')],['w',T('faiblesses')],['t',T('menaces')]].map(k=>`
+          <div><b class="small">${k[1]}</b>
+            <p class="small" style="white-space:pre-line;margin:4px 0 0">${esc(v.swot&&v.swot[k[0]]?v.swot[k[0]]:'—')}</p></div>`).join('')}
+      </div>
+    </div>
+
+    <!-- ---------- action plan ---------- -->
+    <div class="card">
+      <h3>${nas.length?6:5}. ${T('actionPlan')} <span class="chip ${acts.length?'a':'n'}">${acts.length}</span></h3>
+      ${acts.length?`<div class="tw"><table>
+        <thead><tr><th>#</th><th>${T('rootCause')}</th><th>${T('actionOnsite')}</th><th>${T('reco')}</th>
+          <th>${T('resp')}</th><th>${T('deadline')}</th><th>${T('status')}</th></tr></thead>
+        <tbody>${acts.map((a,i)=>`<tr>
+          <td class="xs">${i+1}</td>
+          <td class="xs">${esc((a.root||'').slice(0,150))}</td>
+          <td class="xs">${esc(a.onsite||'')}</td>
+          <td class="small">${esc(a.reco||'')}</td>
+          <td class="xs">${esc(a.resp||'')}</td>
+          <td class="xs">${esc(a.deadline||'')}</td>
+          <td class="xs">${a.status==='RESOLVED'?T('resolved'):a.status==='ONGOING'?T('ongoing'):T('unresolved')}</td>
+        </tr>`).join('')}</tbody></table></div>`
+       :`<p class="small muted">—</p>`}
+    </div>
+
+    ${prev.length?`<div class="card">
+      <h3>${nas.length?7:6}. ${T('followup')}</h3>
+      <div class="tw"><table>
+        <thead><tr><th>${L?'Visite':'Visit'}</th><th>${T('reco')}</th><th>${T('deadline')}</th><th>${T('status')}</th></tr></thead>
+        <tbody>${prev.slice(0,25).map(a=>`<tr class="${a.status==='RESOLVED'?'fill-g':
+            (a.deadline&&a.deadline<today()?'fill-r':'')}">
+          <td class="xs">${new Date(a.created).toLocaleDateString()}</td>
+          <td class="small">${esc(a.reco||a.root||'')}</td>
+          <td class="xs">${esc(a.deadline||'')}</td>
+          <td class="xs">${a.status==='RESOLVED'?T('resolved'):a.status==='ONGOING'?T('ongoing'):T('unresolved')}</td>
+        </tr>`).join('')}</tbody></table></div>
+    </div>`:''}
+
+    <!-- ---------- debriefing signatures ---------- -->
+    <div class="card">
+      <h3>${L?'Restitution / débriefing':'Debriefing'}</h3>
+      <p class="small muted">${L
+        ?'Ce rapport a été présenté et discuté avec l\'équipe de la formation sanitaire à l\'issue de la supervision.'
+        :'This report was presented to and discussed with the facility team at the end of the supervision.'}</p>
+      <div class="grid g2" style="margin-top:14px">
+        <div class="sigbox"><span>${L?'Le superviseur':'The supervisor'}</span>
+          <b>${esc(v.supervisor||'')}</b><i></i></div>
+        <div class="sigbox"><span>${L?'Le responsable de la formation sanitaire':'The facility manager'}</span>
+          <b>&nbsp;</b><i></i></div>
+      </div>
+    </div>
+
+    <div class="rep-foot">
+      NACC powered by ICAP Global Health &nbsp;©&nbsp;2025–2026 ·
+      ${L?'Projet ATHECS — Supervision intégrée, Région de l\'Ouest':'Project ATHECS — Integrated Supervision, West Region'}
+      · ${esc(s.facility||'')} · ${esc(c.name||'')}
+    </div>
+  </div>
+
+  <div class="noprint" style="margin-top:12px">
+    <div class="row">
+      <button class="btn" style="flex:1" onclick="window.print()">⎙ ${L?'Imprimer / Enregistrer en PDF':'Print / Save as PDF'}</button>
+      <button class="btn sec" onclick="exportVisit('${vid}')">⇩ CSV</button>
+    </div>
+    <p class="xs muted" style="margin-top:8px">${L
+      ?'L\'impression fonctionne sans réseau. Sur téléphone, choisissez « Enregistrer au format PDF » dans la boîte d\'impression pour partager le rapport.'
+      :'Printing works with no network. On a phone, choose "Save as PDF" in the print dialog to share the report.'}</p>
+  </div>`;
+}
+
+/* =====================================================================
+   SITE FOCAL POINT
+   Facility staff. Sees only their own facility: its scores, its reports,
+   and the recommendations they are responsible for closing.
+   Cannot start, edit or submit a supervision.
+   Entirely offline once their device has synced at least once.
+   ===================================================================== */
+
+function isSite(){ const u=me(); return !!u && u.role==='SITE'; }
+function mySiteIds(){
+  const u=me(); if(!u) return [];
+  return Array.isArray(u.sites) ? u.sites : (u.siteId ? [u.siteId] : []);
+}
+function mySiteVisits(){
+  const ids=mySiteIds();
+  return DB.d.visits.filter(v=>ids.includes(v.siteId) && reportReady(v))
+    .sort((a,b)=>(b.submitted||0)-(a.submitted||0));
+}
+
+function viewSiteHome(){
+  const L=LANG==='fr', u=me();
+  const ids=mySiteIds();
+  const sites=ids.map(siteById).filter(Boolean);
+  const visits=mySiteVisits();
+  const last=visits[0];
+  const acts=DB.d.actions.filter(a=>ids.includes(a.siteId));
+  const open=acts.filter(a=>a.status!=='RESOLVED');
+  const late=open.filter(a=>a.deadline && a.deadline<today());
+  const done=acts.length-open.length;
+  const pct=acts.length? (done/acts.length*100) : null;
+
+  if(!sites.length) return `<div class="card">
+    <div class="banner b-warn">${L
+      ?'Aucune formation sanitaire ne vous est encore rattachée. Le niveau central doit vous en attribuer une.'
+      :'No facility is assigned to you yet. Central level must assign one.'}</div></div>`;
+
+  return `
+  <div class="card" style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;border:0">
+    <div class="spread">
+      <div style="min-width:0"><h2 style="color:#fff;margin:0">${esc(sites.map(s=>s.facility).join(' · '))}</h2>
+        <span class="small" style="opacity:.88">${esc(sites[0].district)} › ${esc(sites[0].area)}</span></div>
+      <span class="chip" style="background:rgba(255,255,255,.2);color:#fff;border-color:transparent">
+        ${L?'Point focal':'Focal point'}</span>
+    </div>
+    ${last?`<div class="small" style="opacity:.92;margin-top:7px">
+      ${L?'Dernière supervision':'Last supervision'} : <b>${esc(last.date||'')}</b> · ${pc((last.scores||visitScores(last)).overall.pct)}</div>`:''}
+  </div>
+
+  ${last?`<div class="grid g3 rings" style="margin-bottom:13px">
+    <div class="stat">${ring((last.scores||visitScores(last)).clinical.pct,56,T('clinical'))}</div>
+    <div class="stat">${ring((last.scores||visitScores(last)).mne.pct,56,T('mne'))}</div>
+    <div class="stat">${ring((last.scores||visitScores(last)).overall.pct,56,T('synth'))}</div>
+  </div>`:''}
+
+  <div class="card">
+    <div class="spread"><h3>${L?'Mes recommandations':'My recommendations'}</h3>
+      <span class="chip ${open.length?(late.length?'r':'a'):'g'}">${open.length} ${L?'ouverte(s)':'open'}</span></div>
+    <div class="grid g3 always" style="margin-bottom:11px">
+      <div class="stat"><b>${acts.length}</b><span>${L?'TOTAL':'TOTAL'}</span></div>
+      <div class="stat ${open.length?'fill-a':'fill-g'}"><b>${open.length}</b><span>${L?'À FAIRE':'TO DO'}</span></div>
+      <div class="stat ${late.length?'fill-r':''}"><b>${late.length}</b><span>${L?'EN RETARD':'OVERDUE'}</span></div>
+    </div>
+    <div class="spread small"><span>${L?'Taux de résolution':'Resolution rate'}</span><b class="sc">${pc(pct)}</b></div>
+    <div class="bar" style="margin-bottom:12px"><i style="width:${pct||0}%;background:${
+      pct>=90?'var(--ok)':pct>=50?'var(--warn)':'var(--bad)'}"></i></div>
+
+    <p class="small muted">${L
+      ?'Mettez à jour chaque recommandation dès qu\'elle est réalisée. Le superviseur et la coordination le voient à la synchronisation suivante.'
+      :'Update each recommendation as soon as it is done. The supervisor and coordination see it at the next sync.'}</p>
+
+    <div class="list">${open.length? open.map(a=>siteActionCard(a)).join('')
+      : `<div class="banner b-ok">${L?'Aucune recommandation en attente. Bon travail.':'No recommendation outstanding. Good work.'}</div>`}</div>
+
+    ${done? `<hr><h3 class="small">${L?'Déjà résolues':'Already resolved'} (${done})</h3>
+      <div class="list">${acts.filter(a=>a.status==='RESOLVED').slice(0,10).map(a=>
+        `<div class="item" style="cursor:default"><div style="min-width:0">
+           <b>${esc((a.reco||a.root||'').slice(0,90))}</b>
+           <div class="s">${esc(a.resp||'')}${a.resolvedAt?' · '+new Date(a.resolvedAt).toLocaleDateString():''}</div>
+         </div><span class="chip g">✓</span></div>`).join('')}</div>`:''}
+  </div>
+
+  <div class="card">
+    <h3>${L?'Rapports de supervision':'Supervision reports'}</h3>
+    <div class="list">${visits.length? visits.map(v=>{
+      const s2=(v.scores||visitScores(v)).overall;
+      return `<div class="item" onclick="go('#/report/${v.id}')">
+        <div style="min-width:0"><b>${esc(v.date||'')}</b>
+          <div class="s">${esc(v.supervisor||'')} · ${statusChip(v.status)}</div></div>
+        <span class="chip ${band(s2.pct)}">${pc(s2.pct)}</span></div>`;}).join('')
+      : `<p class="small muted">${L?'Aucun rapport disponible pour le moment.':'No report available yet.'}</p>`}
+    </div>
+  </div>
+
+  ${syncCard()}`;
+}
+
+function siteActionCard(a){
+  const L=LANG==='fr';
+  const late=a.deadline && a.deadline<today() && a.status!=='RESOLVED';
+  return `<div class="card tight ${late?'fill-r':''}" style="margin:0">
+    <div class="spread" style="margin-bottom:6px">
+      <span class="chip ${a.qid?'n':'a'}">${a.qid?'Q'+esc(a.qn):(L?'Observation':'Observation')} · ${esc(a.sec||'')}</span>
+      ${a.deadline?`<span class="chip ${late?'r':'n'}">${L?'échéance':'due'} ${esc(a.deadline)}</span>`:''}
+    </div>
+    <p class="small" style="margin:0 0 6px"><b>${esc(a.reco||a.root||'')}</b></p>
+    ${a.root&&a.reco?`<p class="xs muted" style="margin:0 0 8px">${esc(a.root.slice(0,160))}</p>`:''}
+    ${a.resp?`<p class="xs muted" style="margin:0 0 8px">${L?'Responsable':'Responsible'} : ${esc(a.resp)}</p>`:''}
+    <div class="grid g2">
+      <label class="f" style="margin:0"><span>${T('status')}</span>
+        <select onchange="siteSetStatus('${a.id}',this.value)">
+          <option value="OPEN" ${a.status==='OPEN'?'selected':''}>${T('unresolved')}</option>
+          <option value="ONGOING" ${a.status==='ONGOING'?'selected':''}>${T('ongoing')}</option>
+          <option value="RESOLVED" ${a.status==='RESOLVED'?'selected':''}>${T('resolved')}</option>
+        </select></label>
+      <label class="f" style="margin:0"><span>${L?'Ce que le site a fait':'What the site did'}</span>
+        <input type="text" value="${esc(a.siteNote||'')}"
+          placeholder="${L?'ex. registre AHD ouvert le 12/09':'e.g. AHD register opened on 12/09'}"
+          oninput="quietAct('${a.id}','siteNote',this.value)"></label>
+    </div>
+  </div>`;
+}
+function siteSetStatus(id,val){
+  const a=DB.d.actions.find(x=>x.id===id); if(!a) return;
+  a.status=val; a.updated=Date.now();
+  if(val==='RESOLVED'){ a.resolvedAt=Date.now(); a.resolvedBy=(me()||{}).name; }
+  DB.save(); audit('ACTION_SITE_UPDATE','action',(a.reco||a.root||'').slice(0,60)+' → '+val);
+  queue('visit', {visit:visitForSync(DB.d.visits.find(v=>v.id===a.visitId)||{}), actions:[a]});
+  toast(LANG==='fr'?'✓ Mise à jour enregistrée':'✓ Update saved');
+  render();
 }
 
 /* ===================== VISITS LIST ===================== */
@@ -2910,14 +3493,22 @@ function admApprovals(){
   const card=(u,mode)=>`<div class="card tight">
     <div class="spread" style="margin-bottom:6px">
       <div style="min-width:0"><b>${esc(u.name)}</b>
+        <span class="chip n xs">${u.role==='SITE'?(L?'Site':'Site'):(L?'Superviseur':'Supervisor')}</span>
         <div class="xs muted">${esc(u.fn||'')}${u.phone?' · '+esc(u.phone):''}
           ${u.idNumber?' · '+esc(u.idType||'')+' '+esc(u.idNumber):''}</div></div>
       ${chips(u)}
     </div>
-    <label class="f" style="margin-bottom:8px"><span>${T('district')}</span>
-      <select multiple size="4" onchange="setDistricts('${u.id}',this)">
-        ${dis.map(d=>`<option ${(u.districts||[]).includes(d)?'selected':''}>${esc(d)}</option>`).join('')}
-      </select></label>
+    ${u.role==='SITE'
+      ? `<label class="f" style="margin-bottom:8px"><span>${T('facility')}</span>
+           <select onchange="setUserSite('${u.id}',this.value)">
+             <option value="">${T('select')}</option>
+             ${DB.d.sites.filter(s=>s.status!=='CLOSED').map(s=>
+               `<option value="${s.id}" ${(u.sites||[]).includes(s.id)?'selected':''}>${esc(s.district)} › ${esc(s.facility)}</option>`).join('')}
+           </select></label>`
+      : `<label class="f" style="margin-bottom:8px"><span>${T('district')}</span>
+           <select multiple size="4" onchange="setDistricts('${u.id}',this)">
+             ${dis.map(d=>`<option ${(u.districts||[]).includes(d)?'selected':''}>${esc(d)}</option>`).join('')}
+           </select></label>`}
     ${u.decisionNote?`<div class="banner b-warn xs">${esc(u.decisionNote)}</div>`:''}
     <div class="row">
       ${mode==='pending'?`
