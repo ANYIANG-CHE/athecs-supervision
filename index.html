@@ -618,7 +618,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.0.1';
 /* ---------------------------------------------------------------
    SECURITY TOKEN — change this ONE line, and change the matching
    line  var TOKEN = 'ATHECS';  in Code.gs to exactly the same value.
@@ -1151,8 +1151,8 @@ function viewLogin(){
     <button class="btn sec blk sm" onclick="enrolModal()">＋ ${LANG==='fr'?'S\'enrôler comme superviseur':'Enrol as a supervisor'}</button>
     <button class="btn sec blk sm" style="margin-top:8px" onclick="forgotPinModal()">${LANG==='fr'?'Code PIN oublié ?':'Forgotten PIN?'}</button>
     <button class="btn sec blk sm" style="margin-top:8px" onclick="openTour(0)">？ ${LANG==='fr'?'Guide de navigation':'Navigation guide'}</button>
-    <p class="xs muted" style="margin-top:10px;text-align:center">
-      ${LANG==='fr'?'PIN par défaut des super utilisateurs : 1234 — à changer dans la console.':'Default super-user PIN: 1234 — change it in the console.'}</p>
+    <p class="xs muted" style="margin-top:12px;text-align:center">
+      ${LANG==='fr'?'Accès réservé au personnel autorisé.':'Authorised personnel only.'}</p>
   </div>`;
 }
 function doLogin(){
@@ -1160,8 +1160,51 @@ function doLogin(){
   const u=DB.d.users.find(x=>x.id===id);
   if(!u) return toast('Utilisateur introuvable');
   if((u.pin||'')!==pin) return toast(LANG==='fr'?'Code PIN incorrect':'Wrong PIN');
-  DB.d.session=u.id; DB.save(); audit('LOGIN','user',u.name); go('#/home'); render(); maybeTour();
+  DB.d.session=u.id; DB.save(); audit('LOGIN','user',u.name); go('#/home'); render();
+  if(u.role==='SUPER' && DEFAULT_PINS.includes(u.pin)){ forcePinChange(u.id); return; }
+  maybeTour();
   if(u.role==='SUPER') refreshRoster(false); else refreshMyState(false);
+}
+
+/* A seeded super-user PIN must be replaced before the console can be used. */
+const DEFAULT_PINS = ['1234','0000','1111'];
+function forcePinChange(uid){
+  const u=DB.d.users.find(x=>x.id===uid); const L=LANG==='fr';
+  $('#modal-root').innerHTML = `<div class="mask">
+    <div class="modal" style="position:relative">
+      <div class="gate-ico warn" style="margin-bottom:12px">🔐</div>
+      <h3>${L?'Changez votre code PIN':'Change your PIN'}</h3>
+      <div class="banner b-warn">${L
+        ?'Ce compte utilise encore le code PIN livré par défaut. Il doit être remplacé avant de continuer.'
+        :'This account still uses the PIN shipped by default. It must be replaced before you continue.'}</div>
+      <p class="small muted">${L
+        ?'Choisissez 4 à 8 chiffres que vous seul connaissez. Notez-le : personne ne peut le récupérer à votre place.'
+        :'Choose 4 to 8 digits only you know. Write it down: nobody can recover it for you.'}</p>
+      <label class="f"><span>${L?'Nouveau code PIN':'New PIN'}</span>
+        <input type="password" id="fp-new" inputmode="numeric" maxlength="8" autocomplete="new-password"></label>
+      <label class="f"><span>${L?'Confirmer':'Confirm'}</span>
+        <input type="password" id="fp-new2" inputmode="numeric" maxlength="8" autocomplete="new-password"></label>
+      <label class="f"><span>${L?'Votre nom (remplacez le nom générique)':'Your name (replace the generic name)'}</span>
+        <input type="text" id="fp-name" value="${esc(u.name)}"></label>
+      <label class="f"><span>${L?'Téléphone — affiché aux superviseurs bloqués':'Phone — shown to blocked supervisors'}</span>
+        <input type="tel" id="fp-tel" value="${esc(u.phone||'')}"></label>
+      <button class="btn blk" onclick="saveForcedPin('${uid}')">${T('save')}</button>
+      <button class="btn sec blk sm" style="margin-top:8px" onclick="logout()">${T('logout')}</button>
+    </div></div>`;
+}
+function saveForcedPin(uid){
+  const u=DB.d.users.find(x=>x.id===uid);
+  const a=($('#fp-new').value||'').trim(), b=($('#fp-new2').value||'').trim();
+  const nm=($('#fp-name').value||'').trim(), tel=($('#fp-tel').value||'').trim();
+  const L=LANG==='fr';
+  if(a.length<4) return toast(L?'4 chiffres minimum':'At least 4 digits');
+  if(DEFAULT_PINS.includes(a)) return toast(L?'Choisissez un code moins évident':'Choose a less obvious code');
+  if(a!==b) return toast(L?'Les deux codes ne correspondent pas':'The two codes do not match');
+  if(!nm) return toast(L?'Indiquez votre nom':'Enter your name');
+  u.pin=a; u.name=nm; u.phone=tel; DB.save();
+  audit('PIN_CHANGED','user',nm); queue('user',u);
+  closeModal(); toast(L?'✓ Code PIN enregistré':'✓ PIN saved');
+  render(); maybeTour(); refreshRoster(false);
 }
 
 /* Supervisor self-enrolment — ID document captured ONCE here (decision D10) */
@@ -3037,7 +3080,11 @@ function decideSite(id, decision){
 }
 
 function admUsers(){
+  const weak=DB.d.users.filter(u=>u.role==='SUPER'&&DEFAULT_PINS.includes(u.pin));
   return `<div class="card"><h3>${LANG==='fr'?'Utilisateurs':'Users'}</h3>
+    ${weak.length?`<div class="banner b-err">${LANG==='fr'
+      ?`${weak.length} super utilisateur(s) utilisent encore un code PIN par défaut : ${esc(weak.map(u=>u.name).join(', '))}. Changez-le immédiatement.`
+      :`${weak.length} super user(s) still use a default PIN: ${esc(weak.map(u=>u.name).join(', '))}. Change it immediately.`}</div>`:''}
     <div class="tw"><table>
       <thead><tr><th>${T('name')}</th><th>${T('role')}</th><th>${LANG==='fr'?'Fonction':'Function'}</th>
         <th>${LANG==='fr'?'Pièce':'ID'}</th><th>${LANG==='fr'?'Districts':'Districts'}</th>
