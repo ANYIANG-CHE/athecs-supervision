@@ -683,7 +683,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.3.0';
 /* ---------------------------------------------------------------
    SECURITY TOKEN — change this ONE line, and change the matching
    line  var TOKEN = 'ATHECS';  in Code.gs to exactly the same value.
@@ -1622,8 +1622,8 @@ function openTour(i){
       <button class="btn" style="flex:1" onclick="${TOURI<steps.length-1?`openTour(${TOURI+1})`:'closeTour(true)'}">
         ${TOURI<steps.length-1?(L?'Suivant':'Next'):(L?'Commencer':'Start')}</button>
     </div>
-    ${vid?`<button class="btn sec blk sm" style="margin-top:8px" onclick="watchVideo()">▶ ${L?'Regarder la vidéo de démonstration':'Watch the demo video'}</button>`
-        :`<p class="xs muted" style="text-align:center;margin-top:10px">${L?'Une vidéo de démonstration sera ajoutée ici.':'A demo video will be added here.'}</p>`}
+    ${vid?`<button class="btn sec blk sm" style="margin-top:8px" onclick="watchVideo()">▶ ${guideLabel()}</button>`
+        :`<p class="xs muted" style="text-align:center;margin-top:10px">${L?'Un guide pas à pas sera ajouté ici.':'A step-by-step guide will be added here.'}</p>`}
     <p class="xs muted" style="text-align:center;margin-top:8px">
       ${L?'Vous pouvez rouvrir ce guide à tout moment avec le bouton ? en haut de l\'écran.':'You can reopen this guide at any time with the ? button at the top of the screen.'}
       <br><a href="#" onclick="event.preventDefault();closeTour(true)">${L?'Passer':'Skip'}</a></p>
@@ -1637,19 +1637,38 @@ function maybeTour(){
   let seen=null; try{ seen=localStorage.getItem(TOUR_KEY); }catch(e){}
   if(!seen && me()) setTimeout(()=>openTour(0), 350);
 }
+/* Accepts a YouTube video, a Google Slides deck, or any Google Drive file
+   (PDF, PowerPoint, video) and turns it into an embeddable address. */
+function toEmbed(url){
+  if(!url) return '';
+  let m;
+  if((m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/)))
+    return 'https://www.youtube.com/embed/'+m[1];
+  if((m=url.match(/docs\.google\.com\/presentation\/d\/([\w-]+)/)))
+    return 'https://docs.google.com/presentation/d/'+m[1]+'/embed?start=false&loop=false&delayms=60000';
+  if((m=url.match(/docs\.google\.com\/document\/d\/([\w-]+)/)))
+    return 'https://docs.google.com/document/d/'+m[1]+'/preview';
+  if((m=url.match(/drive\.google\.com\/file\/d\/([\w-]+)/)))
+    return 'https://drive.google.com/file/d/'+m[1]+'/preview';
+  return url;
+}
+function guideLabel(){
+  const u=DB.d.config.videoUrl||'', L=LANG==='fr';
+  if(/youtu/.test(u)) return L?'Regarder la vidéo de démonstration':'Watch the demo video';
+  return L?'Ouvrir le guide illustré':'Open the illustrated guide';
+}
 function watchVideo(){
   const url=DB.d.config.videoUrl;
-  if(!url) return toast(LANG==='fr'?'Aucune vidéo configurée':'No video configured');
-  let embed=url;
-  const yt=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/);
-  if(yt) embed='https://www.youtube.com/embed/'+yt[1];
-  modal(LANG==='fr'?'Vidéo de démonstration':'Demo video',
+  if(!url) return toast(LANG==='fr'?'Aucun guide configuré':'No guide configured');
+  const embed=toEmbed(url);
+  modal(LANG==='fr'?'Guide pas à pas':'Step-by-step guide',
     `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:10px">
       <iframe src="${esc(embed)}" style="position:absolute;inset:0;width:100%;height:100%;border:0"
         allow="accelerometer;autoplay;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe></div>
      <p class="xs muted" style="margin-top:8px">${LANG==='fr'
-       ?'La lecture nécessite une connexion internet.':'Playback needs an internet connection.'}</p>`,
-    `<button class="btn" onclick="closeModal()">${LANG==='fr'?'Fermer':'Close'}</button>`);
+       ?'L\'ouverture nécessite une connexion internet.':'Opening it needs an internet connection.'}</p>`,
+    `<a class="btn sec" href="${esc(url)}" target="_blank" rel="noopener">${LANG==='fr'?'Ouvrir dans un onglet':'Open in a tab'}</a>
+     <button class="btn" onclick="closeModal()">${LANG==='fr'?'Fermer':'Close'}</button>`);
 }
 
 /* ===================== SYNC STATUS — visible to every role ===================== */
@@ -3723,11 +3742,13 @@ function admCfg(){
     <label class="f"><span>${LANG==='fr'?'URL de l\'API Google Apps Script (synchronisation)':'Google Apps Script API URL (sync)'}</span>
       <input type="text" id="cf-api" value="${esc(c.api||'')}" placeholder="https://script.google.com/macros/s/…/exec"></label>
     <p class="xs muted">${LANG==='fr'?'Classeur Google : ':'Google workbook: '}<span class="sc">${SHEET_ID}</span></p>
-    <label class="f"><span>${LANG==='fr'?'Lien de la vidéo de démonstration (YouTube ou autre)':'Demo video link (YouTube or other)'}</span>
-      <input type="text" id="cf-vid" value="${esc(c.videoUrl||'')}" placeholder="https://youtu.be/…"></label>
+    <label class="f"><span>${LANG==='fr'?'Lien du guide pas à pas — Google Slides, Google Drive ou YouTube'
+                                          :'Step-by-step guide link — Google Slides, Google Drive or YouTube'}</span>
+      <input type="text" id="cf-vid" value="${esc(c.videoUrl||'')}"
+        placeholder="https://docs.google.com/presentation/d/…"></label>
     <p class="xs muted">${LANG==='fr'
-      ?'Une fois renseigné, un bouton « Regarder la vidéo » apparaît dans le guide de navigation (bouton ? en haut).'
-      :'Once filled in, a "Watch the video" button appears in the navigation guide (? button at the top).'}</p>
+      ?'Collez le lien de partage. Une fois renseigné, un bouton s\'ajoute au guide de navigation (bouton ? en haut de l\'écran). Le document doit être partagé en « Tous les utilisateurs disposant du lien — Lecteur ».'
+      :'Paste the share link. Once filled in, a button is added to the navigation guide (? button at the top). The document must be shared as "Anyone with the link — Viewer".'}</p>
     <hr>
     <h3 class="small">${LANG==='fr'?'Seuils de performance':'Performance bands'}</h3>
     <div class="grid g2">
