@@ -686,7 +686,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.5.1';
 /* ---------------------------------------------------------------
    SECURITY TOKEN — change this ONE line, and change the matching
    line  var TOKEN = 'ATHECS';  in Code.gs to exactly the same value.
@@ -1781,12 +1781,25 @@ function syncCard(){
 
 const U_PENDING='PENDING', U_ACTIVE='ACTIVE', U_SUSPENDED='SUSPENDED', U_REJECTED='REJECTED';
 
+const U_STATES=[U_PENDING,U_ACTIVE,U_SUSPENDED,U_REJECTED];
+/* A status is only meaningful if it is one of the four we defined. Anything else — a
+   boolean, a date, a stray string from a mis-written column — is treated as "no status
+   recorded" and never as a refusal. Locking a supervisor out of a day's work because a
+   cell held the wrong kind of value is the worst failure this app can have. */
+function normStatus(v){
+  const s=String(v==null?'':v).trim().toUpperCase();
+  return U_STATES.includes(s) ? s : '';
+}
 function userStatus(u){
   if(!u) return null;
   if(u.role==='SUPER') return U_ACTIVE;          // super users are never gated
-  return u.status || (u.active===false ? U_SUSPENDED : U_ACTIVE);
+  return normStatus(u.status) || (u.active===false ? U_SUSPENDED : U_ACTIVE);
 }
 function canWork(u){ return userStatus(u)===U_ACTIVE; }
+/* Only ids that match a facility we actually know are accepted from the server. */
+function realSites(list){
+  return (Array.isArray(list)?list:[]).map(x=>String(x).trim()).filter(x=>!!siteById(x));
+}
 
 /* ---------- the gate shown instead of the app while not approved ---------- */
 function viewGate(u){
@@ -1837,10 +1850,12 @@ async function refreshMyState(loud){
     const j=await r.json();
     if(!j || !j.ok || !j.user){ if(loud) toast(LANG==='fr'?'Pas encore enregistré au niveau central':'Not yet recorded at central level'); return; }
     const s=j.user, before=userStatus(u);
-    u.status = s.status || U_PENDING;
+    const st=normStatus(s.status);
+    if(st) u.status = st;                 // an unreadable status leaves the local one alone
     u.active = s.active !== false;
     if(Array.isArray(s.districts) && s.districts.length) u.districts = s.districts;
-    if(Array.isArray(s.sites) && s.sites.length){ u.sites = s.sites; u.siteId = s.sites[0]; }
+    const sv=realSites(s.sites);
+    if(sv.length){ u.sites = sv; u.siteId = sv[0]; }
     u.decisionNote = s.decisionNote || '';
     u.pinHelp = s.pinHelp || null;          // cleared once central has issued a code
     DB.save();
@@ -1876,12 +1891,14 @@ async function refreshRoster(loud){
           if(s.name && s.name!==local.name){ local.name=s.name; updated++; }
           if(s.phone && s.phone!==local.phone){ local.phone=s.phone; }
         } else {
-          local.status=s.status; local.active=s.active!==false;
+          const st2=normStatus(s.status); if(st2) local.status=st2;
+          local.active=s.active!==false;
           if(Array.isArray(s.districts)&&s.districts.length) local.districts=s.districts;
-          local.fn=s.fn||local.fn; local.phone=s.phone||local.phone; local.email=s.email||local.email;
+          local.fn=s.fn||local.fn; local.email=s.email||local.email;
+          if(s.phone) local.phone=String(s.phone);   // Sheets can hand back a number
           local.matricule=local.matricule||s.matricule; local.idType=local.idType||s.idType;
           if(!local.idNumber && s.idLast) local.idLast=s.idLast;
-          if(s.sites&&s.sites.length){ local.sites=s.sites; local.siteId=s.sites[0]; }
+          const sv2=realSites(s.sites); if(sv2.length){ local.sites=sv2; local.siteId=sv2[0]; }
           // PIN recovery: who has asked, and whether a code is still outstanding.
           // The code itself is never transmitted.
           local.pinHelp=s.pinHelp||null;
@@ -1892,7 +1909,7 @@ async function refreshRoster(loud){
       } else {
         DB.d.users.push({id:s.id, name:s.name, role:s.role||'SUPERVISOR', fn:s.fn,
           matricule:s.matricule, idType:s.idType, idLast:s.idLast,
-          phone:s.phone, email:s.email, districts:s.districts||[], status:s.status||U_PENDING,
+          phone:s.phone, email:s.email, districts:s.districts||[], status:normStatus(s.status)||U_PENDING,
           active:s.active!==false, enrolled:s.enrolled||Date.now(), remote:true});
         added++;
       }
@@ -2058,11 +2075,12 @@ async function refreshAdmins(loud){
       if(!s.id || !s.name) return;
       const local=DB.d.users.find(x=>x.id===s.id);
       if(local){
-        if(local.name!==s.name || (local.phone||'')!==(s.phone||'')){
-          local.name=s.name; local.phone=s.phone||local.phone; n++;
+        const ph=s.phone?String(s.phone):'';
+        if(local.name!==s.name || (local.phone||'')!==ph){
+          local.name=s.name; if(ph) local.phone=ph; n++;
         }
       } else {
-        DB.d.users.push({id:s.id, name:s.name, role:'SUPER', phone:s.phone||'',
+        DB.d.users.push({id:s.id, name:s.name, role:'SUPER', phone:s.phone?String(s.phone):'',
           pin:'', status:U_ACTIVE, active:true, remote:true});
         n++;
       }
