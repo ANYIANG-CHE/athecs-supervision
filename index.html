@@ -686,7 +686,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '2.8.1';
 /* ---------------------------------------------------------------
    SECURITY TOKEN — change this ONE line, and change the matching
    line  var TOKEN = 'ATHECS';  in Code.gs to exactly the same value.
@@ -1328,8 +1328,8 @@ function installBanner(){
   return `<button class="btn sec blk sm" style="margin-bottom:8px" onclick="installModal()">
     📲 ${L?'Installer l\'application sur ce téléphone':'Install the app on this phone'}</button>
   ${isIOS()?`<p class="xs muted" style="margin:-2px 0 10px;text-align:center">${L
-    ?'iPhone : installez <b>avant</b> de vous enrôler — Safari et l\'application installée ne partagent pas leurs données.'
-    :'iPhone: install <b>before</b> enrolling — Safari and the installed app do not share data.'}</p>`:''}`;
+    ?'iPhone : installez <b>avant</b> de vous enrôler — l\'application installée ne partage pas ses données avec le navigateur.'
+    :'iPhone: install <b>before</b> enrolling — the installed app does not share its data with the browser.'}</p>`:''}`;
 }
 
 function viewLoginRole(path){
@@ -1778,19 +1778,19 @@ function installModal(){
   const step=(n,t,d)=>`<div class="tourstep"><div class="ico">${n}</div>
     <div><b>${t}</b><span>${d}</span></div></div>`;
   const ios_ = [
-    step('1', L?'Ouvrez le lien dans <u>Safari</u>':'Open the link in <u>Safari</u>',
-      L?'Pas Chrome, pas le navigateur de WhatsApp ou de Facebook. Si vous êtes ailleurs, copiez le lien et collez-le dans Safari.'
-       :'Not Chrome, not the browser inside WhatsApp or Facebook. If you are elsewhere, copy the link and paste it into Safari.'),
+    step('1', L?'Ouvrez le lien dans <u>Safari</u>, Chrome ou Edge':'Open the link in <u>Safari</u>, Chrome or Edge',
+      L?'Les trois fonctionnent et donnent exactement la même application. Ce qui ne marche pas : le navigateur intégré à WhatsApp, Facebook ou Messenger — copiez alors le lien et collez-le dans Safari.'
+       :'All three work and give exactly the same app. What does not work: the browser built into WhatsApp, Facebook or Messenger — copy the link and paste it into Safari instead.'),
     step('2', L?'Touchez le bouton Partager':'Tap the Share button',
-      L?'Le carré avec une flèche vers le haut, en bas de l\'écran sur iPhone (en haut à droite sur iPad).'
-       :'The square with an arrow pointing up, at the bottom of the screen on iPhone (top right on iPad).'),
+      L?'Le carré avec une flèche vers le haut. Même bouton dans Safari, Chrome et Edge : en bas de l\'écran sur iPhone, en haut à droite sur iPad.'
+       :'The square with an arrow pointing up. The same button in Safari, Chrome and Edge: at the bottom on iPhone, top right on iPad.'),
     step('3', L?'Faites défiler → « Sur l\'écran d\'accueil »':'Scroll down → "Add to Home Screen"',
       L?'La liste est longue : descendez jusqu\'à cette ligne.':'The list is long: scroll until you see that line.'),
     step('4', L?'Touchez « Ajouter » en haut à droite':'Tap "Add" at the top right',
       L?'L\'icône ATHECS apparaît sur votre écran d\'accueil.':'The ATHECS icon appears on your home screen.'),
     step('⚠', L?'Ouvrez-la ensuite <u>toujours</u> par cette icône':'From then on <u>always</u> open it from that icon',
-      L?'Sur iPhone, l\'application installée et Safari ne partagent pas leurs données. Un compte enrôlé dans Safari n\'existe pas dans l\'application. Installez d\'abord, enrôlez-vous ensuite, dans l\'application.'
-       :'On iPhone the installed app and Safari do not share data. An account enrolled in Safari does not exist inside the app. Install first, then enrol, inside the app.')
+      L?'Sur iPhone, l\'application installée garde ses propres données, séparées de celles du navigateur — quel que soit le navigateur utilisé pour l\'installer. Un compte enrôlé dans le navigateur n\'existe pas dans l\'application. Installez d\'abord, enrôlez-vous ensuite, dans l\'application.'
+       :'On iPhone the installed app keeps its own data, separate from the browser\'s — whichever browser was used to install it. An account enrolled in the browser does not exist inside the app. Install first, then enrol, inside the app.')
   ].join('');
   const android_ = [
     step('1', L?'Ouvrez le lien dans Chrome':'Open the link in Chrome',
