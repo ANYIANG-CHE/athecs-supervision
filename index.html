@@ -686,7 +686,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '2.6.0';
+const APP_VERSION = '2.8.0';
 /* ---------------------------------------------------------------
    SECURITY TOKEN — change this ONE line, and change the matching
    line  var TOKEN = 'ATHECS';  in Code.gs to exactly the same value.
@@ -819,6 +819,50 @@ const I18N = {
 };
 let LANG = localStorage.getItem('ath_lang') || 'fr';
 const T = k => (I18N[LANG][k] || I18N.fr[k] || k);
+
+/* What kind of phone, and are we already installed? On iOS the home-screen app and
+   Safari keep SEPARATE storage: an account enrolled in Safari does not exist inside the
+   installed app. So the install has to happen first — the app says so. */
+function isIOS(){
+  const ua=navigator.userAgent||'';
+  return /iPad|iPhone|iPod/.test(ua) ||
+         (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+}
+function isStandalone(){
+  try{ return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone===true; }
+  catch(e){ return false; }
+}
+
+/* The four roles, named once so every screen agrees and both languages are covered. */
+const ROLES=[{k:'SUPERVISOR'},{k:'SUPER'},{k:'SITE'},{k:'VIEWER'}];
+function roleLabel(k){
+  const L=LANG==='fr';
+  return ({SUPERVISOR: L?'Superviseur':'Supervisor',
+           SUPER:      L?'Super utilisateur':'Super user',
+           SITE:       L?'Personnel du site':'Facility staff',
+           VIEWER:     L?'Lecteur':'Viewer'})[k] || k;
+}
+
+/* A reason we can log, asked inside the app rather than through the browser's own
+   prompt() — a native dialog is blocked or silently dropped in some installed-PWA
+   contexts, which would make an approval or a refusal fail without saying so. */
+let ASK_CB=null;
+function askReason(o){
+  ASK_CB = o.onOk || null;
+  modal(o.title, `${o.help?`<p class="small muted">${esc(o.help)}</p>`:''}
+    ${o.banner?`<div class="banner ${o.bannerTone||'b-warn'}">${o.banner}</div>`:''}
+    <label class="f"><span>${esc(o.label||(LANG==='fr'?'Motif':'Reason'))}</span>
+      <textarea id="ask-t" rows="3" placeholder="${esc(o.placeholder||'')}"></textarea></label>`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn ${o.danger?'dan':''}" onclick="askOk(${o.optional?'false':'true'})">${
+       esc(o.confirmLabel||T('save'))}</button>`);
+  setTimeout(()=>{ const t=$('#ask-t'); if(t) t.focus(); }, 60);
+}
+function askOk(required){
+  const v=(($('#ask-t')||{}).value||'').trim();
+  if(required && !v) return toast(LANG==='fr'?'Le motif est obligatoire':'The reason is mandatory');
+  const cb=ASK_CB; ASK_CB=null; closeModal(); if(cb) cb(v);
+}
 
 /* ===================== theme ===================== */
 let THEME = localStorage.getItem('ath_theme') || 'auto';
@@ -1042,7 +1086,10 @@ function pooled(qs, answers){
     if(r.band==='r') zeros.push(q);
   });
   const pct = sd>0 ? (sn/sd)*100 : null;
-  return {n:sn, d:sd, pct:pct, band:band(pct), answered:nAns, na:nNA, total:nTot, failed:zeros};
+  /* answered = questions the supervisor has dealt with, N/A included.
+     scored   = the ones that actually carry a number into the ratio. */
+  return {n:sn, d:sd, pct:pct, band:band(pct), answered:nAns, scored:nAns-nNA,
+          na:nNA, total:nTot, failed:zeros};
 }
 function visitScores(visit){
   const answers = DB.d.answers[visit.id] || {};
@@ -1267,10 +1314,22 @@ function viewLoginChooser(){
     </button>
 
     <hr>
+    ${installBanner()}
     <button class="btn sec blk sm" onclick="openTour(0)">？ ${L?'Guide de navigation':'Navigation guide'}</button>
     <p class="xs muted" style="margin-top:12px;text-align:center">
       ${L?'Accès réservé au personnel autorisé.':'Authorised personnel only.'}</p>
   </div>`;
+}
+/* Shown until the app is opened from its own icon. On iPhone this is the only prompt
+   there is — iOS never offers to install by itself. */
+function installBanner(){
+  if(isStandalone()) return '';
+  const L=LANG==='fr';
+  return `<button class="btn sec blk sm" style="margin-bottom:8px" onclick="installModal()">
+    📲 ${L?'Installer l\'application sur ce téléphone':'Install the app on this phone'}</button>
+  ${isIOS()?`<p class="xs muted" style="margin:-2px 0 10px;text-align:center">${L
+    ?'iPhone : installez <b>avant</b> de vous enrôler — Safari et l\'application installée ne partagent pas leurs données.'
+    :'iPhone: install <b>before</b> enrolling — Safari and the installed app do not share data.'}</p>`:''}`;
 }
 
 function viewLoginRole(path){
@@ -1305,6 +1364,7 @@ function viewLoginRole(path){
             : (L?'S\'enrôler comme superviseur':'Enrol as a supervisor')}</button>
     `}
     <hr>
+    ${installBanner()}
     <button class="btn sec blk sm" onclick="openTour(0)">？ ${L?'Guide de navigation':'Navigation guide'}</button>
     <p class="xs muted" style="margin-top:12px;text-align:center">
       <a href="#" onclick="event.preventDefault();clearPath()">${L?'Changer d\'espace':'Change area'}</a></p>
@@ -1712,6 +1772,58 @@ function tourSteps(){
      ]}
   ];
 }
+/* ---------- installing the app on a phone ---------- */
+function installModal(){
+  const L=LANG==='fr', ios=isIOS();
+  const step=(n,t,d)=>`<div class="tourstep"><div class="ico">${n}</div>
+    <div><b>${t}</b><span>${d}</span></div></div>`;
+  const ios_ = [
+    step('1', L?'Ouvrez le lien dans <u>Safari</u>':'Open the link in <u>Safari</u>',
+      L?'Pas Chrome, pas le navigateur de WhatsApp ou de Facebook. Si vous êtes ailleurs, copiez le lien et collez-le dans Safari.'
+       :'Not Chrome, not the browser inside WhatsApp or Facebook. If you are elsewhere, copy the link and paste it into Safari.'),
+    step('2', L?'Touchez le bouton Partager':'Tap the Share button',
+      L?'Le carré avec une flèche vers le haut, en bas de l\'écran sur iPhone (en haut à droite sur iPad).'
+       :'The square with an arrow pointing up, at the bottom of the screen on iPhone (top right on iPad).'),
+    step('3', L?'Faites défiler → « Sur l\'écran d\'accueil »':'Scroll down → "Add to Home Screen"',
+      L?'La liste est longue : descendez jusqu\'à cette ligne.':'The list is long: scroll until you see that line.'),
+    step('4', L?'Touchez « Ajouter » en haut à droite':'Tap "Add" at the top right',
+      L?'L\'icône ATHECS apparaît sur votre écran d\'accueil.':'The ATHECS icon appears on your home screen.'),
+    step('⚠', L?'Ouvrez-la ensuite <u>toujours</u> par cette icône':'From then on <u>always</u> open it from that icon',
+      L?'Sur iPhone, l\'application installée et Safari ne partagent pas leurs données. Un compte enrôlé dans Safari n\'existe pas dans l\'application. Installez d\'abord, enrôlez-vous ensuite, dans l\'application.'
+       :'On iPhone the installed app and Safari do not share data. An account enrolled in Safari does not exist inside the app. Install first, then enrol, inside the app.')
+  ].join('');
+  const android_ = [
+    step('1', L?'Ouvrez le lien dans Chrome':'Open the link in Chrome',
+      L?'Si vous avez ouvert le lien depuis WhatsApp, touchez ⋮ puis « Ouvrir dans Chrome ».'
+       :'If you opened the link from WhatsApp, tap ⋮ then "Open in Chrome".'),
+    step('2', L?'Touchez ⋮ en haut à droite':'Tap ⋮ at the top right',
+      L?'Le menu à trois points de Chrome.':'Chrome\'s three-dot menu.'),
+    step('3', L?'« Installer l\'application » ou « Ajouter à l\'écran d\'accueil »':'"Install app" or "Add to Home screen"',
+      L?'Les deux font la même chose selon la version de Chrome.':'Both do the same thing depending on the Chrome version.'),
+    step('4', L?'Confirmez « Installer »':'Confirm "Install"',
+      L?'L\'icône ATHECS apparaît sur votre écran d\'accueil.':'The ATHECS icon appears on your home screen.')
+  ].join('');
+  modal(L?'Installer l\'application sur ce téléphone':'Install the app on this phone',
+    (isStandalone()
+      ? `<div class="banner b-ok">${L?'C\'est déjà fait : vous utilisez l\'application installée.'
+                                     :'Already done: you are using the installed app.'}</div>`
+      : `<div class="banner b-info">${L
+          ?'Installée, l\'application s\'ouvre par une icône, plein écran, et fonctionne sans réseau.'
+          :'Once installed, the app opens from an icon, full screen, and works with no network.'}</div>`)
+    + (ios?ios_:android_)
+    + `<hr><p class="xs muted">${L
+       ?'Après l\'installation, ouvrez-la une fois <b>avec du réseau</b> : elle enregistre alors les 84 formations sanitaires et les 64 questions sur le téléphone. Ensuite, tout marche hors ligne.'
+       :'After installing, open it once <b>with signal</b>: it then stores the 84 facilities and the 64 questions on the phone. After that everything works offline.'}</p>`
+    + (ios?'':`<p class="xs muted">${L?'Sur iPhone, les étapes sont différentes — ':'On iPhone the steps are different — '}
+        <a href="#" onclick="event.preventDefault();installModalFor('ios')">${L?'les voir':'see them'}</a></p>`)
+    + (ios?`<p class="xs muted"><a href="#" onclick="event.preventDefault();installModalFor('android')">${
+        L?'Voir les étapes Android':'See the Android steps'}</a></p>`:''),
+    `<button class="btn" onclick="closeModal()">OK</button>`);
+}
+let FORCE_PLATFORM=null;
+function installModalFor(p){ FORCE_PLATFORM=p; const real=isIOS;
+  isIOS=()=>p==='ios'; installModal(); isIOS=real; }
+
 let TOURI=0;
 function openTour(i){
   TOURI = i||0;
@@ -1733,6 +1845,8 @@ function openTour(i){
       <button class="btn" style="flex:1" onclick="${TOURI<steps.length-1?`openTour(${TOURI+1})`:'closeTour(true)'}">
         ${TOURI<steps.length-1?(L?'Suivant':'Next'):(L?'Commencer':'Start')}</button>
     </div>
+    ${!isStandalone()?`<button class="btn sec blk sm" style="margin-top:8px" onclick="closeTour();installModal()">
+      📲 ${L?'Installer l\'application sur ce téléphone':'Install the app on this phone'}</button>`:''}
     ${vid?`<button class="btn sec blk sm" style="margin-top:8px" onclick="watchVideo()">▶ ${guideLabel()}</button>`
         :`<p class="xs muted" style="text-align:center;margin-top:10px">${L?'Un guide pas à pas sera ajouté ici.':'A step-by-step guide will be added here.'}</p>`}
     <p class="xs muted" style="text-align:center;margin-top:8px">
@@ -2044,18 +2158,37 @@ function approveUser(uid){
 }
 function rejectUser(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
-  const why=prompt(LANG==='fr'?'Motif du refus (obligatoire) :':'Reason for refusal (mandatory):');
-  if(!why) return;
-  u.status=U_REJECTED; u.active=false; u.decisionNote=why;
-  u.approvedBy=(me()||{}).name; u.approvedAt=Date.now();
-  DB.save(); audit('USER_REJECT','user',u.name+' — '+why); pushUser(u); render();
+  const L=LANG==='fr';
+  askReason({
+    title: (L?'Rejeter l\'enrôlement de ':'Refuse the enrolment of ')+u.name,
+    label: L?'Motif du refus (obligatoire)':'Reason for refusal (mandatory)',
+    placeholder: L?'ex. pièce d\'identité illisible':'e.g. identity document unreadable',
+    help: L?'Le motif s\'affiche sur le téléphone de la personne. Soyez précis : c\'est ce qu\'elle devra corriger.'
+           :'The reason is shown on the person\'s phone. Be specific: it is what they will have to correct.',
+    confirmLabel: L?'Rejeter':'Refuse', danger:true,
+    onOk: why=>{
+      u.status=U_REJECTED; u.active=false; u.decisionNote=why;
+      u.approvedBy=(me()||{}).name; u.approvedAt=Date.now();
+      DB.save(); audit('USER_REJECT','user',u.name+' — '+why); pushUser(u);
+      toast(L?'Enrôlement rejeté':'Enrolment refused'); render();
+    }});
 }
 function suspendUser(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
   if(u.role==='SUPER') return toast(LANG==='fr'?'Un super utilisateur ne peut pas être désactivé ici'
                                                :'A super user cannot be deactivated here');
-  const why=prompt(LANG==='fr'?'Motif de la désactivation (obligatoire) :':'Reason for deactivation (mandatory):');
-  if(!why) return;
+  const L=LANG==='fr';
+  askReason({
+    title:(L?'Désactiver ':'Deactivate ')+u.name,
+    label:L?'Motif de la désactivation (obligatoire)':'Reason for deactivation (mandatory)',
+    placeholder:L?'ex. muté hors de la région':'e.g. transferred out of the region',
+    help:L?'La personne verra ce motif à sa prochaine connexion. Ses supervisions déjà enregistrées ne sont pas perdues.'
+          :'The person sees this reason at their next sign-in. Their recorded supervisions are not lost.',
+    confirmLabel:L?'Désactiver':'Deactivate', danger:true,
+    onOk: why=>{ suspendUserDo(uid, why); }});
+}
+function suspendUserDo(uid, why){
+  const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
   u.status=U_SUSPENDED; u.active=false; u.decisionNote=why;
   DB.save(); audit('USER_SUSPEND','user',u.name+' — '+why); pushUser(u); render();
 }
@@ -2201,26 +2334,37 @@ function myVisits(){
                     .sort((a,b)=>(b.updated||0)-(a.updated||0));
 }
 function viewHome(){
-  const u=me(), c=activeCycle();
+  const u=me(), c=activeCycle(), L=LANG==='fr';
   const mine=myVisits(); const drafts=mine.filter(v=>v.status==='DRAFT');
   const sub=DB.d.visits.filter(v=>v.status==='SUBMITTED');
-  const openActions = DB.d.actions.filter(a=>a.status!=='RESOLVED');
+  /* Counters must describe THIS person's work. A supervisor covering two districts was
+     being shown the region's 84 facilities and every overdue recommendation in the West —
+     numbers that are true of nobody in particular and cannot be acted on. */
+  const scoped = !isSuper() && Array.isArray(u.districts);
+  const mySites = DB.d.sites.filter(s=>s.status!=='CLOSED' &&
+    (!scoped || u.districts.includes(s.district)));
+  const myIds = new Set(mine.map(v=>v.id));
+  const openActions = DB.d.actions.filter(a=>a.status!=='RESOLVED' && (isSuper() || myIds.has(a.visitId)));
   const overdue = openActions.filter(a=>a.deadline && a.deadline < today());
   return `
   <div class="card" style="background:linear-gradient(135deg,#0B3C71,#1B6EC2);color:#fff;border:0">
     <div class="spread">
       <div><h2 style="color:#fff;margin:0">${esc(u.name)}</h2>
-        <span class="small" style="opacity:.85">${u.role==='SUPER'?'Super utilisateur':'Superviseur'} · ${
-          Array.isArray(u.districts)?esc(u.districts.join(', ')):'Tous les districts'}</span></div>
+        <span class="small" style="opacity:.85">${esc(roleLabel(u.role))} · ${
+          Array.isArray(u.districts)&&u.districts.length?esc(u.districts.join(', '))
+            :(L?'Tous les districts':'All districts')}</span></div>
       <span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${esc(c?c.name:'—')}</span>
     </div>
     <div class="small" style="opacity:.9;margin-top:6px">${T('period')} : <b>${c?esc(cyclePeriodLabel(c)):'—'}</b></div>
   </div>
 
   <div class="grid g3 always" style="margin-bottom:12px">
-    <div class="stat"><b>${DB.d.sites.filter(s=>s.status!=='CLOSED').length}</b><span>SITES</span></div>
-    <div class="stat"><b>${mine.filter(v=>v.status!=='DRAFT').length}</b><span>${LANG==='fr'?'SUPERVISIONS':'SUPERVISIONS'}</span></div>
-    <div class="stat ${overdue.length?'fill-r':''}"><b>${overdue.length}</b><span>${LANG==='fr'?'RECOS EN RETARD':'OVERDUE ACTIONS'}</span></div>
+    <div class="stat"><b>${mySites.length}</b><span>${
+      scoped ? (L?'SITES DANS MES DISTRICTS':'SITES IN MY DISTRICTS') : (L?'SITES':'SITES')}</span></div>
+    <div class="stat"><b>${mine.filter(v=>v.status!=='DRAFT').length}</b><span>${
+      isSuper()?(L?'SUPERVISIONS':'SUPERVISIONS'):(L?'MES SUPERVISIONS':'MY SUPERVISIONS')}</span></div>
+    <div class="stat ${overdue.length?'fill-r':''}"><b>${overdue.length}</b><span>${
+      L?'RECOS EN RETARD':'OVERDUE ACTIONS'}</span></div>
   </div>
 
   <button class="btn blk" style="padding:14px" onclick="go('#/new')">＋ ${T('newVisit')}</button>
@@ -2230,18 +2374,20 @@ function viewHome(){
   ${drafts.length?`<div class="card"><h3>${T('draft')} (${drafts.length})</h3><div class="list">
     ${drafts.map(v=>visitRow(v)).join('')}</div></div>`:''}
 
-  ${isSuper()&&sub.length?`<div class="card"><h3>${LANG==='fr'?'À approuver':'To approve'} <span class="badge">${sub.length}</span></h3>
-    <div class="list">${sub.map(v=>visitRow(v)).join('')}</div></div>`:''}
+  ${isSuper()&&sub.length?`<div class="card"><h3>${L?'À approuver':'To approve'} <span class="badge">${sub.length}</span></h3>
+    <p class="xs muted">${L?'Chaque ligne ouvre directement l\'onglet « Revue et soumission », où se trouvent les boutons Approuver et Retourner.'
+                           :'Each row opens the "Review and submit" tab directly, where the Approve and Return buttons are.'}</p>
+    <div class="list">${sub.map(v=>visitRow(v,'rev')).join('')}</div></div>`:''}
 
   <div class="card"><h3>${LANG==='fr'?'Dernières supervisions':'Recent supervisions'}</h3>
     <div class="list">${mine.slice(0,6).map(v=>visitRow(v)).join('')||'<p class="small muted">—</p>'}</div>
   </div>`;
 }
-function visitRow(v){
+function visitRow(v, tab){
   const s=siteById(v.siteId)||{facility:'?',district:'?'};
   const sc = v.scores ? v.scores.overall : visitScores(v).overall;
   const b = sc.pct===null?'n':band(sc.pct);
-  return `<div class="item" onclick="go('#/visit/${v.id}')">
+  return `<div class="item" onclick="go('#/visit/${v.id}${tab?'/'+tab:''}')">
     <div style="min-width:0"><b>${esc(s.facility)}</b>
       <div class="s">${esc(s.district)} · ${esc(v.date||'')} · ${statusChip(v.status)}</div></div>
     <span class="row" style="gap:6px;flex-wrap:nowrap">
@@ -2256,7 +2402,29 @@ function statusChip(st){
 }
 
 /* ===================== NEW VISIT — cascade ===================== */
-let NV = {district:'',area:'',siteId:''};
+let NV = {district:'',area:'',siteId:'',showAll:false,whyAll:''};
+/* The checkbox used to promise "a justification will be requested" and then ask for
+   nothing. Either the promise goes or the justification arrives — the justification
+   arrives: it is asked once, logged, sent with the audit trail, and carried onto the
+   supervision itself so the report says why it was done outside the assignment. */
+function toggleShowAll(on){
+  const L=LANG==='fr';
+  if(!on){ NV.showAll=false; NV.whyAll=''; render(); return; }
+  askReason({
+    title:L?'Travailler hors de votre affectation':'Working outside your assignment',
+    label:L?'Motif (obligatoire)':'Reason (mandatory)',
+    placeholder:L?'ex. mission conjointe demandée par la coordination régionale'
+                 :'e.g. joint mission requested by the regional coordination',
+    help:L?'Vous êtes affecté à : '+(me().districts||[]).join(', ')+'. Le motif est enregistré dans le journal, transmis au niveau central et rappelé sur le rapport de la supervision.'
+          :'You are assigned to: '+(me().districts||[]).join(', ')+'. The reason is written to the log, sent to central level and repeated on the supervision report.',
+    confirmLabel:L?'Continuer':'Continue',
+    onOk: why=>{
+      NV.showAll=true; NV.whyAll=why;
+      audit('OUT_OF_SCOPE','visit', (LANG==='fr'?'Districts hors affectation — ':'Districts outside assignment — ')+why);
+      toast(L?'Motif enregistré':'Reason recorded'); render();
+    }});
+}
+
 function viewNewVisit(){
   const u=me();
   let sites=DB.d.sites.filter(s=>s.status!=='CLOSED');
@@ -2294,9 +2462,14 @@ function viewNewVisit(){
       <input type="text" id="nv-search" placeholder="${T('search')}" oninput="nvSearch(this.value)"></label>
     <div id="nv-results" class="list"></div>
 
-    ${!isSuper()&&Array.isArray(u.districts)?`<label class="chk"><input type="checkbox" ${NV.showAll?'checked':''}
-      onchange="NV.showAll=this.checked;render()"><span class="small">${LANG==='fr'
-      ?'Afficher tous les districts (hors mon affectation — une justification sera demandée)':'Show all districts (outside my assignment — a justification will be requested)'}</span></label>`:''}
+    ${!isSuper()&&Array.isArray(u.districts)?`
+    <label class="chk"><input type="checkbox" ${NV.showAll?'checked':''}
+      onchange="toggleShowAll(this.checked)"><span class="small">${LANG==='fr'
+      ?'Afficher tous les districts — hors de mon affectation'
+      :'Show all districts — outside my assignment'}</span></label>
+    ${NV.showAll?`<div class="banner b-warn xs">${LANG==='fr'
+      ?'Vous travaillez hors de votre affectation. Motif enregistré : ':'You are working outside your assignment. Reason recorded: '}
+      <b>${esc(NV.whyAll||'—')}</b></div>`:''}`:''}
 
     <hr>
     <button class="btn blk" ${NV.siteId?'':'disabled'} onclick="startVisit()">${T('next')} →</button>
@@ -2326,6 +2499,7 @@ function startVisit(){
   const v={id:DB.id('V'), siteId:NV.siteId, cycleId:c.id, uid:DB.d.session,
     supervisor:(me()||{}).name, comentors:'', type:'Mentorat intégré', date:today(),
     status:'DRAFT', created:Date.now(), updated:Date.now(),
+    outOfScope: (NV.showAll && NV.whyAll) ? NV.whyAll : '',
     swot:{f:'',w:'',o:'',t:''}, monthsComplete:c.monthsComplete.slice()};
   DB.d.visits.push(v); DB.d.answers[v.id]={}; DB.save();
   audit('VISIT_START','visit', siteById(v.siteId).facility);
@@ -2334,9 +2508,11 @@ function startVisit(){
 
 /* ===================== VISIT ===================== */
 let VSEC = 0;
+const VISIT_TABS=['q','swot','plan','fu','rev','rep'];
 function viewVisit(vid, tab, arg){
   const v=DB.d.visits.find(x=>x.id===vid);
   if(!v) return '<div class="banner b-err">Introuvable</div>';
+  if(!VISIT_TABS.includes(tab)) tab='q';   // an unknown tab is the questionnaire, on purpose
   const s=siteById(v.siteId)||{}; const c=DB.d.cycles.find(x=>x.id===v.cycleId)||activeCycle();
   const sc=visitScores(v);
   const locked = v.status==='SUBMITTED'||v.status==='APPROVED';
@@ -2814,15 +2990,39 @@ function visitReview(v, sc){
   const locked = v.status==='SUBMITTED'||v.status==='APPROVED';
   return `
   <div class="card">
+    <h3>${LANG==='fr'?'Informations de la supervision':'Supervision details'}</h3>
+    <p class="small muted">${LANG==='fr'
+      ?'Ces trois éléments apparaissent en tête du rapport de restitution.'
+      :'These three appear at the top of the debriefing report.'}</p>
+    <div class="grid g2">
+      <label class="f"><span>${LANG==='fr'?'Date de la visite':'Date of the visit'}</span>
+        <input type="date" id="vi-date" value="${esc(v.date||'')}" ${locked?'disabled':''}
+          onchange="setVisitField('${v.id}','date',this.value)"></label>
+      <label class="f"><span>${LANG==='fr'?'Superviseur principal':'Lead supervisor'}</span>
+        <input type="text" value="${esc(v.supervisor||'')}" ${locked?'disabled':''}
+          onchange="setVisitField('${v.id}','supervisor',this.value)"></label>
+    </div>
+    <label class="f"><span>${LANG==='fr'?'Autres membres de l\'équipe (co-mentors)':'Other team members (co-mentors)'}</span>
+      <input type="text" value="${esc(v.comentors||'')}" ${locked?'disabled':''}
+        placeholder="${LANG==='fr'?'ex. Dr NANA (coordination régionale), M. FOTSO (APS)':'e.g. Dr NANA (regional coordination), Mr FOTSO (APS)'}"
+        onchange="setVisitField('${v.id}','comentors',this.value)"></label>
+    ${locked?`<p class="xs muted">${LANG==='fr'?'La supervision est soumise : ces champs sont verrouillés.'
+                                               :'The supervision is submitted: these fields are locked.'}</p>`:''}
+  </div>
+
+  <div class="card">
     <h3>${T('review')}</h3>
     <div class="tw"><table>
-      <thead><tr><th>${T('sections')}</th><th>${LANG==='fr'?'Répondu':'Answered'}</th><th>N/A</th><th>Score</th></tr></thead>
+      <thead><tr><th>${T('sections')}</th><th>${LANG==='fr'?'Renseignées':'Filled in'}</th><th>N/A</th><th>Score</th></tr></thead>
       <tbody>${sc.sections.map(s=>`<tr class="${s.answered?'fill-'+s.band:''}">
         <td>${esc(s.sec)}</td><td class="xs">${s.answered}/${s.total}</td><td class="xs">${s.na}</td>
         <td class="sc">${pc(s.pct)}</td></tr>`).join('')}
         <tr style="font-weight:800"><td>${T('synth')}</td><td class="xs">${sc.overall.answered}/${sc.overall.total}</td>
           <td class="xs">${sc.overall.na}</td><td class="sc">${pc(sc.overall.pct)}</td></tr>
       </tbody></table></div>
+    <p class="xs muted" style="margin-top:6px">${LANG==='fr'
+      ?'« Renseignées » compte aussi les questions marquées N/A. Seules les '+sc.overall.scored+' questions notées entrent dans le score ; les '+sc.overall.na+' N/A en sont exclues.'
+      :'"Filled in" includes questions marked N/A. Only the '+sc.overall.scored+' scored questions enter the score; the '+sc.overall.na+' N/A ones are excluded.'}</p>
   </div>
 
   ${un.length?`<div class="card"><div class="banner b-err">${T('incomplete')} : ${un.length}</div>
@@ -2850,13 +3050,23 @@ function visitReview(v, sc){
     ${isSuper()&&v.status==='SUBMITTED'?`<hr>
       <label class="f"><span>${LANG==='fr'?'Retour au superviseur':'Feedback to the supervisor'}</span>
         <textarea id="rv-note"></textarea></label>
-      <div class="row"><button class="btn ok" onclick="approveVisit('${v.id}')">✓ ${T('approved')}</button>
-        <button class="btn dan" onclick="returnVisit('${v.id}')">↩ ${T('returned')}</button></div>`:''}
+      <div class="row"><button class="btn ok" onclick="approveVisit('${v.id}')">✓ ${
+          LANG==='fr'?'Approuver la supervision':'Approve the supervision'}</button>
+        <button class="btn dan" onclick="returnVisit('${v.id}')">↩ ${
+          LANG==='fr'?'Retourner au superviseur':'Return to the supervisor'}</button></div>`:''}
     ${isSuper()&&v.status==='APPROVED'?`<hr><button class="btn sec sm" onclick="reopenVisit('${v.id}')">
       ${LANG==='fr'?'Rouvrir (motif obligatoire)':'Reopen (reason required)'}</button>`:''}
     <hr>
     <button class="btn sec blk sm" onclick="exportVisit('${v.id}')">⇩ ${LANG==='fr'?'Exporter cette supervision (CSV)':'Export this visit (CSV)'}</button>
   </div>`;
+}
+function setVisitField(vid, field, val){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
+  if(v.status==='SUBMITTED'||v.status==='APPROVED') return;
+  const before=v[field]||'';
+  v[field]=(val||'').trim(); v.updated=Date.now(); DB.save();
+  audit('VISIT_FIELD','visit', field+' : '+(before||'—')+' → '+(v[field]||'—'));
+  flashSaved();
 }
 function jumpTo(vid,sec){ VSEC=sectionList().indexOf(sec); go('#/visit/'+vid+'/q'); }
 /* Enrich answers with computed metadata so the spreadsheet is readable on its own */
@@ -2909,11 +3119,20 @@ function returnVisit(vid){
   toast(T('returned')); render();
 }
 function reopenVisit(vid){
-  const r=prompt(LANG==='fr'?'Motif de réouverture (obligatoire) :':'Reason for reopening (mandatory):');
-  if(!r) return;
-  const v=DB.d.visits.find(x=>x.id===vid);
-  v.status='DRAFT'; v.reopened=(v.reopened||[]).concat([{by:(me()||{}).name,at:Date.now(),reason:r}]);
-  DB.save(); audit('VISIT_REOPEN','visit',r); render();
+  const L=LANG==='fr';
+  askReason({
+    title:L?'Rouvrir cette supervision':'Reopen this supervision',
+    label:L?'Motif de réouverture (obligatoire)':'Reason for reopening (mandatory)',
+    placeholder:L?'ex. score DQA saisi à l\'envers':'e.g. DQA figures entered the wrong way round',
+    help:L?'La supervision repasse en brouillon et redevient modifiable par le superviseur. Le motif est journalisé.'
+          :'The supervision goes back to draft and the supervisor can edit it again. The reason is logged.',
+    confirmLabel:L?'Rouvrir':'Reopen', danger:true,
+    onOk: r=>{
+      const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
+      v.status='DRAFT'; v.reopened=(v.reopened||[]).concat([{by:(me()||{}).name,at:Date.now(),reason:r}]);
+      DB.save(); audit('VISIT_REOPEN','visit',r);
+      toast(L?'Supervision rouverte':'Supervision reopened'); render();
+    }});
 }
 function exportVisit(vid){
   const v=DB.d.visits.find(x=>x.id===vid); const s=siteById(v.siteId); const c=DB.d.cycles.find(x=>x.id===v.cycleId);
@@ -3003,6 +3222,8 @@ function viewReport(vid){
         <tr><td class="k">${T('cycle')}</td><td>${esc(c.name||'')} — ${esc(c.name?cyclePeriodLabel(c):'')}</td></tr>
         <tr><td class="k">${L?'Date de la visite':'Visit date'}</td><td>${esc(v.date||'')}</td></tr>
         <tr><td class="k">${L?'Superviseur':'Supervisor'}</td><td>${esc(v.supervisor||'')}</td></tr>
+        ${v.comentors?`<tr><td class="k">${L?'Équipe de supervision':'Supervision team'}</td>
+          <td>${esc(v.comentors)}</td></tr>`:''}
         <tr><td class="k">${T('status')}</td><td>${statusChip(v.status)}
           ${v.submitted?' · '+fmtDT(v.submitted):''}</td></tr>
         ${v.reviewedBy?`<tr><td class="k">${L?'Validé par':'Approved by'}</td><td>${esc(v.reviewedBy)}
@@ -3118,6 +3339,11 @@ function viewReport(vid){
           <td class="xs">${a.status==='RESOLVED'?T('resolved'):a.status==='ONGOING'?T('ongoing'):T('unresolved')}</td>
         </tr>`).join('')}</tbody></table></div>
     </div>`:''}
+
+    ${v.outOfScope?`<div class="card"><h3>${L?'Supervision hors affectation':'Supervision outside the assignment'}</h3>
+      <p class="small">${L?'Le superviseur a déclaré le motif suivant au moment de choisir la formation sanitaire :'
+                          :'The supervisor recorded the following reason when choosing the facility:'}</p>
+      <div class="banner b-warn">${esc(v.outOfScope)}</div></div>`:''}
 
     <!-- ---------- debriefing signatures ---------- -->
     <div class="card">
@@ -3342,20 +3568,198 @@ function exportAll(){
 }
 
 /* ===================== DASHBOARD ===================== */
-let DASH={cycle:'', district:''};
-function viewDash(){
-  const cycles=DB.d.cycles;
+let DASH={cycle:'', district:'', site:''};
+/* A supervisor and the coordination team need two different screens under the same word.
+   The coordination team compares districts. A supervisor needs their own districts and,
+   above all, the facility they have just supervised. So the dashboard splits in two, and a
+   supervisor is never shown another district's figures. */
+function viewDash(){ return isSuper() ? viewDashRegional() : viewDashMine(); }
+
+function myDistricts(){
+  const u=me();
+  return (Array.isArray(u.districts) && u.districts.length) ? u.districts : null;
+}
+/* every submitted supervision inside this person's districts, for the chosen cycle */
+function scopedVisits(cid){
+  const mine=myDistricts();
+  return DB.d.visits.filter(v=>{
+    if(v.status!=='SUBMITTED' && v.status!=='APPROVED') return false;
+    if(cid && v.cycleId!==cid) return false;
+    const s=siteById(v.siteId); if(!s) return false;
+    return !mine || mine.includes(s.district);
+  });
+}
+const poolOf=(arr,key)=>{ let n=0,d=0; arr.forEach(v=>{ const sc=v.scores||visitScores(v);
+  n+=sc[key].n; d+=sc[key].d; }); return d>0?(n/d)*100:null; };
+
+function viewDashMine(){
+  const L=LANG==='fr', u=me(), cycles=DB.d.cycles;
   const cid=DASH.cycle||(activeCycle()||{}).id;
+  const mine=myDistricts();
+  const vs=scopedVisits(cid);
+
+  /* the facilities this person can look at, in their districts, that have been supervised */
+  const seen={}; vs.forEach(v=>{ const s=siteById(v.siteId); if(s) seen[s.id]=s; });
+  const sites=Object.values(seen).sort((a,b)=>a.facility.localeCompare(b.facility));
+  const one = DASH.site ? seen[DASH.site] : null;
+  if(DASH.site && !one) DASH.site='';          // the chosen facility left the current cycle
+
+  const filters = `
+  <div class="card tight">
+    <div class="row">
+      <label class="f" style="flex:1;margin:0"><span>${T('cycle')}</span>
+        <select onchange="DASH.cycle=this.value;render()">
+          ${cycles.map(c=>`<option value="${c.id}" ${cid===c.id?'selected':''}>${esc(c.name)} — ${esc(cyclePeriodLabel(c))}</option>`).join('')}
+        </select></label>
+      <label class="f" style="flex:1;margin:0"><span>${T('facility')}</span>
+        <select onchange="DASH.site=this.value;render()">
+          <option value="">${L?'Toutes mes formations sanitaires':'All my facilities'}</option>
+          ${sites.map(s=>`<option value="${s.id}" ${DASH.site===s.id?'selected':''}>${esc(s.facility)}</option>`).join('')}
+        </select></label>
+    </div>
+    <p class="xs muted" style="margin:6px 0 0">${
+      one ? (L?'Formation sanitaire : ':'Facility: ')+'<b>'+esc(one.facility)+'</b> · '+esc(one.district)+' › '+esc(one.area)
+          : (L?'Vos districts : ':'Your districts: ')+'<b>'+esc((mine||[L?'tous':'all']).join(', '))+'</b>'}
+      ${vs.length?'':' · '+(L?'aucune supervision soumise sur cette période':'no supervision submitted for this period')}</p>
+  </div>`;
+
+  /* ---------- one facility ---------- */
+  if(one){
+    const hist=DB.d.visits.filter(v=>v.siteId===one.id && reportReady(v))
+                          .sort((a,b)=>(b.submitted||0)-(a.submitted||0));
+    const last=hist[0];
+    if(!last) return filters+`<div class="card"><p class="small muted">${
+      L?'Aucune supervision soumise pour cette formation sanitaire sur ce cycle.'
+       :'No supervision submitted for this facility in this cycle.'}</p></div>`;
+    const sc=last.scores||visitScores(last);
+    const acts=DB.d.actions.filter(a=>a.siteId===one.id);
+    const open=acts.filter(a=>a.status!=='RESOLVED');
+    const late=open.filter(a=>a.deadline&&a.deadline<today());
+    const ranked=rankedSections(last);
+    return filters+`
+    <div class="grid g3 rings" style="margin-bottom:13px">
+      <div class="stat">${ring(sc.clinical.pct,58,T('clinical'))}</div>
+      <div class="stat">${ring(sc.mne.pct,58,T('mne'))}</div>
+      <div class="stat">${ring(sc.overall.pct,58,T('synth'),esc(last.date||''),`explainOverall('${last.id}')`)}</div>
+    </div>
+
+    <div class="card">
+      <div class="spread"><h3>${esc(one.facility)}</h3>
+        <button class="btn sec sm" onclick="go('#/report/${last.id}')">📄 ${L?'Rapport':'Report'}</button></div>
+      <p class="small muted">${L?'Supervision du':'Supervision of'} <b>${esc(last.date||'')}</b> ·
+        ${esc(last.supervisor||'')} · ${statusChip(last.status)}</p>
+      <div class="tw"><table>
+        <thead><tr><th>${T('sections')}</th><th>${L?'Renseignées':'Filled in'}</th><th>N/A</th><th>Score</th></tr></thead>
+        <tbody>${ranked.map(s=>`<tr class="${s.answered?'fill-'+s.band:''}">
+          <td>${esc(s.sec)}</td><td class="xs">${s.answered}/${s.total}</td>
+          <td class="xs">${s.na}</td><td class="sc">${pc(s.pct)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="xs muted" style="margin-top:6px">${L?'Sections de la plus faible à la plus forte.'
+                                                   :'Sections from weakest to strongest.'}</p>
+    </div>
+
+    <div class="card">
+      <div class="spread"><h3>${L?'Recommandations de ce site':'Recommendations for this site'}</h3>
+        <span class="chip ${open.length?(late.length?'r':'a'):'g'}">${open.length} ${L?'ouverte(s)':'open'}</span></div>
+      ${acts.length?`<div class="tw"><table>
+        <thead><tr><th>${T('reco')}</th><th>${T('resp')}</th><th>${T('deadline')}</th><th>${T('status')}</th></tr></thead>
+        <tbody>${acts.map(a=>{const l=a.deadline&&a.deadline<today()&&a.status!=='RESOLVED';
+          return `<tr class="${l?'fill-r':(a.status==='RESOLVED'?'fill-g':'')}">
+          <td class="small">${esc((a.reco||a.root||'').slice(0,120))}</td>
+          <td class="xs">${esc(a.resp||'')}</td><td class="xs">${esc(a.deadline||'')}</td>
+          <td class="xs">${a.status==='RESOLVED'?T('resolved'):a.status==='ONGOING'?T('ongoing'):T('unresolved')}</td></tr>`;}).join('')}
+        </tbody></table></div>`:`<p class="small muted">—</p>`}
+    </div>
+
+    ${hist.length>1?`<div class="card">
+      <h3>${L?'Historique de cette formation sanitaire':'History of this facility'}</h3>
+      <div class="list">${hist.map(v=>{const s2=(v.scores||visitScores(v)).overall;
+        const cy=DB.d.cycles.find(c=>c.id===v.cycleId)||{};
+        return `<div class="item" onclick="go('#/report/${v.id}')">
+          <div style="min-width:0"><b>${esc(v.date||'')}</b>
+            <div class="s">${esc(cy.name||'')} · ${esc(v.supervisor||'')}</div></div>
+          <span class="chip ${band(s2.pct)}">${pc(s2.pct)}</span></div>`;}).join('')}</div>
+    </div>`:''}`;
+  }
+
+  /* ---------- all my facilities ---------- */
+  const agg=vs.filter(v=>{ const s=siteById(v.siteId); return s && s.status==='ACTIVE'; });
+  const actIds=new Set(vs.map(v=>v.id));
+  const acts=DB.d.actions.filter(a=>actIds.has(a.visitId));
+  const open=acts.filter(a=>a.status!=='RESOLVED');
+  const late=open.filter(a=>a.deadline&&a.deadline<today());
+  const resPct=acts.length?((acts.length-open.length)/acts.length*100):null;
+  const secAgg={};
+  vs.forEach(v=>{ const sc=v.scores||visitScores(v);
+    sc.sections.forEach(s=>{ const o=secAgg[s.sec]=secAgg[s.sec]||{n:0,d:0}; o.n+=s.n; o.d+=s.d; }); });
+  const secRows=Object.keys(secAgg).map(s=>({sec:s, pct:secAgg[s].d>0?(secAgg[s].n/secAgg[s].d)*100:null}))
+    .sort((a,b)=>(a.pct===null?999:a.pct)-(b.pct===null?999:b.pct));
+
+  return filters+`
+  <div class="grid g3 rings" style="margin-bottom:13px">
+    <div class="stat">${ring(poolOf(agg,'clinical'),58,T('clinical'))}</div>
+    <div class="stat">${ring(poolOf(agg,'mne'),58,T('mne'))}</div>
+    <div class="stat">${ring(poolOf(agg,'overall'),58,
+      L?'Mes districts':'My districts', agg.length+(L?' site(s)':' site(s)'))}</div>
+  </div>
+
+  <div class="card">
+    <h3>${L?'Mes formations sanitaires supervisées':'The facilities I have supervised'}</h3>
+    ${vs.length?`<div class="list">${vs.map(v=>({v,s:siteById(v.siteId)||{},sc:v.scores||visitScores(v)}))
+      .sort((a,b)=>(a.sc.overall.pct||0)-(b.sc.overall.pct||0))
+      .map(x=>`<div class="item" onclick="DASH.site='${x.s.id}';render()">
+        <div style="min-width:0"><b>${esc(x.s.facility||'')}</b>
+          <div class="s">${esc(x.s.district||'')} · ${esc(x.v.date||'')} · ${
+            L?'clinique':'clinical'} ${pc(x.sc.clinical.pct)} · ${L?'S&E':'M&E'} ${pc(x.sc.mne.pct)}</div></div>
+        <span class="chip ${band(x.sc.overall.pct)}">${pc(x.sc.overall.pct)}</span></div>`).join('')}</div>
+    <p class="xs muted" style="margin-top:6px">${L?'De la plus faible à la plus forte. Touchez une ligne pour voir le détail du site.'
+                                                  :'Weakest first. Tap a row for that facility\'s detail.'}</p>`
+    :`<p class="small muted">—</p>`}
+  </div>
+
+  <div class="card">
+    <h3>${L?'Recommandations sur la période':'Recommendations for the period'}</h3>
+    <div class="grid g3 always">
+      <div class="stat"><b>${acts.length}</b><span>TOTAL</span></div>
+      <div class="stat ${open.length?'fill-a':'fill-g'}"><b>${open.length}</b><span>${L?'NON RÉSOLUES':'UNRESOLVED'}</span></div>
+      <div class="stat ${late.length?'fill-r':''}"><b>${late.length}</b><span>${L?'EN RETARD':'OVERDUE'}</span></div>
+    </div>
+    <div style="margin-top:10px">
+      <div class="spread small"><span>${L?'Taux de résolution':'Resolution rate'}</span><b class="sc">${pc(resPct)}</b></div>
+      <div class="bar"><i style="width:${resPct||0}%;background:${bandColor(resPct)}"></i></div>
+    </div>
+    ${open.length?`<div class="tw" style="margin-top:12px"><table>
+      <thead><tr><th>${T('facility')}</th><th>${T('reco')}</th><th>${T('deadline')}</th></tr></thead>
+      <tbody>${open.slice(0,30).map(a=>{const s=siteById(a.siteId)||{};
+        const l=a.deadline&&a.deadline<today();
+        return `<tr class="${l?'fill-r':''}"><td class="xs">${esc(s.facility||'')}</td>
+          <td class="small">${esc((a.reco||a.root||'').slice(0,110))}</td>
+          <td class="xs">${esc(a.deadline||'')}</td></tr>`;}).join('')}
+      </tbody></table></div>`:''}
+  </div>
+
+  <div class="card">
+    <h3>${L?'Par section technique — mes districts':'By technical section — my districts'}</h3>
+    ${secRows.map(r=>`<div style="margin-bottom:9px">
+      <div class="spread small"><span>${esc(r.sec)}</span><b class="sc">${pc(r.pct)}</b></div>
+      <div class="bar"><i style="width:${r.pct||0}%;background:${bandColor(r.pct)}"></i></div>
+    </div>`).join('')||'<p class="small muted">—</p>'}
+    <p class="xs muted">${L?'De la plus faible à la plus forte, toutes vos supervisions du cycle confondues.'
+                           :'Weakest first, across all your supervisions this cycle.'}</p>
+  </div>`;
+}
+
+function viewDashRegional(){
+  const cycles=DB.d.cycles, u=me(), L=LANG==='fr';
+  const cid=DASH.cycle||(activeCycle()||{}).id;
+  const inScope = v => !DASH.district || (siteById(v.siteId)||{}).district===DASH.district;
   let vs=DB.d.visits.filter(v=>v.status==='SUBMITTED'||v.status==='APPROVED');
   if(cid) vs=vs.filter(v=>v.cycleId===cid);
-  // quarantine provisional sites from aggregates
+  vs=vs.filter(inScope);
   const agg=vs.filter(v=>{ const s=siteById(v.siteId); return s && s.status==='ACTIVE'; });
-  if(DASH.district) vs=vs.filter(v=>(siteById(v.siteId)||{}).district===DASH.district);
   const dis=[...new Set(DB.d.sites.map(s=>s.district))].sort();
-
+  const scopeLabelTxt = DASH.district || (L?'Toute la région':'The whole region');
   // pooled regional
-  const pool=(arr,key)=>{ let n=0,d=0; arr.forEach(v=>{ const sc=v.scores||visitScores(v);
-    n+=sc[key].n; d+=sc[key].d; }); return d>0?(n/d)*100:null; };
+  const pool=poolOf;
   const rOverall=pool(agg,'overall'), rClin=pool(agg,'clinical'), rMne=pool(agg,'mne');
   const meanSite = agg.length? agg.reduce((a,v)=>a+(((v.scores||visitScores(v)).overall.pct)||0),0)/agg.length : null;
 
@@ -3388,10 +3792,12 @@ function viewDash(){
         </select></label>
       <label class="f" style="flex:1;margin:0"><span>${T('district')}</span>
         <select onchange="DASH.district=this.value;render()">
-          <option value="">${LANG==='fr'?'Tous':'All'}</option>
+          <option value="">${L?'Tous':'All'}</option>
           ${dis.map(d=>`<option ${DASH.district===d?'selected':''}>${esc(d)}</option>`).join('')}
         </select></label>
     </div>
+    <p class="xs muted" style="margin:6px 0 0">${L?'Chiffres affichés pour : ':'Figures shown for: '}
+      <b>${esc(scopeLabelTxt)}</b>${(agg.length?'':' · '+(L?'aucune supervision soumise sur cette période':'no supervision submitted for this period'))}</p>
   </div>
 
   <div class="grid g3 rings" style="margin-bottom:13px">
@@ -4026,8 +4432,13 @@ function editQ(id){
   const q=id?DB.d.questions.find(x=>x.id===id):{n:(Math.max(...DB.d.questions.map(x=>x.n))+1),sec:sectionList()[0],
     q:'',type:'BINARY',dom:'CLIN',weight:1,active:true,order:DB.d.questions.length+1,version:1};
   modal((id?(LANG==='fr'?'Modifier la question ':'Edit question '):(LANG==='fr'?'Nouvelle question':'New question'))+(id?q.n:''),`
-   <label class="f"><span>Section</span><input list="dl-sec" id="eq-sec" value="${esc(q.sec)}">
-     <datalist id="dl-sec">${sectionList().map(s=>`<option>${esc(s)}</option>`).join('')}</datalist></label>
+   <label class="f"><span>Section</span>
+     <select id="eq-sec" onchange="eqSectionChanged(this.value)">
+       ${sectionList().map(s=>`<option value="${esc(s)}" ${q.sec===s?'selected':''}>${esc(s)}</option>`).join('')}
+       <option value="__NEW__">＋ ${LANG==='fr'?'Nouvelle section…':'New section…'}</option>
+     </select></label>
+   <label class="f hidden" id="eq-secnew-wrap"><span>${LANG==='fr'?'Nom de la nouvelle section':'New section name'}</span>
+     <input type="text" id="eq-secnew" placeholder="${LANG==='fr'?'ex. Santé mentale':'e.g. Mental health'}"></label>
    <label class="f"><span>${LANG==='fr'?'Énoncé (français) — utilisez {{PERIODE}}, {{MOIS_1}}, {{MOIS_2}}':'Question (French) — use {{PERIODE}}, {{MOIS_1}}, {{MOIS_2}}'}</span>
      <textarea id="eq-q">${esc(q.q)}</textarea></label>
    <div class="grid g2">
@@ -4056,12 +4467,27 @@ function editQ(id){
    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
     <button class="btn" onclick="saveQ('${id}')">${T('save')}</button>`);
 }
+/* The section used to be a datalist. On Android a datalist shows nothing at all when you
+   tap it, so the field looked frozen on whatever section it opened with — every new question
+   silently landed in "Coordination et documentation générale". It is a real select now, with
+   an explicit way to create a section. */
+function eqSectionChanged(v){
+  const w=$('#eq-secnew-wrap'); if(!w) return;
+  w.classList.toggle('hidden', v!=='__NEW__');
+  if(v==='__NEW__') setTimeout(()=>{ const i=$('#eq-secnew'); if(i) i.focus(); }, 60);
+}
+function eqSection(){
+  const sel=($('#eq-sec')||{}).value||'';
+  if(sel!=='__NEW__') return sel.trim();
+  return (($('#eq-secnew')||{}).value||'').trim();
+}
 function saveQ(id){
   const g=i=>$('#'+i).value;
-  const patch={sec:g('eq-sec').trim(), q:g('eq-q').trim(), type:g('eq-type'), dom:g('eq-dom'),
+  const patch={sec:eqSection(), q:g('eq-q').trim(), type:g('eq-type'), dom:g('eq-dom'),
     num:g('eq-num').trim()||undefined, den:g('eq-den').trim()||undefined,
     defDen:g('eq-dd')?Number(g('eq-dd')):undefined, weight:Number(g('eq-w'))||1,
     fu:g('eq-fu').trim()||undefined, dqa:$('#eq-dqa').checked?1:undefined};
+  if(!patch.sec) return toast(LANG==='fr'?'Choisissez ou nommez une section':'Choose or name a section');
   if(!patch.q) return toast(LANG==='fr'?'Énoncé obligatoire':'Question text required');
   if(id){ const q=DB.d.questions.find(x=>x.id===id);
     const scoreRelevant = q.q!==patch.q||q.type!==patch.type||q.den!==patch.den||q.dom!==patch.dom||q.weight!==patch.weight;
@@ -4069,14 +4495,46 @@ function saveQ(id){
     audit('QUESTION_EDIT','question','Q'+q.n+' v'+q.version);
   } else {
     const n=Math.max(...DB.d.questions.map(x=>x.n))+1;
+    /* Put it at the end of ITS OWN section, not at the end of the questionnaire — otherwise
+       a question added to IPC appears after the last section and the supervisor never finds
+       it where they expect. */
+    const same=DB.d.questions.filter(x=>x.sec===patch.sec);
+    const after=same.length? Math.max(...same.map(x=>x.order||0)) : Math.max(...DB.d.questions.map(x=>x.order||0));
+    DB.d.questions.forEach(x=>{ if((x.order||0)>after) x.order=(x.order||0)+1; });
     DB.d.questions.push(Object.assign({id:'Q'+String(n).padStart(2,'0'),code:'Q'+n,n,active:true,
-      order:DB.d.questions.length+1,version:1},patch));
-    audit('QUESTION_ADD','question','Q'+n);
+      order:after+1,version:1},patch));
+    audit('QUESTION_ADD','question','Q'+n+' — '+patch.sec);
+    toast(LANG==='fr'?'✓ Question ajoutée à « '+patch.sec+' »':'✓ Question added to "'+patch.sec+'"', 3200);
   }
   DB.save(); queue('questions', DB.d.questions); closeModal(); render();
 }
-function toggleQ(id){ const q=DB.d.questions.find(x=>x.id===id);
-  q.active = q.active===false; DB.save(); audit('QUESTION_TOGGLE','question','Q'+q.n+'='+q.active); render(); }
+function toggleQ(id){
+  const q=DB.d.questions.find(x=>x.id===id); if(!q) return;
+  const L=LANG==='fr', turningOff = q.active!==false;
+  if(!turningOff){ applyToggleQ(id); return; }        // re-activating needs no ceremony
+  modal(L?'Désactiver la question '+q.n:'Deactivate question '+q.n, `
+    <div class="banner b-warn">${L
+      ?'Cette question disparaîtra du questionnaire de <b>tous les superviseurs</b> au prochain chargement.'
+      :'This question will disappear from <b>every supervisor\'s</b> questionnaire at their next load.'}</div>
+    <p class="small"><b>${esc(q.sec)}</b><br>${esc((q.q||'').slice(0,200))}</p>
+    <p class="xs muted">${L
+      ?'Rien n\'est supprimé : les supervisions déjà faites gardent cette question et son score. Vous pouvez la réactiver à tout moment.'
+      :'Nothing is deleted: supervisions already done keep this question and its score. You can switch it back on at any time.'}</p>`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn dan" onclick="applyToggleQ('${id}')">${L?'Désactiver':'Deactivate'}</button>`);
+}
+function applyToggleQ(id){
+  const q=DB.d.questions.find(x=>x.id===id); if(!q) return;
+  const L=LANG==='fr';
+  q.active = q.active===false;
+  DB.save(); audit('QUESTION_TOGGLE','question','Q'+q.n+'='+q.active);
+  queue('questions', DB.d.questions);
+  closeModal();
+  toast(q.active ? (L?'✓ Question '+q.n+' réactivée':'✓ Question '+q.n+' switched back on')
+                 : (L?'Question '+q.n+' désactivée — '+activeQuestions().length+' questions actives'
+                     :'Question '+q.n+' deactivated — '+activeQuestions().length+' active questions'), 3400);
+  render();
+}
 
 function admSites(){
   const reqs=DB.d.siteReq.filter(r=>r.status==='SUBMITTED');
@@ -4096,7 +4554,7 @@ function admSites(){
         ${r.justification?`<tr><td class="xs">${LANG==='fr'?'Motif':'Reason'}</td><td class="xs">${esc(r.justification)}</td></tr>`:''}
       </tbody></table>
       <div class="row" style="margin-top:8px">
-        <button class="btn ok sm" onclick="decideSite('${r.id}','APPROVED')">✓ ${T('approved')}</button>
+        <button class="btn ok sm" onclick="decideSite('${r.id}','APPROVED')">✓ ${LANG==='fr'?'Approuver':'Approve'}</button>
         <button class="btn sec sm" onclick="decideSite('${r.id}','MOREINFO')">↩ ${LANG==='fr'?'Complément':'More info'}</button>
         <button class="btn dan sm" onclick="decideSite('${r.id}','REJECTED')">✕ ${LANG==='fr'?'Rejeter':'Reject'}</button>
       </div></div>`).join('')||`<p class="small muted">—</p>`}
@@ -4114,9 +4572,33 @@ function admSites(){
   </div>`;
 }
 function decideSite(id, decision){
-  const r=DB.d.siteReq.find(x=>x.id===id);
-  let note='';
-  if(decision!=='APPROVED'){ note=prompt(LANG==='fr'?'Motif (obligatoire) :':'Reason (mandatory):')||''; if(!note) return; }
+  const L=LANG==='fr';
+  const r=DB.d.siteReq.find(x=>x.id===id); if(!r) return;
+  if(decision==='MOREINFO'){
+    return askReason({
+      title:L?'Demander un complément — '+r.ref:'Ask for more information — '+r.ref,
+      label:L?'Qu\'est-ce qui manque ? (obligatoire)':'What is missing? (mandatory)',
+      placeholder:L?'ex. joindre la note de service signée':'e.g. attach the signed service note',
+      help:L?'La demande reste ouverte. Le superviseur voit ce message et peut compléter son dossier.'
+            :'The request stays open. The supervisor sees this message and can complete their file.',
+      bannerTone:'b-info', confirmLabel:L?'Demander le complément':'Ask for it',
+      onOk: note=>decideSiteDo(id, decision, note)});
+  }
+  if(decision!=='APPROVED'){
+    return askReason({
+      title:L?'Rejeter la demande '+r.ref:'Refuse request '+r.ref,
+      label:L?'Motif du rejet (obligatoire)':'Reason for refusal (mandatory)',
+      placeholder:L?'ex. formation sanitaire déjà enregistrée sous un autre nom'
+                   :'e.g. facility already recorded under another name',
+      help:L?'La demande est close. Le superviseur qui l\'a faite verra ce motif.'
+            :'The request is closed. The supervisor who made it will see this reason.',
+      confirmLabel:L?'Rejeter':'Refuse', danger:true,
+      onOk: note=>decideSiteDo(id, decision, note)});
+  }
+  decideSiteDo(id, decision, '');
+}
+function decideSiteDo(id, decision, note){
+  const r=DB.d.siteReq.find(x=>x.id===id); if(!r) return;
   r.status=decision; r.decidedBy=(me()||{}).name; r.decidedAt=Date.now(); r.decisionNote=note;
   if(decision==='APPROVED'){
     if(r.type==='ADD' && r.siteId){ const s=siteById(r.siteId); s.status='ACTIVE'; }
@@ -4145,10 +4627,8 @@ function admUsers(){
       <tbody>${DB.d.users.map(u=>`<tr class="${u.active===false?'muted':''}">
         <td class="small">${esc(u.name)}</td>
         <td><select onchange="setRole('${u.id}',this.value)">
-          <option value="SUPERVISOR" ${u.role==='SUPERVISOR'?'selected':''}>Superviseur</option>
-          <option value="SUPER" ${u.role==='SUPER'?'selected':''}>Super utilisateur</option>
-          <option value="SITE" ${u.role==='SITE'?'selected':''}>Point focal site</option>
-          <option value="VIEWER" ${u.role==='VIEWER'?'selected':''}>Lecteur</option></select></td>
+          ${ROLES.map(r=>`<option value="${r.k}" ${u.role===r.k?'selected':''}>${esc(roleLabel(r.k))}</option>`).join('')}
+        </select></td>
         <td class="xs">${esc(u.fn||'')}</td>
         <td class="xs">${u.idNumber?esc(u.idType)+' '+esc(u.idNumber)+(u.idFile?' <a href="'+u.idFile+'" target="_blank">↗</a>':''):'—'}</td>
         <td class="xs">${Array.isArray(u.districts)?esc(u.districts.join(', ')):'ALL'}</td>
@@ -4314,8 +4794,28 @@ function backupJSON(){
   const a=document.createElement('a'); a.href=URL.createObjectURL(b);
   a.download='ATHECS_backup_'+today()+'.json'; a.click();
 }
-function wipe(){ if(confirm(LANG==='fr'?'Effacer toutes les données locales ?':'Erase all local data?')){
-  localStorage.removeItem(DB.k); location.reload(); } }
+function wipe(){
+  const L=LANG==='fr';
+  modal(L?'Réinitialiser complètement cet appareil':'Fully reset this device', `
+    <div class="banner b-err">${L
+      ?'Tout ce qui est enregistré sur cet appareil est effacé, y compris les comptes et leurs codes PIN. L\'application repart comme à la première installation.'
+      :'Everything stored on this device is erased, including the accounts and their PINs. The app starts over as on first install.'}</div>
+    <p class="small">${L
+      ?'Pour effacer seulement les données de test en gardant les comptes, utilisez « Vider les données de test sur CET appareil » plus bas.'
+      :'To clear only the test data and keep the accounts, use "Clear the test data on THIS device" below.'}</p>
+    <label class="f"><span>${L?'Tapez REINITIALISER pour confirmer':'Type RESET to confirm'}</span>
+      <input type="text" id="wp-c" autocomplete="off"></label>`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn dan" onclick="confirmWipe()">${L?'Tout effacer':'Erase everything'}</button>`);
+}
+function confirmWipe(){
+  const L=LANG==='fr';
+  const v=((($('#wp-c')||{}).value)||'').trim().toUpperCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(v!=='REINITIALISER' && v!=='RESET')
+    return toast(L?'Tapez REINITIALISER pour confirmer':'Type RESET to confirm');
+  localStorage.removeItem(DB.k); location.reload();
+}
 
 function admAudit(){
   const a=DB.d.audit.slice().reverse().slice(0,300);
