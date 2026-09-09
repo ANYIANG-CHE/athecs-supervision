@@ -686,7 +686,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '2.8.1';
+const APP_VERSION = '3.0.1';
 /* ---------------------------------------------------------------
    SECURITY TOKEN — change this ONE line, and change the matching
    line  var TOKEN = 'ATHECS';  in Code.gs to exactly the same value.
@@ -766,7 +766,7 @@ window.addEventListener('error', function(ev){
 });
 
 const SEED_SITES = [["Bafang", "Bafang-Chefferie", "CSI Famkeu"], ["Bafang", "Manila", "Hôpital Ad lucem Banka-Bafang"], ["Bafang", "Mouankeu", "HD Bafang"], ["Bafang", "Ndokovi", "CSI Ndokovi"], ["Baham", "Baham", "CSI Demgo"], ["Baham", "Bahiala Cheffou", "CSI Bahiala"], ["Baham", "Bangou-Carrefour", "CMA Bangou Carefour"], ["Baham", "Bangou-Ville", "CMA Bangou"], ["Baham", "Bapa Bametchetcha", "CSI de Bapa"], ["Baham", "Batie", "CMA Batie"], ["Bamendjou", "Bamendjou", "HD Bamendjou"], ["Bandja", "Bandja-Ville", "HD Bandja"], ["Bandja", "Fotouni", "CMA de Foutouni Ex CSI"], ["Bandjoun", "Dja", "HD Bandjoun"], ["Bandjoun", "Mbouo", "Hopital EEC Mbouo"], ["Bandjoun", "Pete", "Hopital Ad Lucem"], ["Bandjoun", "Semto", "CMC Mission Catholique de Semto"], ["Bandjoun", "Yom", "CMA Poumougne"], ["Bangangte", "Bamena", "CSI Bamena"], ["Bangangte", "Bangangte", "HD Bangangté"], ["Bangangte", "Bangoua", "Hôpital EEC Bangoua"], ["Bangangte", "Bazou", "CMA Bazou"], ["Bangangte", "Tonga", "CMA Tonga"], ["Bangourain", "Bangourain", "HD Bangourain"], ["Bangourain", "Kouhouat", "CSI Kouhouat"], ["Bangourain", "Koumengba", "CSI Koumengba"], ["Batcham", "Batcham Chefferie", "CSI Batcham Chefferie"], ["Batcham", "Batcham Fiela", "CSI Bameffo"], ["Batcham", "Batcham Ville", "HD Batcham"], ["Dschang", "Baleveng", "CMA Nkong Ni"], ["Dschang", "Doumbouo", "CSI Doumbouo"], ["Dschang", "Fiala Foreke", "Hopital Regional Annexe de Dschang (Ex HD)"], ["Dschang", "Fometa", "CSI Fometa"], ["Dschang", "Ndoh-Djutsitsa", "CMA Ndoh-Djuttitsa"], ["Dschang", "Siteu", "Hopital St Vincent de Paul"], ["Foumban", "Foumban Nord", "CS Medicalise Kueka"], ["Foumban", "Foumban Ouest", "CMA Koukouet-Maloum"], ["Foumban", "Foumban Sud", "HRa Foumban (Ex HD)"], ["Foumban", "Koupa Kagnam", "CMA Koupa-Kagnam (Ex CSI)"], ["Foumban", "Koupa Matapit", "CMA de Koupa Matapit"], ["Foumban", "Mambain", "CMA Mambain"], ["Foumban", "Mataket", "CMA Mataket"], ["Foumban", "Njisse", "Hopital Protestant Njisse"], ["Foumbot", "Baigom 1", "CSI Kwen Baïgom"], ["Foumbot", "Fosset", "CSI Fosset"], ["Foumbot", "Foumbot 1", "HD Foumbot"], ["Foumbot", "Foumbot 3", "CSI Nkoundoubain"], ["Foumbot", "Foumbot 4", "CSI Mbantou"], ["Foumbot", "Maka 2", "CSI Maka 2"], ["Foumbot", "Momo", "CSI Momo"], ["Galim", "Galim", "HD Galim"], ["Kekem", "Kekem", "HD Kekem"], ["Kouoptamo", "Chanas", "CSI Chanas"], ["Kouoptamo", "Kouoptamo", "HD Kouoptamo"], ["Kouoptamo", "Njintapon", "CSI de Njitapon"], ["Malantouen", "Magba", "CMA Magba"], ["Malantouen", "Malantouen", "HD Malantouen"], ["Malantouen", "Matta Barrage", "CSI Matta - barrage"], ["Malantouen", "Ngounso", "CS BBHC Ngounso"], ["Massangam", "Massangam", "HD Massangam"], ["Mbouda", "Bafounda", "CSI Bamendjo"], ["Mbouda", "Mbouda Nord", "HD Mbouda"], ["Mbouda", "Mbouda Sud", "CMA Lepi"], ["Mbouda", "Mbouda-Ouest", "Hôpital Ad Lucem Mbouda"], ["Mbouda", "Toumaka", "CMA Babadjou"], ["Mifi", "Badiembou", "CM de la Police"], ["Mifi", "Badiembou", "CSI Badiembou"], ["Mifi", "Batoukop", "CSI Batoukop"], ["Mifi", "Djeleng", "CMA Djeleng"], ["Mifi", "Famla 1", "Bafoussam Baptist Hospital - CBC Bamendzi"], ["Mifi", "Famla 1", "HD MIFI FAMLA"], ["Mifi", "Kamkop", "CS Prossaba"], ["Mifi", "King Place", "PHC ACHA Annexe TAMDJA"], ["Mifi", "Kongso Bamougoum", "CMA Kongso"], ["Mifi", "Kouogouo", "CS Sacré Coeur"], ["Mifi", "Lafe Baleng", "CMA Lafe-Baleng"], ["Mifi", "Tocket", "CS la Paix"], ["Mifi", "Tyo", "HR Bafoussam"], ["Penka Michel", "Balessing", "CMA Balessing"], ["Penka Michel", "Bamendou 2", "CSI Bamendou 2"], ["Penka Michel", "Bamendou-Chefferie", "CSI Bamendou Chefferie"], ["Penka Michel", "Baneghang", "CSI Bassossia"], ["Penka Michel", "Centre urbain", "CSI Penka Michel"], ["Santchou", "Santchou", "HD Santchou"]];
-const SEED_QUESTIONS = [{"n": 1, "code": "Q01", "sec": "Coordination et documentation générale", "q": "Le site propose-t-il une copie des directives de traitement/prévention du VIH ?", "type": "BINARY", "dom": "CLIN"}, {"n": 2, "code": "Q02", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'un tableau de suivi quotidien des performances mis à jour (à vérifier sur Google Sheets) ? (daily performance)", "type": "BINARY", "dom": "CLIN", "fu": "Ce tableau est-il à jour ?"}, {"n": 3, "code": "Q03", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'un tableau de suivi mensuel de la maladie avancée (à vérifier sur Google Sheets) ?", "type": "BINARY", "dom": "CLIN", "fu": "Ce tableau est-il à jour ?"}, {"n": 4, "code": "Q04", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'une liste de contacts ICT mise à jour (vérifier sur Google Sheets) ?", "type": "BINARY", "dom": "CLIN"}, {"n": 5, "code": "Q05", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'un plan de travail pour le mois en cours ?", "type": "BINARY", "dom": "CLIN"}, {"n": 6, "code": "Q06", "sec": "HTS", "q": "Le personnel du site a-t-il été formé à l'algorithme a 3 tests  ?", "type": "BINARY", "dom": "CLIN"}, {"n": 7, "code": "Q07", "sec": "HTS", "q": "Les APS du site ont-t-ils été formé à l'algorithme a 3 tests  ?", "type": "BINARY", "dom": "CLIN"}, {"n": 8, "code": "Q08", "sec": "HTS", "q": "Le site possède-t-il des copies de l'algorithme de dépistage du VIH ?", "type": "BINARY", "dom": "CLIN"}, {"n": 9, "code": "Q09", "sec": "HTS", "q": "Le site possède-t-il des SOPs sur le dépistage du VIH ?", "type": "BINARY", "dom": "CLIN"}, {"n": 10, "code": "Q10", "sec": "HTS", "q": "Le site a-t-il proposé des services ICT à toutes les PVVIH nouvellement enrollés entre Avril et Mai 2026 (date) ?", "type": "RATIO", "dom": "CLIN", "num": "# Les nouveaux PVVIH enrollés  qui ont bénéficié d'une  ICT", "den": "# Nouveaux  PVVIH enrollés sur TARV"}, {"n": 11, "code": "Q11", "sec": "HTS", "q": "Le site a-t-il proposé des ICT à toutes les personnes vivant avec le VIH présentant une charge virale élevée entre Avril et Mai 2026 ? Voir les données relatives aux patients avec Charge virale elevé’", "type": "RATIO", "dom": "CLIN", "num": "# Personnes vivant avec le VIH avec Charge virale elevé ayant bénéficié d'une offre de ICT", "den": "# Personnes vivant avec le VIH avec Charge virale elevé"}, {"n": 12, "code": "Q12", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site a-t-il mis le PVVIV nouvellement diagnostiqué sous ART  entre Juillet et Aout 2026  (date) ?", "type": "RATIO", "dom": "CLIN", "num": "# nouvellement diagnostiqué sous ART", "den": "# nouvellement diagnostiqué"}, {"n": 13, "code": "Q13", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Les personnes absent en Juillet et Aout 2026 ont-elles été suivies par l'APS ? Les registres de suivi de l'APS sont-ils à jour ?", "type": "RATIO", "dom": "CLIN", "num": "Nombre d'APS avec tracking logbook à jour", "den": "Nombre d'APS avec tracking logbook"}, {"n": 14, "code": "Q14", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le google sheet RTC a-t-il été rempli ? Le google sheet RTC est-il à jour ?", "type": "BINARY", "dom": "CLIN", "fu": "Le Google Sheet RTC est-il à jour ?"}, {"n": 15, "code": "Q15", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site propose-t-il des DSD/services communautaires pour les PVVIH (distribution de traitements antirétroviraux, prélèvement d'échantillons de charge virale) ?", "type": "BINARY", "dom": "CLIN"}, {"n": 16, "code": "Q16", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site effectue-t-il un dépistage TB des PVVIH et documente-t-il les cas présumptif de tuberculose (Registre des cas présumptifs) ?", "type": "BINARY", "dom": "CLIN", "fu": "Le registre des cas présomptifs est-il à jour ?"}, {"n": 17, "code": "Q17", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Quel pourcentage des cas présumés de tuberculose ont fait l'objet d'un prélèvement d'échantillons envoyés au laboratoire ?", "type": "RATIO", "dom": "CLIN", "num": "# Cas présumés de tuberculose avec prélèvement crachats", "den": "# Cas présumptifs de tuberculose"}, {"n": 18, "code": "Q18", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Quel est le délai d'obtention des résultats des 3 derniers examens d'expectorations pour la tuberculose documentés ?", "type": "THRESHOLD", "dom": "CLIN"}, {"n": 19, "code": "Q19", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Quel pourcentage de patients atteints de tuberculose (anciens et nouveaux) avait un statut VIH documenté (pour UPEC/CDT) ?", "type": "RATIO", "dom": "CLIN", "num": "Nombre de cas de tuberculose avec statut VIH documenté", "den": "nombre de cas de tuberculose"}, {"n": 20, "code": "Q20", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site dispose-t-il d'un registre AHD ? Ce registre est-il à jour ?", "type": "BINARY", "dom": "CLIN", "fu": "Ce registre AHD est-il à jour ?"}, {"n": 21, "code": "Q21", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site présente-t-il un registre de charge virale élevée ? Ce registre est-il à jour ?", "type": "BINARY", "dom": "CLIN", "fu": "Ce registre de charge virale élevée est-il à jour ?"}, {"n": 22, "code": "Q22", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site offre-t-il des EAC aux PVVIH conformément aux recommandations (3 à 6 EAC, évaluation de l'observance avant le rappel) ? Quel pourcentage de PVVIH  ont bénéficié de ces services conformément aux directives ?", "type": "RATIO", "dom": "CLIN", "num": "# Les personnes vivant avec le VIH", "den": "SIDA avec CVE ont bénéficié de services conformément aux directives/# PVVIH avec CVE"}, {"n": 23, "code": "Q23", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site bascule-t-il les personnes vivant avec le VIH qui échouent sur la 1ere  ligne vers la  2eme ligne ?", "type": "RATIO", "dom": "CLIN", "num": "#PLHIV échec de la 1ere ligne à la 2eme  ligne", "den": "Les personnes vivant avec le VIH échouent en 1ere ligne"}, {"n": 24, "code": "Q24", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Ce site propose-t-il des tests de résistance aux personnes vivant avec le VIH en échec de traitement antirétroviral de 2eme ligne ?", "type": "RATIO", "dom": "CLIN", "num": "#PVVIH en échec de deuxième line  chez qui le tests de résistance proposés", "den": "# Personnes vivant avec le VIH en échec sur la 2eme ligne"}, {"n": 25, "code": "Q25", "sec": "PTME/EID", "q": "Le site dispose-t-il de données documentant le statut VIH de tous les  femmes enceintes?", "type": "RATIO", "dom": "CLIN", "num": "# femmes enceintes avec status VIH documentées", "den": "nombre de femmes enceintes"}, {"n": 26, "code": "Q26", "sec": "PTME/EID", "q": "Le site dispose-t-il de données documentant le statut syphilis de tous les  femmes enceintes?", "type": "RATIO", "dom": "CLIN", "num": "# femmes enceintes ayant un statut syphilis documenté", "den": "nombre de femmes enceintes"}, {"n": 27, "code": "Q27", "sec": "PTME/EID", "q": "Le site offre-t-il les TARV et documentés pour toutes les Femmes enceintes séropositives ?", "type": "RATIO", "dom": "CLIN", "num": "# Femmes enceintes séropositives sous traitement antirétroviral documenté", "den": "nombre de femmes enceintes séropositives"}, {"n": 28, "code": "Q28", "sec": "PTME/EID", "q": "Le site dispose-t-il d'informations documentées de traitement de la syphilis pour tous les femmes enceintes testés positifs ?", "type": "RATIO", "dom": "CLIN", "num": "# Les femmes enceintes chez qui la syphilis a été diagnostiquémis sous traitement", "den": "# Femmes enceintes diagnostiquées positives à la syphilis"}, {"n": 29, "code": "Q29", "sec": "PTME/EID", "q": "Le site collecte-t-il des échantillons pour le diagnostic précoce du VIH chez tous les nourrissons exposés au VIH ? FY25-26", "type": "SAMPLED", "dom": "CLIN", "num": "Nombre de nourrissons exposés au VIH pour lesquels un prélèvement PCR adapté à l'âge a été documenté parmi 10 nourrissons sélectionnés au hasard", "defDen": 10}, {"n": 30, "code": "Q30", "sec": "PTME/EID", "q": "Existe -t-il un documentation des résultats menté des résultats du dépistage précoce du VIH chez les personnes soignant les personnes ayant effectué le prélèvement d'échantillons dans le cadre de tous les établissements de santé ?", "type": "RATIO", "dom": "CLIN", "num": "Nombre de nourrissons exposés au VIH parmi les échantillons prélevés avec résultats documentés"}, {"n": 31, "code": "Q31", "sec": "PTME/EID", "q": "Le site initie-t-il le cotrimoxazole (CTX) avant l'âge de huit semaines pour tous les nourrissons exposés au VIH (HEI) ?", "type": "RATIO", "dom": "CLIN", "num": "# Les nourrissons exposés au VIH (HEI) commencent le cotrimoxazole (CTX) entre 6 et 8 semaines", "den": "# Nourrissons exposés au VIH (HEI) âgés de 6 à 8 semaines"}, {"n": 32, "code": "Q32", "sec": "PTME/EID", "q": "Les sites effectuent-ils un suivi jusqu'à la fin de l'allaitement maternel et disposent-ils d'un résultat final documenté concernant le VIH à l'âge de 24 mois pour tous les nourrissons exposés au VIH (HEI) (T1-2 de FY24) ?", "type": "RATIO", "dom": "CLIN", "num": "Le nombre de nourrissons exposés au VIH  suivi jusqu'à la fin de l'allaitement et un résultat final documenté avant l'âge de 24 mois", "den": "Nourrissons exposés au VIH (HEI) âgés de 24 mois."}, {"n": 33, "code": "Q33", "sec": "PTME/EID", "q": "Existe -t-il un outil de dosage des ARV pédiatriques  qui répertorie les ARV des schémas posologiques recommandés a disponibles pour le prescripteur d'ARV ?", "type": "BINARY", "dom": "CLIN"}, {"n": 34, "code": "Q34", "sec": "PTME/EID", "q": "Ce site implemente-t-il le Surge Pediatric? (verifier les scan form)", "type": "BINARY", "dom": "CLIN"}, {"n": 35, "code": "Q35", "sec": "DQA", "q": "Le nombre de personnes testées pour le VIH en Juillet 2026  DAMA=Registre", "type": "RATIO", "dom": "MNE", "num": "# Testé pour le VIH dans DAMA", "den": "# Testé pour le VIH dans le Registre", "dqa": 1}, {"n": 36, "code": "Q36", "sec": "DQA", "q": "Le nombre de personnes testées positifs pour le VIH en Juillet 2026 à DAMA=Registre", "type": "RATIO", "dom": "MNE", "num": "# Testé pour positifs le VIH dans DAMA", "den": "# Testé pour le VIH dans le Registre", "dqa": 1}, {"n": 37, "code": "Q37", "sec": "DQA", "q": "Le nombre de nouvelles PVVIH ayant débuté un traitement antirétroviral en Juillet 2026 dans DAMA et Registre", "type": "RATIO", "dom": "MNE", "num": "Nombre de nouvelles PVVIH ayant débuté un traitement antirétroviral en Avril 2026 dans DAMA", "den": "Nombre de nouvelles PVVIH ayant débuté un traitement antirétroviral en January 2026 dans le Registre", "dqa": 1}, {"n": 38, "code": "Q38", "sec": "DQA", "q": "Le nombre de personnes vivant avec le VIH sous traitement antirétroviral en Juillet 2026 à DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "Nombre de personnes vivant avec le VIH sous traitement antirétroviral en Avril 2026 dans DAMA", "den": "Nombre de personnes vivant avec le VIH sous traitement antirétroviral en Avril2026 dans le Registre", "dqa": 1}, {"n": 39, "code": "Q39", "sec": "DQA", "q": "Le nombre de personnes testées pour le VIH en Aout 2026 à DAMA=Registre", "type": "RATIO", "dom": "MNE", "num": "# Testé pour le VIH dans DAMA", "den": "# Testé pour le VIH dans le Registre", "dqa": 1}, {"n": 40, "code": "Q40", "sec": "DQA", "q": "Le nombre de personnes testées positifs pour le VIH en Aout 2026 à DAMA=Registre", "type": "RATIO", "dom": "MNE", "num": "# Testé pour positifs le VIH dans DAMA", "den": "# Testé pour le VIH dans le Registre", "dqa": 1}, {"n": 41, "code": "Q41", "sec": "DQA", "q": "Le nombre de nouvelles PVVIH ayant débuté un traitement antirétroviral en Aout 2026 dans DAMA et Registre", "type": "RATIO", "dom": "MNE", "num": "Nombre de nouvelles PVVIH ayant débuté un traitement antirétroviral en Mai 2026 dans DAMA", "den": "Nombre de nouvelles PVVIH ayant débuté un traitement antirétroviral en Mai 2026 dans le Registre", "dqa": 1}, {"n": 42, "code": "Q42", "sec": "DQA", "q": "Le nombre de personnes vivant avec le VIH sous traitement antirétroviral en Aout 2026 à DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "Nombre de personnes vivant avec le VIH sous traitement antirétroviral en Mai 2026 dans DAMA", "den": "Nombre de personnes vivant avec le VIH sous traitement antirétroviral en Mai 2026 dans le Registre", "dqa": 1}, {"n": 43, "code": "Q43", "sec": "DQA", "q": "Ce site dispose-t-il d'un organisme a base communautaire affilié offrant la distribution d'ARV (PODIC) ?", "type": "BINARY", "dom": "CLIN"}, {"n": 44, "code": "Q44", "sec": "TPT/CQI/RTC", "q": "le site dispose t il de la liste lineaire des patients eligibles au TPT attendus durant le mois", "type": "BINARY", "dom": "CLIN"}, {"n": 45, "code": "Q45", "sec": "TPT/CQI/RTC", "q": "Le site dispose-t-il d'un project CQI bien defini?", "type": "BINARY", "dom": "CLIN"}, {"n": 46, "code": "Q46", "sec": "TPT/CQI/RTC", "q": "le site dispose t il de la liste lineaire des patients absents du mois dernier et des mois antérieurs", "type": "BINARY", "dom": "CLIN"}, {"n": 47, "code": "Q47", "sec": "IPC", "q": "Existe-t-il un plan de control de Tuberculose spécifique à la formation sanitaire ? Identifiant des tousseurs, instructions sur comment tousser, et priorisation des soins pour tout tousseur", "type": "BINARY", "dom": "CLIN"}, {"n": 48, "code": "Q48", "sec": "IPC", "q": "Ya t’il une personne  PF pour la CPI dans le site avec tous les points suivants? Selection TOUS applicable:  (1) Le PF pour la CPI  a dedie le temps et resources pour effectuer les activites CPI \n2) Le PF pour la CPI a recu une formation specifique sur le CPI aumoins une fois par an\n3) Le PF pour la CPI maintien le registre pour le screening des infections, suivi des resultats, vaccinations et expositions relatifs", "type": "COMPOSITE", "dom": "CLIN", "items": ["Le PF pour la CPI a du temps et des ressources dédiés aux activités CPI", "Le PF pour la CPI a reçu une formation spécifique CPI au moins une fois par an", "Le PF pour la CPI tient le registre de screening des infections, suivi des résultats, vaccinations et expositions"]}, {"n": 49, "code": "Q49", "sec": "IPC", "q": "Tous les matériels suivant pour collectes des échantillons sont t-ils disponible ? gants à usage unique, matériels pour lavage des mains, boite de sécurité", "type": "COMPOSITE", "dom": "CLIN", "items": ["Gants à usage unique", "Matériels pour lavage des mains", "Boîte de sécurité"]}, {"n": 50, "code": "Q50", "sec": "IPC", "q": "Est-ce que le site a TOUS les équipements suivants nécessaire pour EPP ? Sélection TOUS applicable : 1) Gants 2) Robes 3) Masque facial médical 4) Lunettes ou masque en plastique 5) Les Masque N95 ou respiratoire équivalent", "type": "COMPOSITE", "dom": "CLIN", "items": ["Gants", "Blouses / robes", "Masque facial médical", "Lunettes ou visière plastique", "Masques N95 ou respirateur équivalent"]}, {"n": 51, "code": "Q51", "sec": "IPC", "q": "Est-ce que TOUS les éléments suivants sont disponibles dans la FOSA ? les gants ; blouses ; eau et savon ; boite de sécurité ; poubelles.", "type": "COMPOSITE", "dom": "CLIN", "items": ["Gants", "Blouses", "Eau et savon", "Boîte de sécurité", "Poubelles"]}, {"n": 52, "code": "Q52", "sec": "IPC", "q": "Les déchets infectieux sont-ils séparés des déchets généraux et gardés séparément dans des poubelles avec couvercle et étiquetées ?", "type": "BINARY", "dom": "CLIN"}, {"n": 53, "code": "Q53", "sec": "MNT", "q": "Le site dispose t il d’un pèse personne ?", "type": "BINARY", "dom": "CLIN"}, {"n": 54, "code": "Q54", "sec": "MNT", "q": "Le site dispose t’il d’un Tensiomètre", "type": "BINARY", "dom": "CLIN"}, {"n": 55, "code": "Q55", "sec": "MNT", "q": "Le poids est-il pris et documenté dans le dossier, dans le TARV et dans le DAMA (regarder 10 dossiers adulte, 10 dossier femmes enceintes, 10 dossiers enfants)", "type": "SAMPLED", "dom": "CLIN", "num": "oui=1, non=0, Den=1", "defDen": 30}, {"n": 56, "code": "Q56", "sec": "MNT", "q": "La taille est-elle prise et documentée dans le dossier, dans le TARV et dans le DAMA ( regarder 10 dossiers adulte, 10 dossier femmes enceintes, 10 dossiers enfants)", "type": "SAMPLED", "dom": "CLIN", "num": "oui=1, non=0, Den=1", "defDen": 30}, {"n": 57, "code": "Q57", "sec": "MNT", "q": "La tension arterielle est-elle prise et documenté dans le dossier, dans le TARV et dans le DAMA (regarder 10 dossiers adulte, 10 dossier femmes enceintes,)", "type": "SAMPLED", "dom": "CLIN", "num": "oui=1, non=0, Den=1", "defDen": 30}, {"n": 58, "code": "Q58", "sec": "FECH", "q": "% enfant (nfants biologiques et enfants exposés) sur line list des APS collecte' (Vérifier le line listing par APS)", "type": "RATIO", "dom": "CLIN", "num": "Num=# enfant collecte, Den= # enfant sur line list"}, {"n": 59, "code": "Q59", "sec": "Prévention TB", "q": "% PVVIH mis sous TPT (Vérifier le line listing des patients non mis sur TPT par APS)", "type": "RATIO", "dom": "CLIN", "num": "Num= # eligible  initie au TPT , Den= # line list eligible TPT"}, {"n": 60, "code": "Q60", "sec": "Dispensation communautaire", "q": "Se rassurer que le nom de l’OBC apparait pou tous les patients dispensés en communauté dans le DAMA", "type": "RATIO", "dom": "CLIN", "num": "Num= # avec num OBC , Den=# client OBC"}, {"n": 61, "code": "Q61", "sec": "pALD", "q": "% d’enfants infectés eligible et initiés au pALD", "type": "RATIO", "dom": "CLIN", "num": "Num= # % d’enfants infectés eligible et initiés au pALD, Den=#% d’enfants infectés eligible au pALD"}, {"n": 62, "code": "Q62", "sec": "pALD", "q": "% d'enfants de moins de 10 ans avec poids documente' dans DAMA. Nombre de dossiers d'enfants de moins de 10 ans à jour du poids en conformité avec le Dama", "type": "RATIO", "dom": "CLIN", "num": "Num= # d'enfants de moins de 10 ans avec poids documente' , Den=# d'enfants de moins de 10 ans"}, {"n": 65, "code": "Q65", "sec": "Handshake Model", "q": "Affichage de l'algortithme des connus positifs et du Handshake Model dans l'UPEC", "type": "BINARY", "dom": "CLIN"}, {"n": 68, "code": "Q68", "sec": "Recency Test", "q": "Nombre de nouveau Positifs  ayant été testés au recency", "type": "RATIO", "dom": "CLIN", "num": "Num= # de nouveau Positifs  ayant été testés au recency Den=# de nouveau Positifs"}];
+const SEED_QUESTIONS = [{"n": 1, "code": "Q01", "sec": "Coordination et documentation générale", "q": "Le site propose-t-il une copie des directives de traitement/prévention du VIH ?", "type": "BINARY", "dom": "CLIN"}, {"n": 2, "code": "Q02", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'un tableau de suivi quotidien des performances mis à jour (à vérifier sur Google Sheets) ? (daily performance)", "type": "BINARY", "dom": "CLIN", "fu": "Ce tableau est-il à jour ?"}, {"n": 3, "code": "Q03", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'un tableau de suivi mensuel de la maladie avancée (à vérifier sur Google Sheets) ?", "type": "BINARY", "dom": "CLIN", "fu": "Ce tableau est-il à jour ?"}, {"n": 4, "code": "Q04", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'une liste de contacts ICT mise à jour (vérifier sur Google Sheets) ?", "type": "BINARY", "dom": "CLIN"}, {"n": 5, "code": "Q05", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'un plan de travail pour le mois en cours ?", "type": "BINARY", "dom": "CLIN"}, {"n": 6, "code": "Q06", "sec": "HTS", "q": "Le personnel du site a-t-il été formé à l'algorithme a 3 tests  ?", "type": "BINARY", "dom": "CLIN"}, {"n": 7, "code": "Q07", "sec": "HTS", "q": "Les APS du site ont-t-ils été formé à l'algorithme a 3 tests  ?", "type": "BINARY", "dom": "CLIN"}, {"n": 8, "code": "Q08", "sec": "HTS", "q": "Le site possède-t-il des copies de l'algorithme de dépistage du VIH ?", "type": "BINARY", "dom": "CLIN"}, {"n": 9, "code": "Q09", "sec": "HTS", "q": "Le site possède-t-il des SOPs sur le dépistage du VIH ?", "type": "BINARY", "dom": "CLIN"}, {"n": 10, "code": "Q10", "sec": "HTS", "q": "Le site a-t-il proposé des services ICT à toutes les PVVIH nouvellement enrôlées sur la période {{PERIODE}} ?", "type": "RATIO", "dom": "CLIN", "num": "# Les nouveaux PVVIH enrollés  qui ont bénéficié d'une  ICT", "den": "# Nouveaux  PVVIH enrollés sur TARV"}, {"n": 11, "code": "Q11", "sec": "HTS", "q": "Le site a-t-il proposé des ICT à toutes les personnes vivant avec le VIH présentant une charge virale élevée sur la période {{PERIODE}} ? Voir les données relatives aux patients avec charge virale élevée.", "type": "RATIO", "dom": "CLIN", "num": "# Personnes vivant avec le VIH avec Charge virale elevé ayant bénéficié d'une offre de ICT", "den": "# Personnes vivant avec le VIH avec Charge virale elevé"}, {"n": 12, "code": "Q12", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site a-t-il mis les PVVIH nouvellement diagnostiquées sous TARV sur la période {{PERIODE}} ?", "type": "RATIO", "dom": "CLIN", "num": "# nouvellement diagnostiqué sous ART", "den": "# nouvellement diagnostiqué"}, {"n": 13, "code": "Q13", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Les personnes absentes sur la période {{PERIODE}} ont-elles été suivies par l'APS ? Les registres de suivi de l'APS sont-ils à jour ?", "type": "RATIO", "dom": "CLIN", "num": "Nombre d'APS avec tracking logbook à jour", "den": "Nombre d'APS avec tracking logbook"}, {"n": 14, "code": "Q14", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le google sheet RTC a-t-il été rempli ? Le google sheet RTC est-il à jour ?", "type": "BINARY", "dom": "CLIN", "fu": "Le Google Sheet RTC est-il à jour ?"}, {"n": 15, "code": "Q15", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site propose-t-il des DSD/services communautaires pour les PVVIH (distribution de traitements antirétroviraux, prélèvement d'échantillons de charge virale) ?", "type": "BINARY", "dom": "CLIN"}, {"n": 16, "code": "Q16", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site effectue-t-il un dépistage TB des PVVIH et documente-t-il les cas présumptif de tuberculose (Registre des cas présumptifs) ?", "type": "BINARY", "dom": "CLIN", "fu": "Le registre des cas présomptifs est-il à jour ?"}, {"n": 17, "code": "Q17", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Quel pourcentage des cas présumés de tuberculose ont fait l'objet d'un prélèvement d'échantillons envoyés au laboratoire ?", "type": "RATIO", "dom": "CLIN", "num": "# Cas présumés de tuberculose avec prélèvement crachats", "den": "# Cas présumptifs de tuberculose"}, {"n": 18, "code": "Q18", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Quel est le délai d'obtention des résultats des 3 derniers examens d'expectorations pour la tuberculose documentés ?", "type": "THRESHOLD", "dom": "CLIN"}, {"n": 19, "code": "Q19", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Quel pourcentage de patients atteints de tuberculose (anciens et nouveaux) avait un statut VIH documenté (pour UPEC/CDT) ?", "type": "RATIO", "dom": "CLIN", "num": "Nombre de cas de tuberculose avec statut VIH documenté", "den": "nombre de cas de tuberculose"}, {"n": 20, "code": "Q20", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site dispose-t-il d'un registre AHD ? Ce registre est-il à jour ?", "type": "BINARY", "dom": "CLIN", "fu": "Ce registre AHD est-il à jour ?"}, {"n": 21, "code": "Q21", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site présente-t-il un registre de charge virale élevée ? Ce registre est-il à jour ?", "type": "BINARY", "dom": "CLIN", "fu": "Ce registre de charge virale élevée est-il à jour ?"}, {"n": 22, "code": "Q22", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site offre-t-il des EAC aux PVVIH conformément aux recommandations (3 à 6 EAC, évaluation de l'observance avant le rappel) ? Quel pourcentage de PVVIH  ont bénéficié de ces services conformément aux directives ?", "type": "RATIO", "dom": "CLIN", "num": "# PVVIH avec charge virale élevée ayant bénéficié des EAC conformément aux directives", "den": "# PVVIH avec charge virale élevée"}, {"n": 23, "code": "Q23", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site bascule-t-il les personnes vivant avec le VIH qui échouent sur la 1ere  ligne vers la  2eme ligne ?", "type": "RATIO", "dom": "CLIN", "num": "#PLHIV échec de la 1ere ligne à la 2eme  ligne", "den": "Les personnes vivant avec le VIH échouent en 1ere ligne"}, {"n": 24, "code": "Q24", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Ce site propose-t-il des tests de résistance aux personnes vivant avec le VIH en échec de traitement antirétroviral de 2eme ligne ?", "type": "RATIO", "dom": "CLIN", "num": "#PVVIH en échec de deuxième line  chez qui le tests de résistance proposés", "den": "# Personnes vivant avec le VIH en échec sur la 2eme ligne"}, {"n": 25, "code": "Q25", "sec": "PTME/EID", "q": "Le site dispose-t-il de données documentant le statut VIH de tous les  femmes enceintes?", "type": "RATIO", "dom": "CLIN", "num": "# femmes enceintes avec status VIH documentées", "den": "nombre de femmes enceintes"}, {"n": 26, "code": "Q26", "sec": "PTME/EID", "q": "Le site dispose-t-il de données documentant le statut syphilis de tous les  femmes enceintes?", "type": "RATIO", "dom": "CLIN", "num": "# femmes enceintes ayant un statut syphilis documenté", "den": "nombre de femmes enceintes"}, {"n": 27, "code": "Q27", "sec": "PTME/EID", "q": "Le site offre-t-il les TARV et documentés pour toutes les Femmes enceintes séropositives ?", "type": "RATIO", "dom": "CLIN", "num": "# Femmes enceintes séropositives sous traitement antirétroviral documenté", "den": "nombre de femmes enceintes séropositives"}, {"n": 28, "code": "Q28", "sec": "PTME/EID", "q": "Le site dispose-t-il d'informations documentées de traitement de la syphilis pour tous les femmes enceintes testés positifs ?", "type": "RATIO", "dom": "CLIN", "num": "# Les femmes enceintes chez qui la syphilis a été diagnostiquémis sous traitement", "den": "# Femmes enceintes diagnostiquées positives à la syphilis"}, {"n": 29, "code": "Q29", "sec": "PTME/EID", "q": "Le site collecte-t-il des échantillons pour le diagnostic précoce du VIH chez tous les nourrissons exposés au VIH ? Période : {{PERIODE}}.", "type": "SAMPLED", "dom": "CLIN", "num": "Nombre de nourrissons exposés au VIH pour lesquels un prélèvement PCR adapté à l'âge a été documenté parmi 10 nourrissons sélectionnés au hasard", "defDen": 10}, {"n": 30, "code": "Q30", "sec": "PTME/EID", "q": "Existe -t-il un documentation des résultats menté des résultats du dépistage précoce du VIH chez les personnes soignant les personnes ayant effectué le prélèvement d'échantillons dans le cadre de tous les établissements de santé ?", "type": "RATIO", "dom": "CLIN", "num": "# Nourrissons exposés au VIH, parmi les échantillons prélevés, avec résultat documenté", "den": "# Nourrissons exposés au VIH avec échantillon prélevé"}, {"n": 31, "code": "Q31", "sec": "PTME/EID", "q": "Le site initie-t-il le cotrimoxazole (CTX) avant l'âge de huit semaines pour tous les nourrissons exposés au VIH (HEI) ?", "type": "RATIO", "dom": "CLIN", "num": "# Les nourrissons exposés au VIH (HEI) commencent le cotrimoxazole (CTX) entre 6 et 8 semaines", "den": "# Nourrissons exposés au VIH (HEI) âgés de 6 à 8 semaines"}, {"n": 32, "code": "Q32", "sec": "PTME/EID", "q": "Les sites effectuent-ils un suivi jusqu'à la fin de l'allaitement maternel et disposent-ils d'un résultat final documenté concernant le VIH à l'âge de 24 mois pour tous les nourrissons exposés au VIH (HEI) ? Période : {{PERIODE}}.", "type": "RATIO", "dom": "CLIN", "num": "Le nombre de nourrissons exposés au VIH  suivi jusqu'à la fin de l'allaitement et un résultat final documenté avant l'âge de 24 mois", "den": "Nourrissons exposés au VIH (HEI) âgés de 24 mois."}, {"n": 33, "code": "Q33", "sec": "PTME/EID", "q": "Existe -t-il un outil de dosage des ARV pédiatriques  qui répertorie les ARV des schémas posologiques recommandés a disponibles pour le prescripteur d'ARV ?", "type": "BINARY", "dom": "CLIN"}, {"n": 34, "code": "Q34", "sec": "PTME/EID", "q": "Ce site implemente-t-il le Surge Pediatric? (verifier les scan form)", "type": "BINARY", "dom": "CLIN"}, {"n": 35, "code": "Q35", "sec": "DQA", "q": "Le nombre de personnes testées pour le VIH en {{MOIS}} — DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "# Personnes testées pour le VIH en {{MOIS}} dans DAMA", "den": "# Personnes testées pour le VIH en {{MOIS}} dans le Registre", "dqa": 1, "perMonth": true}, {"n": 36, "code": "Q36", "sec": "DQA", "q": "Le nombre de personnes testées positives au VIH en {{MOIS}} — DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "# Personnes testées positives au VIH en {{MOIS}} dans DAMA", "den": "# Personnes testées positives au VIH en {{MOIS}} dans le Registre", "dqa": 1, "perMonth": true}, {"n": 37, "code": "Q37", "sec": "DQA", "q": "Le nombre de nouvelles PVVIH ayant débuté un traitement antirétroviral en {{MOIS}} — DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "# Nouvelles PVVIH ayant débuté un TARV en {{MOIS}} dans DAMA", "den": "# Nouvelles PVVIH ayant débuté un TARV en {{MOIS}} dans le Registre", "dqa": 1, "perMonth": true}, {"n": 38, "code": "Q38", "sec": "DQA", "q": "Le nombre de PVVIH sous traitement antirétroviral en {{MOIS}} — DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "# PVVIH sous TARV en {{MOIS}} dans DAMA", "den": "# PVVIH sous TARV en {{MOIS}} dans le Registre", "dqa": 1, "perMonth": true}, {"n": 39, "code": "Q44", "sec": "TPT/CQI/RTC", "q": "le site dispose t il de la liste lineaire des patients eligibles au TPT attendus durant le mois", "type": "BINARY", "dom": "CLIN"}, {"n": 40, "code": "Q45", "sec": "TPT/CQI/RTC", "q": "Le site dispose-t-il d'un project CQI bien defini?", "type": "BINARY", "dom": "CLIN"}, {"n": 41, "code": "Q46", "sec": "TPT/CQI/RTC", "q": "le site dispose t il de la liste lineaire des patients absents du mois dernier et des mois antérieurs", "type": "BINARY", "dom": "CLIN"}, {"n": 42, "code": "Q47", "sec": "IPC", "q": "Existe-t-il un plan de control de Tuberculose spécifique à la formation sanitaire ? Identifiant des tousseurs, instructions sur comment tousser, et priorisation des soins pour tout tousseur", "type": "BINARY", "dom": "CLIN"}, {"n": 43, "code": "Q48", "sec": "IPC", "q": "Le site dispose-t-il d'un point focal CPI réunissant TOUS les points suivants ?", "type": "COMPOSITE", "dom": "CLIN", "items": ["Le PF pour la CPI a du temps et des ressources dédiés aux activités CPI", "Le PF pour la CPI a reçu une formation spécifique CPI au moins une fois par an", "Le PF pour la CPI tient le registre de screening des infections, suivi des résultats, vaccinations et expositions"]}, {"n": 44, "code": "Q49", "sec": "IPC", "q": "Tous les matériels suivant pour collectes des échantillons sont t-ils disponible ? gants à usage unique, matériels pour lavage des mains, boite de sécurité", "type": "COMPOSITE", "dom": "CLIN", "items": ["Gants à usage unique", "Matériels pour lavage des mains", "Boîte de sécurité"]}, {"n": 45, "code": "Q50", "sec": "IPC", "q": "Le site dispose-t-il de TOUS les équipements de protection individuelle suivants ?", "type": "COMPOSITE", "dom": "CLIN", "items": ["Gants", "Blouses / robes", "Masque facial médical", "Lunettes ou visière plastique", "Masques N95 ou respirateur équivalent"]}, {"n": 46, "code": "Q51", "sec": "IPC", "q": "Est-ce que TOUS les éléments suivants sont disponibles dans la FOSA ? les gants ; blouses ; eau et savon ; boite de sécurité ; poubelles.", "type": "COMPOSITE", "dom": "CLIN", "items": ["Gants", "Blouses", "Eau et savon", "Boîte de sécurité", "Poubelles"]}, {"n": 47, "code": "Q52", "sec": "IPC", "q": "Les déchets infectieux sont-ils séparés des déchets généraux et gardés séparément dans des poubelles avec couvercle et étiquetées ?", "type": "BINARY", "dom": "CLIN"}, {"n": 48, "code": "Q53", "sec": "MNT", "q": "Le site dispose t il d’un pèse personne ?", "type": "BINARY", "dom": "CLIN"}, {"n": 49, "code": "Q54", "sec": "MNT", "q": "Le site dispose t’il d’un Tensiomètre", "type": "BINARY", "dom": "CLIN"}, {"n": 50, "code": "Q55", "sec": "MNT", "q": "Le poids est-il pris et documenté dans le dossier, dans le TARV et dans le DAMA (regarder 10 dossiers adulte, 10 dossier femmes enceintes, 10 dossiers enfants)", "type": "SAMPLED", "dom": "CLIN", "num": "# Dossiers où le poids est documenté (dossier, TARV et DAMA)", "defDen": 30}, {"n": 51, "code": "Q56", "sec": "MNT", "q": "La taille est-elle prise et documentée dans le dossier, dans le TARV et dans le DAMA ( regarder 10 dossiers adulte, 10 dossier femmes enceintes, 10 dossiers enfants)", "type": "SAMPLED", "dom": "CLIN", "num": "# Dossiers où la taille est documentée (dossier, TARV et DAMA)", "defDen": 30}, {"n": 52, "code": "Q57", "sec": "MNT", "q": "La tension arterielle est-elle prise et documenté dans le dossier, dans le TARV et dans le DAMA (regarder 10 dossiers adulte, 10 dossier femmes enceintes,)", "type": "SAMPLED", "dom": "CLIN", "num": "# Dossiers où la tension artérielle est documentée (dossier, TARV et DAMA)", "defDen": 30}, {"n": 53, "code": "Q58", "sec": "FECH", "q": "% enfant (nfants biologiques et enfants exposés) sur line list des APS collecte' (Vérifier le line listing par APS)", "type": "RATIO", "dom": "CLIN", "num": "# Enfants (biologiques et exposés) dont l'échantillon a été collecté", "den": "# Enfants sur la line list des APS"}, {"n": 54, "code": "Q59", "sec": "Prévention TB", "q": "% PVVIH mis sous TPT (Vérifier le line listing des patients non mis sur TPT par APS)", "type": "RATIO", "dom": "CLIN", "num": "# PVVIH éligibles initiées au TPT", "den": "# PVVIH éligibles au TPT sur la line list"}, {"n": 55, "code": "Q43", "sec": "Dispensation communautaire", "q": "Ce site dispose-t-il d'un organisme a base communautaire affilié offrant la distribution d'ARV (PODIC) ?", "type": "BINARY", "dom": "CLIN"}, {"n": 56, "code": "Q60", "sec": "Dispensation communautaire", "q": "Se rassurer que le nom de l’OBC apparait pou tous les patients dispensés en communauté dans le DAMA", "type": "RATIO", "dom": "CLIN", "num": "# Patients dispensés en communauté avec le nom de l'OBC renseigné dans DAMA", "den": "# Clients OBC"}, {"n": 57, "code": "Q61", "sec": "pALD", "q": "% d’enfants infectés eligible et initiés au pALD", "type": "RATIO", "dom": "CLIN", "num": "# Enfants infectés éligibles et initiés au pALD", "den": "# Enfants infectés éligibles au pALD"}, {"n": 58, "code": "Q62", "sec": "pALD", "q": "% d'enfants de moins de 10 ans avec poids documente' dans DAMA. Nombre de dossiers d'enfants de moins de 10 ans à jour du poids en conformité avec le Dama", "type": "RATIO", "dom": "CLIN", "num": "# Enfants de moins de 10 ans avec poids documenté dans DAMA", "den": "# Enfants de moins de 10 ans"}, {"n": 59, "code": "Q65", "sec": "Handshake Model", "q": "Affichage de l'algortithme des connus positifs et du Handshake Model dans l'UPEC", "type": "BINARY", "dom": "CLIN"}, {"n": 60, "code": "Q68", "sec": "Recency Test", "q": "Nombre de nouveau Positifs  ayant été testés au recency", "type": "RATIO", "dom": "CLIN", "num": "# Nouveaux positifs testés au recency", "den": "# Nouveaux positifs"}];
 
 /* ===================== i18n ===================== */
 const I18N = {
@@ -960,24 +960,38 @@ function cyclePeriodLabel(c){
   if(!ms.length) return c.name;
   return monthName(ms[0].m,ms[0].y) + ' – ' + monthName(ms[ms.length-1].m, ms[ms.length-1].y);
 }
-/* Replace hard-coded month references in question text with the active period */
-function resolvePeriod(text, cyc){
-  if(!cyc) return text;
-  const ms = cycleMonths(cyc);
+/* Every month name a question can carry, in both languages — used only to catch a month
+   somebody typed by hand into a question added from the console. */
+const MONTH_RE = 'Janvier|Février|Fevrier|Mars|Avril|Mai|Juin|Juillet|Aout|Août|Septembre|Octobre|Novembre|Décembre|Decembre|'
+               + 'January|February|March|April|June|July|August|September|October|November|December';
+
+/* Put the cycle's real months into a question's text.
+   Applies to the wording AND to the numerator, denominator, follow-up and checklist
+   labels — a title saying "Juillet" above a field saying "Avril" is how a supervisor
+   ends up entering the wrong month's figure.
+   mIdx, when given, is the index inside cycleMonths(): a question asked once per month. */
+function resolvePeriod(text, cyc, mIdx){
+  let t = (text==null) ? text : String(text);
+  if(!cyc || t==null || t==='') return t;
+  const ms  = cycleMonths(cyc);
   const lbl = cyclePeriodLabel(cyc);
-  const m1 = ms.length? monthName(ms[0].m,ms[0].y) : lbl;
-  const m2 = ms.length>1? monthName(ms[ms.length-1].m, ms[ms.length-1].y) : m1;
-  let t = text;
-  // dynamic tokens
-  t = t.replace(/\{\{PERIODE\}\}/g, lbl).replace(/\{\{MOIS_1\}\}/g, m1).replace(/\{\{MOIS_2\}\}/g, m2);
-  // legacy hard-coded ranges from the source instrument
-  t = t.replace(/entre\s+\w+\s+et\s+\w+\s+20\d\d/gi, 'sur la période '+lbl);
-  t = t.replace(/en\s+(Janvier|Février|Fevrier|Mars|Avril|Mai|Juin|Juillet|Aout|Août|Septembre|Octobre|Novembre|Décembre|Decembre)\s+20\d\d/gi,
-                (mm,g1)=> 'en '+m1);
-  t = t.replace(/(Janvier|Février|Fevrier|Mars|Avril|Mai|Juin|Juillet|Aout|Août|Septembre|Octobre|Novembre|Décembre|Decembre)\s+et\s+(Janvier|Février|Fevrier|Mars|Avril|Mai|Juin|Juillet|Aout|Août|Septembre|Octobre|Novembre|Décembre|Decembre)\s+20\d\d/gi,
-                m1+' et '+m2);
+  const m1  = ms.length? monthName(ms[0].m, ms[0].y) : lbl;
+  const m2  = ms.length>1? monthName(ms[ms.length-1].m, ms[ms.length-1].y) : m1;
+  const mk  = (mIdx!==undefined && ms[mIdx]) ? monthName(ms[mIdx].m, ms[mIdx].y) : m1;
+
+  /* FIRST the legacy clean-up, for a month typed by hand into a new question.
+     It has to run BEFORE the tokens are expanded: run afterwards it would rewrite the
+     month we have just inserted for month 2 or 3 back to the first month of the cycle. */
+  t = t.replace(/entre\s+\S+\s+et\s+\S+\s+20\d\d/gi, 'sur la période '+lbl);
+  t = t.replace(new RegExp('('+MONTH_RE+')\\s+et\\s+('+MONTH_RE+')\\s+20\\d\\d','gi'), m1+' et '+m2);
+  t = t.replace(new RegExp('en\\s+('+MONTH_RE+')\\s*20\\d\\d','gi'), 'en '+m1);
   t = t.replace(/\bFY2[3-9]-?2?\d?\b/g, 'FY'+(cyc.fy%100));
-  return t;
+
+  /* THEN the explicit tokens the questionnaire actually uses. */
+  return t.replace(/\{\{PERIODE\}\}/g, lbl)
+          .replace(/\{\{MOIS_1\}\}/g, m1)
+          .replace(/\{\{MOIS_2\}\}/g, m2)
+          .replace(/\{\{MOIS\}\}/g,   mk);
 }
 
 /* ===================== scoring ===================== */
@@ -1093,7 +1107,7 @@ function pooled(qs, answers){
 }
 function visitScores(visit){
   const answers = DB.d.answers[visit.id] || {};
-  const qs = activeQuestions();
+  const qs = visitQs(visit);
   const bySec = {};
   qs.forEach(q=>{ (bySec[q.sec] = bySec[q.sec] || []).push(q); });
   const secs = Object.keys(bySec).map(s=>Object.assign({sec:s, qs:bySec[s]}, pooled(bySec[s], answers)));
@@ -1104,8 +1118,50 @@ function visitScores(visit){
     overall:  pooled(qs, answers)
   };
 }
-function activeQuestions(){ return DB.d.questions.filter(q=>q.active!==false).sort((a,b)=>a.order-b.order); }
-function sectionList(){ const s=[]; activeQuestions().forEach(q=>{ if(!s.includes(q.sec)) s.push(q.sec); }); return s; }
+/* A question flagged perMonth is not one question: it is one question PER MONTH the cycle
+   still covers. Three months ticked → three DQA lines for that indicator; untick September
+   and its line disappears with it. The answer id carries the month, so unticking a month
+   and ticking it back finds the figures still there. */
+function monthKey(mo){ return 'M'+mo.y+String(mo.m+1).padStart(2,'0'); }
+
+function activeQuestions(cyc){
+  const c = (cyc === undefined) ? activeCycle() : cyc;
+  const base = DB.d.questions.filter(q=>q.active!==false)
+                             .sort((a,b)=>(a.order||0)-(b.order||0));
+  const ms = c ? cycleMonths(c) : [];
+  const out = [];
+  const put = (q, mIdx, mo)=>{
+    const r = t => resolvePeriod(t, c, mIdx);
+    out.push(Object.assign({}, q, {
+      id:         mo ? q.id + monthKey(mo) : q.id,
+      baseId:     q.id,
+      month:      mo || null,
+      monthLabel: mo ? monthName(mo.m, mo.y) : '',
+      q:   r(q.q),   num: r(q.num), den: r(q.den), fu: r(q.fu),
+      items: q.items ? q.items.map(r) : q.items
+    }));
+  };
+  base.forEach(q=>{
+    if(q.perMonth && ms.length) ms.forEach((mo,i)=>put(q,i,mo));
+    else put(q);
+  });
+  return out;
+}
+function sectionList(cyc){
+  const s=[]; activeQuestions(cyc).forEach(q=>{ if(!s.includes(q.sec)) s.push(q.sec); }); return s;
+}
+/* The cycle a supervision belongs to, carrying the months that were in scope the day it
+   was opened. A supervision already submitted must keep showing the questions it was
+   actually answered against, even if the console unticks a month afterwards. */
+function cycleOf(v){
+  const c = (v && DB.d.cycles.find(x=>x.id===v.cycleId)) || activeCycle();
+  if(!c) return null;
+  if(v && Array.isArray(v.monthsComplete) && v.monthsComplete.length === (c.months||[]).length)
+    return Object.assign({}, c, {monthsComplete: v.monthsComplete});
+  return c;
+}
+function visitQs(v){ return activeQuestions(cycleOf(v)); }
+function qById(qid, v){ return visitQs(v).find(q=>q.id===qid); }
 
 /* ===================== helpers ===================== */
 const $ = (s,r)=> (r||document).querySelector(s);
@@ -1250,7 +1306,7 @@ function render(){
     case 'visits': html=viewVisits(); break;
     case 'dash':   html=viewDash(); break;
     case 'chat':   html=viewChat(r[1]); break;
-    case 'admin':  html=isSuper()?viewAdmin(r[1]||'cycles', r[2]):'<div class="banner b-err">Accès refusé.</div>'; break;
+    case 'admin':  html=isSuper()?viewAdmin(r[1]||'supervisions', r[2]):'<div class="banner b-err">Accès refusé.</div>'; break;
     case 'sitereq':html=viewSiteReq(r[1]); key='visits'; break;
     default: html=viewHome(); key='home';
   }
@@ -1335,8 +1391,19 @@ function installBanner(){
 function viewLoginRole(path){
   const L=LANG==='fr';
   const want = path==='site' ? 'SITE' : 'SUPERVISOR';
-  const users = DB.d.users.filter(u=>u.role===want && u.active!==false);
+  /* EVERY account on this device is listed, whatever its state.
+     Filtering out u.active===false meant that the moment central deactivated somebody,
+     their own account vanished from their own phone and the screen told them "no account
+     enrolled on this device" — which was untrue, and sent them round to enrol again.
+     A suspended or refused account is now shown with its state, and choosing it opens
+     the screen that explains why and names the administrator. */
+  const users = DB.d.users.filter(u=>u.role===want);
   const isS = path==='site';
+  const stChip = u => { const st=userStatus(u);
+    return st===U_ACTIVE ? '' :
+      ' — '+(st===U_PENDING   ? (L?'en attente de validation':'awaiting approval')
+           : st===U_SUSPENDED ? (L?'compte désactivé':'account deactivated')
+           :                    (L?'enrôlement refusé':'enrolment refused')); };
   return `
   <div class="card" style="max-width:470px;margin:24px auto">
     ${loginHeader()}
@@ -1346,7 +1413,10 @@ function viewLoginRole(path){
     ${users.length? `
       <label class="f"><span>${T('name')}</span>
         <select id="lg-user">${users.map(u=>
-          `<option value="${u.id}">${esc(u.name)}${userStatus(u)!==U_ACTIVE?' — '+userStatus(u):''}</option>`).join('')}</select></label>
+          `<option value="${u.id}">${esc(u.name)}${esc(stChip(u))}</option>`).join('')}</select></label>
+      ${users.some(u=>userStatus(u)!==U_ACTIVE)?`<p class="xs muted" style="margin:-4px 0 10px">${L
+        ?'Un compte marqué « en attente », « désactivé » ou « refusé » se connecte quand même : l\'application vous dira où en est votre dossier et qui appeler.'
+        :'An account marked awaiting, deactivated or refused can still sign in: the app will tell you where your file stands and who to call.'}</p>`:''}
       <label class="f"><span>${T('pin')}</span>
         <input type="password" id="lg-pin" inputmode="numeric" placeholder="••••" autocomplete="current-password"></label>
       <button class="btn blk" onclick="doLogin()">${T('login')}</button>
@@ -1355,6 +1425,8 @@ function viewLoginRole(path){
         isS ? (L?'Enrôler un autre agent du site':'Enrol another staff member')
             : (L?'Enrôler un autre superviseur':'Enrol another supervisor')}</button>
       <button class="btn sec blk sm" style="margin-top:8px" onclick="forgotPinModal()">${L?'Code PIN oublié ?':'Forgotten PIN?'}</button>
+      <button class="btn sec blk sm" style="margin-top:8px" ${ONLINE?'':'disabled'}
+        onclick="refreshLocalAccounts(true)">↻ ${L?'Vérifier l\'état de mon compte':'Check my account status'}</button>
     ` : `
       <div class="banner b-info">${L
         ?'Aucun compte enrôlé sur cet appareil. Commencez par vous enrôler : votre demande sera transmise au niveau central pour validation.'
@@ -1625,15 +1697,30 @@ function dupEnrolModal(dup){
         <div class="s">${esc(x.fn||'')}${x.phone?' · '+esc(String(x.phone)):''}</div></div>
       <span class="chip ${userStatus(x)===U_ACTIVE?'g':'a'}">${userStatus(x)}</span></div>`).join('')}</div>
     <p class="small">${L
-      ?'Si c\'est vous, revenez à l\'écran de connexion et utilisez ce compte : votre code PIN est celui que vous aviez choisi. Si vous l\'avez oublié, choisissez « Code PIN oublié ? ».'
-      :'If this is you, go back to the sign-in screen and use that account: your PIN is the one you chose. If you have forgotten it, choose "Forgotten PIN?".'}</p>
+      ?'Si c\'est vous, appuyez sur « Oui, c\'est mon compte » : l\'application le sélectionne et vous demande votre code PIN — celui que vous aviez choisi. Si vous l\'avez oublié, « Code PIN oublié ? » est juste en dessous.'
+      :'If this is you, press "Yes, this is my account": the app selects it and asks for your PIN — the one you chose. If you have forgotten it, "Forgotten PIN?" is right below.'}</p>
     <p class="xs muted">${L
       ?'Créer un deuxième compte partagerait vos supervisions et vos recommandations entre deux comptes.'
       :'Creating a second account would split your supervisions and recommendations between two accounts.'}</p>`,
-    `<button class="btn" onclick="cancelEnrol()">${L?'Utiliser le compte existant':'Use the existing account'}</button>
-     <button class="btn sec sm" onclick="forceEnrol()">${L?'C\'est une autre personne':'This is somebody else'}</button>`);
+    `<button class="btn" onclick="useExisting('${dup[0].id}')">${L?'Oui, c\'est mon compte':'Yes, this is my account'}</button>
+     <button class="btn sec sm" onclick="forceEnrol()">${L?'Non, c\'est quelqu\'un d\'autre':'No, this is somebody else'}</button>`);
 }
 function cancelEnrol(){ PENDING_ENROL=null; closeModal(); render(); }
+/* This button used to close the dialog and redraw the same screen — it promised to take
+   the person to their account and did nothing at all. Now it selects that account and
+   puts the cursor in the PIN box, with the forgotten-PIN way out right underneath. */
+function useExisting(uid){
+  PENDING_ENROL=null; closeModal();
+  const u=DB.d.users.find(x=>x.id===uid);
+  if(u) setPath(u.role==='SITE'?'site':'sup'); else render();
+  setTimeout(()=>{
+    const sel=$('#lg-user'); if(sel){ sel.value=uid; }
+    const pin=$('#lg-pin'); if(pin){ pin.focus(); }
+    const L=LANG==='fr';
+    toast(L?'Votre compte est sélectionné — saisissez votre code PIN. Oublié ? « Code PIN oublié ? » juste en dessous.'
+           :'Your account is selected — enter your PIN. Forgotten it? "Forgotten PIN?" is just below.', 5000);
+  }, 260);
+}
 function forceEnrol(){ const u=PENDING_ENROL; PENDING_ENROL=null;
   if(u){ audit('ENROL_DUP','user',u.name+' — créé malgré un doublon signalé'); saveEnrol(u); } }
 function saveEnrol(u){
@@ -1913,8 +2000,12 @@ function syncCard(){
           ${ONLINE?(L?'En ligne':'Online'):(L?'Hors ligne — l\'envoi reprendra automatiquement':'Offline — sending resumes automatically')}
           ${last?' · '+(L?'dernière synchro ':'last sync ')+last:''}</div>
       </div>
-      <button class="btn sec sm" ${ONLINE&&c.api?'':'disabled'} onclick="syncNow()">⇅ ${L?'Synchroniser':'Sync'}</button>
+      <div class="row" style="flex-wrap:nowrap;gap:6px">
+        <button class="btn sec sm" ${ONLINE&&c.api?'':'disabled'} onclick="syncNow()">⇅ ${L?'Envoyer':'Send'}</button>
+        <button class="btn sec sm" ${ONLINE&&c.api?'':'disabled'} onclick="pullDataNow()">⇩ ${L?'Recevoir':'Receive'}</button>
+      </div>
     </div>
+    ${c.lastData?`<div class="xs muted" style="margin-top:6px">${L?'Dernière réception : ':'Last received: '}${fmtDT(c.lastData)}</div>`:''}
   </div>`;
 }
 
@@ -1954,12 +2045,97 @@ function normPhone(p){ return String(p==null?'':p).replace(/[^0-9]/g,'').slice(-
 function normName(n){ return String(n||'').toLowerCase()
   .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,''); }
 function normMail(m){ return String(m||'').trim().toLowerCase(); }
+/* Signals are weighted, because "same name" alone is weak where family names repeat
+   across a district, and acting on it would offer to merge two different people.
+     identity document  → decisive on its own
+     phone / email      → strong
+     name               → weak alone
+     shared district or facility → supporting
+   One decisive signal, or two strong ones, is a match worth proposing. Anything less is
+   flagged for a person to look at and never acted on. A person always confirms. */
+function normId(v){ return String(v==null?'':v).replace(/[^a-z0-9]/gi,'').toUpperCase(); }
+function matchScore(a, b){
+  const why=[]; let score=0;
+  const ida=normId(a.idNumber), idb=normId(b.idNumber);
+  if(ida.length>=5 && ida===idb){ score+=100; why.push(LANG==='fr'?'même pièce d\'identité':'same identity document'); }
+  const pa=normPhone(a.phone);
+  if(pa.length>=8 && pa===normPhone(b.phone)){ score+=50; why.push(LANG==='fr'?'même téléphone':'same phone'); }
+  const ea=normMail(a.email);
+  if(ea && ea===normMail(b.email)){ score+=50; why.push(LANG==='fr'?'même email':'same email'); }
+  const na=normName(a.name);
+  if(na.length>=6 && na===normName(b.name)){ score+=20; why.push(LANG==='fr'?'même nom':'same name'); }
+  const da=(a.districts||[]), db=(b.districts||[]);
+  if(da.some(d=>db.includes(d))){ score+=10; why.push(LANG==='fr'?'même district':'same district'); }
+  const sa=(a.sites||[]), sb=(b.sites||[]);
+  if(sa.some(x=>sb.includes(x))){ score+=10; why.push(LANG==='fr'?'même formation sanitaire':'same facility'); }
+  return {score, why, sure: score>=100, likely: score>=70};
+}
+/* Candidates worth showing a human. `sure` or `likely` may be merged; the rest are only flagged. */
 function duplicatesOf(u, list){
-  const ph=normPhone(u.phone), nm=normName(u.name), em=normMail(u.email);
-  return (list||DB.d.users).filter(x=> x && x.id!==u.id && x.role!=='SUPER' && (
-      (ph.length>=8 && normPhone(x.phone)===ph) ||
-      (em && normMail(x.email)===em) ||
-      (nm.length>=6 && normName(x.name)===nm)));
+  return (list||DB.d.users)
+    .filter(x=> x && x.id!==u.id && x.role!=='SUPER')
+    /* A COPY carrying its score. Writing _match onto the shared user object meant the
+       next comparison silently overwrote the previous one's result. */
+    .map(x=> Object.assign({}, x, {_match: matchScore(u,x)}))
+    .filter(x=> x._match.score >= 20)
+    .sort((a,b)=> b._match.score - a._match.score);
+}
+function mergeableWith(u, list){ return duplicatesOf(u, list).filter(x=>x._match.likely); }
+
+/* ---------- merge two records into one ----------------------------------------
+   The OLDER account survives: it is the one the supervisions already point at.
+   Deleting the other outright would orphan them — a supervision with no supervisor,
+   a blank signature block on the report. So everything is re-pointed first, on the
+   server, and the dropped record is archived whole. */
+function mergeUsers(keepId, dropId, reason){
+  const keep=DB.d.users.find(x=>x.id===keepId), drop=DB.d.users.find(x=>x.id===dropId);
+  if(!keep || !drop || keepId===dropId) return;
+  const L=LANG==='fr';
+  ['fn','matricule','idType','idNumber','idFile','idLast','phone','email'].forEach(k=>{
+    if(!keep[k] && drop[k]) keep[k]=drop[k];
+  });
+  keep.districts = [...new Set([].concat(keep.districts||[], drop.districts||[]))];
+  const sites = [...new Set([].concat(keep.sites||[], drop.sites||[]))].filter(id=>siteById(id));
+  if(sites.length){ keep.sites=sites; keep.siteId=sites[0]; }
+  keep.updated = Date.now();
+
+  /* re-point locally too, so this console is right before the next sync */
+  DB.d.visits.forEach(v=>{ if(v.uid===dropId) v.uid=keepId; });
+  DB.d.messages.forEach(m=>{ if(m.uid===dropId) m.uid=keepId; });
+  DB.d.siteReq.forEach(r=>{ if(r.reqUid===dropId) r.reqUid=keepId; });
+  DB.d.users = DB.d.users.filter(x=>x.id!==dropId);
+  DB.d.merged = Object.assign({}, DB.d.merged||{}, {[dropId]:keepId});
+  DB.save();
+  audit('USER_MERGE','user', drop.name+' ('+dropId+') → '+keep.name+' ('+keepId+')');
+  pushUser(keep);
+  queue('merge', {keepId, dropId, by:(me()||{}).name||'', reason:reason||''});
+  toast(L?'✓ Comptes fusionnés — '+esc(keep.name)+' conservé'
+        :'✓ Accounts merged — '+esc(keep.name)+' kept', 4000);
+  render();
+}
+/* A phone still holding the dropped account swaps to the survivor by itself. */
+function applyMerges(list){
+  if(!Array.isArray(list) || !list.length) return 0;
+  let n=0;
+  list.forEach(m=>{
+    if(!m || !m.drop || !m.keep) return;
+    const had = DB.d.users.some(u=>u.id===m.drop);
+    DB.d.visits.forEach(v=>{ if(v.uid===m.drop) v.uid=m.keep; });
+    DB.d.messages.forEach(x=>{ if(x.uid===m.drop) x.uid=m.keep; });
+    DB.d.siteReq.forEach(r=>{ if(r.reqUid===m.drop) r.reqUid=m.keep; });
+    if(DB.d.session===m.drop) DB.d.session=m.keep;         // the person stays signed in
+    if(had){
+      const dropped=DB.d.users.find(u=>u.id===m.drop);
+      const keep=DB.d.users.find(u=>u.id===m.keep);
+      if(keep && dropped && !keep.pin && dropped.pin) keep.pin=dropped.pin;
+      if(!keep && dropped){ dropped.id=m.keep; }           // keep the PIN on this device
+      else DB.d.users = DB.d.users.filter(u=>u.id!==m.drop);
+      n++;
+    }
+    DB.d.merged = Object.assign({}, DB.d.merged||{}, {[m.drop]:m.keep});
+  });
+  if(n) DB.save();
+  return n;
 }
 
 /* Only ids that match a facility we actually know are accepted from the server. */
@@ -2088,6 +2264,47 @@ async function refreshMyState(loud){
   }catch(e){ if(loud) toast(LANG==='fr'?'Serveur injoignable':'Server unreachable'); }
 }
 
+/* ---------- a signed-OUT phone still checks the accounts it holds ------------
+   refreshMyState() begins with me(), so it only ever ran for somebody already signed in.
+   That was a deadlock: a deactivated person could not sign in, and the only thing that
+   could undo the deactivation on their device required them to sign in. Central could
+   press Reactivate for ever and it would never arrive.
+   This asks the server about each account stored on this phone, using the same endpoint,
+   sending no PIN and receiving no secret — only the status. */
+let ACCT_TICK = 0;
+async function refreshLocalAccounts(loud){
+  const api=DB.d.config.api;
+  if(!api || !ONLINE){ if(loud) toast(T('offline')); return 0; }
+  const mine = DB.d.users.filter(u=>u.role!=='SUPER' && !u.remote);
+  if(!mine.length) return 0;
+  let changed = 0;
+  for(const u of mine){
+    try{
+      const r = await fetch(api+'?action=userstate&token='+encodeURIComponent(API_TOKEN)
+        +'&uid='+encodeURIComponent(u.id));
+      const j = await r.json();
+      if(applyReset(j)) return changed;
+      if(!j || !j.ok || !j.user) continue;
+      const before = userStatus(u), s = j.user;
+      const st = normStatus(s.status);
+      if(st) u.status = st;
+      u.active = s.active !== false;
+      if(Array.isArray(s.districts) && s.districts.length) u.districts = s.districts;
+      const sv = realSites(s.sites); if(sv.length){ u.sites=sv; u.siteId=sv[0]; }
+      u.decisionNote = s.decisionNote || '';
+      if(userStatus(u) !== before){
+        changed++;
+        audit('USER_STATE','user', u.name+' : '+before+' → '+userStatus(u));
+      }
+    }catch(e){ /* offline mid-loop: whatever was learned is kept */ }
+  }
+  if(changed){ DB.save(); render(); }
+  if(loud) toast(changed
+    ? (LANG==='fr'?'✓ '+changed+' compte(s) mis à jour':'✓ '+changed+' account(s) updated')
+    : (LANG==='fr'?'Aucun changement':'No change'), 2600);
+  return changed;
+}
+
 /* ---------- central pulls the roster ---------- */
 async function refreshRoster(loud){
   const api=DB.d.config.api;
@@ -2194,8 +2411,11 @@ function suspendUserDo(uid, why){
 }
 function reactivateUser(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
-  u.status=U_ACTIVE; u.active=true; u.decisionNote='';
-  DB.save(); audit('USER_REACTIVATE','user',u.name); pushUser(u); render();
+  u.status=U_ACTIVE; u.active=true; u.decisionNote=''; u.updated=Date.now();
+  DB.save(); audit('USER_REACTIVATE','user',u.name); pushUser(u);
+  toast(LANG==='fr'?'✓ '+u.name+' réactivé — son téléphone le verra à sa prochaine connexion réseau'
+                   :'✓ '+u.name+' reactivated — their phone sees it at its next network connection', 4000);
+  render();
 }
 
 /* ---------- PIN recovery, one click ----------------------------------------
@@ -2562,21 +2782,22 @@ function viewVisit(vid, tab, arg){
 }
 
 function visitQuestions(v, sc, locked){
-  const secs=sectionList();
+  const all=visitQs(v);
+  const secs=[]; all.forEach(q=>{ if(!secs.includes(q.sec)) secs.push(q.sec); });
   VSEC=Math.max(0,Math.min(VSEC,secs.length-1));
   const cur=secs[VSEC];
-  const qs=activeQuestions().filter(q=>q.sec===cur);
-  const c=DB.d.cycles.find(x=>x.id===v.cycleId)||activeCycle();
+  const qs=all.filter(q=>q.sec===cur);
+  const c=cycleOf(v);
   const A=DB.d.answers[v.id]||{};
   const p=pooled(qs,A);
-  const done=activeQuestions().filter(q=>scoreAnswer(q,A[q.id]).answered).length;
-  const tot=activeQuestions().length;
+  const done=all.filter(q=>scoreAnswer(q,A[q.id]).answered).length;
+  const tot=all.length;
   return `
   <div class="secwrap">
     <button class="arw" ${VSEC===0?'disabled':''} title="${LANG==='fr'?'Section précédente':'Previous section'}"
       onclick="gotoSec(${VSEC-1})">‹</button>
     <div class="secnav" id="secnav">${secs.map((s,i)=>{
-      const pp=pooled(activeQuestions().filter(q=>q.sec===s), A);
+      const pp=pooled(all.filter(q=>q.sec===s), A);
       const dot = pp.answered===0?'#D8E1EC':(pp.band==='g'?'#1E7A3C':pp.band==='a'?'#E0A100':'#B3261E');
       return `<button class="${i===VSEC?'on':''}" data-i="${i}" onclick="gotoSec(${i})">${esc(s)}
         <span class="d" data-sec="${esc(s)}" style="background:${dot}"></span></button>`;}).join('')}
@@ -2601,14 +2822,14 @@ function visitQuestions(v, sc, locked){
   </div>`;
 }
 function gotoSec(i){
-  const secs=sectionList();
+  const secs=sectionList(cycleOf(DB.d.visits.find(x=>x.id===(route()[1]||''))));
   VSEC=Math.max(0,Math.min(i,secs.length-1));
   window._keepScroll=0; render();
 }
 function qBox(v,q,a,locked,c){
   a=a||{};
   const r=scoreAnswer(q,a);
-  const txt=resolvePeriod(q.q, c);
+  const txt=q.q;
   const dis=locked?'disabled':'';
   let body='';
   if(q.type==='BINARY'){
@@ -2649,7 +2870,8 @@ function qBox(v,q,a,locked,c){
   return `<div class="qbox ${qFill(r)}" id="qb-${q.id}">
     <div class="qhead">
       <span class="qnum">${q.n}</span>
-      <div class="qtxt">${esc(txt)}${q.dqa?' <span class="chip n">DQA</span>':''}</div>
+      <div class="qtxt">${esc(txt)}${q.dqa?' <span class="chip n">DQA</span>':''}${
+        q.monthLabel?` <span class="chip a">${esc(q.monthLabel)}</span>`:''}</div>
       <button class="iBtn" title="${LANG==='fr'?'Aide : que vérifier, où le vérifier':'Help: what to check and where'}"
         onclick="qHelp('${q.id}','${v.id}')">?</button>
     </div>
@@ -2702,9 +2924,9 @@ function quietA(vid,qid,k,val){
   a[k]=val; touch(vid);
 }
 function guardND(vid,qid,which,el){
-  const q=DB.d.questions.find(x=>x.id===qid);
+  const q=qById(qid, DB.d.visits.find(x=>x.id===vid));
   const a=(DB.d.answers[vid]||{})[qid]||{};
-  if(q.dqa) return;
+  if(!q || q.dqa) return;
   if(a.num===''||a.den===''||a.num==null||a.den==null) return;
   if(Number(a.num)>Number(a.den)){
     infoModal(LANG==='fr'?'Saisie refusée':'Entry refused',
@@ -2716,13 +2938,13 @@ function guardND(vid,qid,which,el){
 /* full=true rebuilds the whole box (safe after a click); false updates score line only */
 function refreshQ(vid,qid,full){
   const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
-  const q=DB.d.questions.find(x=>x.id===qid);
+  const q=qById(qid, v); if(!q) return;
   const a=(DB.d.answers[vid]||{})[qid]||{};
   const r=scoreAnswer(q,a);
   const locked=v.status==='SUBMITTED'||v.status==='APPROVED';
   const box=document.getElementById('qb-'+qid); if(!box) return;
   if(full){
-    const c=DB.d.cycles.find(x=>x.id===v.cycleId)||activeCycle();
+    const c=cycleOf(v);
     const tmp=document.createElement('div'); tmp.innerHTML=qBox(v,q,a,locked,c);
     box.replaceWith(tmp.firstElementChild); return;
   }
@@ -2742,14 +2964,15 @@ function refreshHeader(vid){
   set('#st-mne',  sc.mne.pct,      T('mne'));
   set('#st-all',  sc.overall.pct,  T('synth'), `explainOverall('${vid}')`);
   const A=DB.d.answers[vid]||{};
+  const all=visitQs(v);
   $$('.secnav .d').forEach(d=>{
     const s=d.getAttribute('data-sec'); if(!s) return;
-    const p=pooled(activeQuestions().filter(q=>q.sec===s), A);
+    const p=pooled(all.filter(q=>q.sec===s), A);
     d.style.background = p.answered===0?'#D8E1EC':(p.band==='g'?'#1E7A3C':p.band==='a'?'#E0A100':'#B3261E');
   });
   const cur=$('#sec-score');
   if(cur){ const s=cur.getAttribute('data-sec');
-    const p=pooled(activeQuestions().filter(q=>q.sec===s), A);
+    const p=pooled(all.filter(q=>q.sec===s), A);
     cur.className='chip '+p.band; cur.textContent=pc(p.pct); }
 }
 
@@ -2774,10 +2997,11 @@ function touch(vid){ const v=DB.d.visits.find(x=>x.id===vid); if(v) v.updated=Da
   if(typeof flashSaved==='function') flashSaved(); }
 
 function qHelp(qid,vid){
-  const q=DB.d.questions.find(x=>x.id===qid);
-  const v=DB.d.visits.find(x=>x.id===vid); const c=DB.d.cycles.find(x=>x.id===v.cycleId);
+  const v=DB.d.visits.find(x=>x.id===vid);
+  const q=qById(qid, v); if(!q) return;
   const L=LANG==='fr';
-  let txt = (L?'QUESTION\n':'QUESTION\n')+resolvePeriod(q.q,c)+'\n\n';
+  let txt = (L?'QUESTION\n':'QUESTION\n')+q.q+'\n\n';
+  if(q.monthLabel) txt += (L?'MOIS : ':'MONTH: ')+q.monthLabel+'\n';
   txt += (L?'SECTION : ':'SECTION: ')+q.sec+'\n';
   txt += (L?'DOMAINE : ':'DOMAIN: ')+(q.dom==='MNE'?T('mne'):T('clinical'))+'\n\n';
   if(q.num) txt += T('numerator')+' : '+q.num+'\n';
@@ -2797,7 +3021,7 @@ function qHelp(qid,vid){
   infoModal((L?'Aide — Question ':'Help — Question ')+q.n, txt);
 }
 function qExplain(qid,vid){
-  const q=DB.d.questions.find(x=>x.id===qid);
+  const q=qById(qid, DB.d.visits.find(x=>x.id===vid)); if(!q) return;
   const a=(DB.d.answers[vid]||{})[qid];
   const r=scoreAnswer(q,a);
   infoModal(T('howCalc'), r.explain || (LANG==='fr'?'Cette question n\'a pas encore été répondue.':'This question has not been answered yet.'));
@@ -2918,7 +3142,7 @@ function autoFillPlan(vid){
     const r=scoreAnswer(q,ans);
     DB.d.actions.push({id:DB.id('AC'), visitId:vid, siteId:v.siteId, cycleId:v.cycleId,
       qid:q.id, qn:q.n, sec:s.sec,
-      root:`[${s.sec}] Q${q.n} — ${resolvePeriod(q.q,c).slice(0,180)} → ${pc(r.pct)}`,
+      root:`[${s.sec}] Q${q.n}${q.monthLabel?' ('+q.monthLabel+')':''} — ${q.q.slice(0,180)} → ${pc(r.pct)}`,
       onsite:'', reco:'', resp:'', deadline:'', status:'OPEN', created:Date.now()});
     n++;
   }));
@@ -2969,13 +3193,13 @@ function visitFollowup(v){
 
 /* ===================== REVIEW & SUBMIT ===================== */
 function unanswered(v){
-  const A=DB.d.answers[v.id]||{}; const c=DB.d.cycles.find(x=>x.id===v.cycleId);
-  return activeQuestions().filter(q=>!scoreAnswer(q,A[q.id]).answered)
-    .map(q=>({q, txt:resolvePeriod(q.q,c)}));
+  const A=DB.d.answers[v.id]||{};
+  return visitQs(v).filter(q=>!scoreAnswer(q,A[q.id]).answered)
+    .map(q=>({q, txt:q.q}));
 }
 function missingComments(v){
   const A=DB.d.answers[v.id]||{};
-  return activeQuestions().filter(q=>{
+  return visitQs(v).filter(q=>{
     const a=A[q.id]; if(!a) return false;
     const r=scoreAnswer(q,a);
     if(r.na) return !String((a.na?a.naReason:a.comment)||'').trim();
@@ -3068,14 +3292,19 @@ function setVisitField(vid, field, val){
   audit('VISIT_FIELD','visit', field+' : '+(before||'—')+' → '+(v[field]||'—'));
   flashSaved();
 }
-function jumpTo(vid,sec){ VSEC=sectionList().indexOf(sec); go('#/visit/'+vid+'/q'); }
+function jumpTo(vid,sec){
+  VSEC=sectionList(cycleOf(DB.d.visits.find(x=>x.id===vid))).indexOf(sec);
+  go('#/visit/'+vid+'/q');
+}
 /* Enrich answers with computed metadata so the spreadsheet is readable on its own */
 function answersForSync(vid){
+  const v=DB.d.visits.find(x=>x.id===vid)||{};
   const A=DB.d.answers[vid]||{}; const out={};
-  activeQuestions().forEach(q=>{
+  visitQs(v).forEach(q=>{
     const a=A[q.id]; if(!a) return;
     const r=scoreAnswer(q,a);
-    out[q.id]=Object.assign({}, a, {_n:q.n, _sec:q.sec, _dom:q.dom==='MNE'?'S&E (DQA)':'Clinique',
+    out[q.id]=Object.assign({}, a, {_n:q.n, _sec:q.sec, _month:q.monthLabel||'',
+      _dom:q.dom==='MNE'?'S&E (DQA)':'Clinique',
       _pct: r.pct===null?'':Math.round(r.pct*10)/10, _band: bandLabel(r.band)});
   });
   return out;
@@ -3114,7 +3343,11 @@ function returnVisit(vid){
   if(!note.trim()) return toast(LANG==='fr'?'Un retour écrit est obligatoire':'Written feedback is mandatory');
   const v=DB.d.visits.find(x=>x.id===vid);
   v.status='RETURNED'; v.reviewNote=note; v.reviewedBy=(me()||{}).name; v.reviewedAt=Date.now();
+  v.updated=Date.now();
   DB.save(); audit('VISIT_RETURN','visit',note);
+  /* Without this the decision stayed on the console: the supervisor was never told, and
+     their copy stayed locked as SUBMITTED for ever. approveVisit pushed; this did not. */
+  queue('visit',{visit:visitForSync(v), answers:answersForSync(vid), actions:visitActions(vid)});
   postSiteMessage(v.siteId, (LANG==='fr'?'Supervision retournée : ':'Visit returned: ')+note);
   toast(T('returned')); render();
 }
@@ -3130,16 +3363,18 @@ function reopenVisit(vid){
     onOk: r=>{
       const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
       v.status='DRAFT'; v.reopened=(v.reopened||[]).concat([{by:(me()||{}).name,at:Date.now(),reason:r}]);
+      v.updated=Date.now();
       DB.save(); audit('VISIT_REOPEN','visit',r);
+      queue('visit',{visit:visitForSync(v), answers:answersForSync(vid), actions:visitActions(vid)});
       toast(L?'Supervision rouverte':'Supervision reopened'); render();
     }});
 }
 function exportVisit(vid){
   const v=DB.d.visits.find(x=>x.id===vid); const s=siteById(v.siteId); const c=DB.d.cycles.find(x=>x.id===v.cycleId);
   const A=DB.d.answers[vid]||{};
-  const rows=[['District','Aire','Formation sanitaire','Cycle','Periode','N','Section','Question','Domaine','Num','Den','Score %','Bande','Commentaire']];
-  activeQuestions().forEach(q=>{ const a=A[q.id]||{}; const r=scoreAnswer(q,a);
-    rows.push([s.district,s.area,s.facility,c.name,cyclePeriodLabel(c),q.n,q.sec,resolvePeriod(q.q,c),
+  const rows=[['District','Aire','Formation sanitaire','Cycle','Periode','N','Mois','Section','Question','Domaine','Num','Den','Score %','Bande','Commentaire']];
+  visitQs(v).forEach(q=>{ const a=A[q.id]||{}; const r=scoreAnswer(q,a);
+    rows.push([s.district,s.area,s.facility,c.name,cyclePeriodLabel(c),q.n,q.monthLabel||'',q.sec,q.q,
       q.dom==='MNE'?'S&E (DQA)':'Clinique', a.na?'NA':(a.num??(a.v===true?1:a.v===false?0:'')),
       a.na?'NA':(a.den??(a.v===undefined?'':1)), r.pct===null?'':r.pct.toFixed(1),
       bandLabel(r.band), a.comment||a.naReason||'']); });
@@ -3162,10 +3397,9 @@ function reportReady(v){ return v && (v.status==='SUBMITTED' || v.status==='APPR
 /* every answered question, worst first */
 function rankedQuestions(v){
   const A=DB.d.answers[v.id]||{};
-  const c=DB.d.cycles.find(x=>x.id===v.cycleId)||activeCycle();
-  return activeQuestions().map(q=>{
+  return visitQs(v).map(q=>{
     const a=A[q.id]||{}; const r=scoreAnswer(q,a);
-    return {q, a, r, txt:resolvePeriod(q.q,c)};
+    return {q, a, r, txt:q.q};
   }).filter(x=>x.r.answered);
 }
 function failingQuestions(v){
@@ -3256,7 +3490,7 @@ function viewReport(vid){
         <thead><tr><th>#</th><th>Section</th><th>${L?'Domaine':'Domain'}</th>
           <th>${L?'Répondu':'Answered'}</th><th>N/A</th><th>Score</th><th>${L?'Appréciation':'Rating'}</th></tr></thead>
         <tbody>${secs.map((x,i)=>{
-          const dom=activeQuestions().filter(q=>q.sec===x.sec)[0];
+          const dom=visitQs(v).filter(q=>q.sec===x.sec)[0];
           return `<tr class="${x.pct===null?'':'fill-'+x.band}">
             <td class="xs">${i+1}</td><td class="small"><b>${esc(x.sec)}</b></td>
             <td class="xs">${dom&&dom.dom==='MNE'?T('mne'):T('clinical')}</td>
@@ -3276,7 +3510,8 @@ function viewReport(vid){
         <thead><tr><th>#</th><th>Q</th><th>Section</th><th>${L?'Constat':'Finding'}</th>
           <th>Score</th><th>${L?'Commentaire du superviseur':'Supervisor comment'}</th></tr></thead>
         <tbody>${fails.map((x,i)=>`<tr class="fill-${x.r.band}">
-          <td class="xs">${i+1}</td><td class="xs"><b>${x.q.n}</b></td>
+          <td class="xs">${i+1}</td><td class="xs"><b>${x.q.n}</b>${
+            x.q.monthLabel?`<div class="xs muted">${esc(x.q.monthLabel)}</div>`:''}</td>
           <td class="xs">${esc(x.q.sec)}</td>
           <td class="small">${esc(x.txt.slice(0,190))}${x.txt.length>190?'…':''}</td>
           <td class="sc xs">${x.r.dqa
@@ -3490,6 +3725,9 @@ function viewSiteHome(){
 
   <div class="card">
     <h3>${L?'Rapports de supervision':'Supervision reports'}</h3>
+    <p class="small muted">${L
+      ?'Un rapport apparaît ici dès que le superviseur a soumis sa supervision et que votre téléphone a du réseau. S\'il manque, appuyez sur « Recevoir » en bas de l\'écran.'
+      :'A report appears here as soon as the supervisor has submitted and this phone has a network. If one is missing, press "Receive" at the bottom of the screen.'}</p>
     <div class="list">${visits.length? visits.map(v=>{
       const s2=(v.scores||visitScores(v)).overall;
       return `<div class="item" onclick="go('#/report/${v.id}')">
@@ -4121,14 +4359,59 @@ async function submitSiteReq(editId){
 
 /* ===================== SUPER USER CONSOLE ===================== */
 function viewAdmin(tab){
-  const tabs=[['cycles',LANG==='fr'?'Cycles':'Cycles'],['approvals',LANG==='fr'?'Validations':'Approvals'],
-    ['questions',LANG==='fr'?'Questions':'Questions'],['sites',LANG==='fr'?'Demandes de sites':'Site requests'],
-    ['users',LANG==='fr'?'Utilisateurs':'Users'],['cfg',LANG==='fr'?'Paramètres':'Settings'],
-    ['audit',LANG==='fr'?'Journal':'Audit log']];
+  const L=LANG==='fr';
+  const pend=DB.d.visits.filter(v=>v.status==='SUBMITTED').length;
+  const tabs=[['supervisions',(L?'Supervisions':'Supervisions')+(pend?' <span class="badge">'+pend+'</span>':'')],
+    ['cycles',L?'Cycles':'Cycles'],['approvals',L?'Validations':'Approvals'],
+    ['questions',L?'Questions':'Questions'],['sites',L?'Demandes de sites':'Site requests'],
+    ['users',L?'Utilisateurs':'Users'],['cfg',L?'Paramètres':'Settings'],
+    ['audit',L?'Journal':'Audit log']];
   return `<div class="card tight"><h2 style="margin:0">${T('admin')}</h2></div>
   <div class="secnav">${tabs.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="go('#/admin/${t[0]}')">${t[1]}</button>`).join('')}</div>
-  ${ tab==='cycles'?admCycles(): tab==='approvals'?admApprovals(): tab==='questions'?admQuestions()
+  ${ tab==='supervisions'?admVisits(): tab==='cycles'?admCycles(): tab==='approvals'?admApprovals()
+   : tab==='questions'?admQuestions()
    : tab==='sites'?admSites(): tab==='users'?admUsers(): tab==='cfg'?admCfg(): admAudit() }`;
+}
+
+/* Everything the region has submitted, in one place, with the decision on the row.
+   Before this the only way in was a card on the home screen, and only if the
+   supervision had somehow reached the device — which, until the data endpoint
+   existed, it had not. */
+function admVisits(){
+  const L=LANG==='fr';
+  const all=DB.d.visits.slice().sort((a,b)=>(b.submitted||b.updated||0)-(a.submitted||a.updated||0));
+  const sub=all.filter(v=>v.status==='SUBMITTED');
+  const app=all.filter(v=>v.status==='APPROVED');
+  const ret=all.filter(v=>v.status==='RETURNED');
+  const dr =all.filter(v=>v.status==='DRAFT');
+  const row=v=>{
+    const s=siteById(v.siteId)||{facility:'?',district:'?'};
+    const sc=(v.scores||visitScores(v)).overall;
+    return `<div class="item" onclick="go('#/visit/${v.id}/rev')">
+      <div style="min-width:0"><b>${esc(s.facility)}</b>
+        <div class="s">${esc(s.district)} · ${esc(v.date||'')} · ${esc(v.supervisor||'')}
+          ${v.submitted?' · '+(L?'soumise ':'submitted ')+fmtDT(v.submitted):''}</div></div>
+      <span class="chip ${sc.pct===null?'n':band(sc.pct)}">${pc(sc.pct)}</span></div>`;
+  };
+  return `<div class="card">
+    <div class="spread"><h3>${L?'À approuver':'To approve'}
+      ${sub.length?`<span class="badge">${sub.length}</span>`:''}</h3>
+      <button class="btn sm" ${ONLINE?'':'disabled'} onclick="pullDataNow()">⇩ ${L?'Actualiser':'Refresh'}</button></div>
+    <p class="small muted">${L
+      ?'Chaque ligne ouvre l\'onglet « Revue et soumission » de la supervision, où se trouvent les boutons Approuver et Retourner. Si une supervision soumise sur un autre téléphone n\'apparaît pas ici, appuyez sur Actualiser — elle est récupérée du serveur.'
+      :'Each row opens the supervision\'s "Review and submit" tab, where the Approve and Return buttons are. If a supervision submitted on another phone is not listed, press Refresh — it is fetched from the server.'}</p>
+    <div class="list">${sub.map(row).join('')||`<p class="small muted">${L?'Aucune supervision en attente.':'None pending.'}</p>`}</div>
+
+    ${ret.length?`<hr><h3>${L?'Retournées au superviseur':'Returned to the supervisor'} (${ret.length})</h3>
+      <div class="list">${ret.map(row).join('')}</div>`:''}
+
+    <hr><h3>${L?'Approuvées':'Approved'} (${app.length})</h3>
+    <div class="list">${app.slice(0,25).map(row).join('')||`<p class="small muted">—</p>`}</div>
+
+    ${dr.length?`<hr><h3>${L?'Brouillons en cours sur le terrain':'Drafts in progress in the field'} (${dr.length})</h3>
+      <p class="xs muted">${L?'Pas encore soumises : rien à décider.':'Not submitted yet: nothing to decide.'}</p>
+      <div class="list">${dr.slice(0,15).map(row).join('')}</div>`:''}
+  </div>`;
 }
 
 function admCycles(){
@@ -4169,20 +4452,33 @@ function newCycleModal(){
    </div>`,`<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
             <button class="btn" onclick="createCycle()">${T('save')}</button>`);
 }
+/* Nothing on this tab used to leave the console. Opening a quarter, unticking a month or
+   moving the deadline changed the coordinator's own screen and no phone in the region ever
+   heard about it — the field stayed on the previous period. Every change now pushes the
+   WHOLE list, so the closure of the old cycle travels along with the opening of the new. */
+function pushCycles(){ DB.d.cycles.forEach(c=>queue('cycle', c)); }
+
 function createCycle(){
   const fy=Number($('#cy-fy').value), q=Number($('#cy-q').value);
   const name='FY'+String(fy).slice(2)+' Q'+q;
   if(DB.d.cycles.find(c=>c.id==='C-FY'+fy+'Q'+q)) return toast(LANG==='fr'?'Ce cycle existe déjà':'Cycle already exists');
   DB.d.cycles.forEach(c=>c.status='CLOSED');
   DB.d.cycles.push(mkCycle(name, fy, q, true));
-  DB.save(); audit('CYCLE_OPEN','cycle',name); closeModal(); render();
+  DB.save(); audit('CYCLE_OPEN','cycle',name); pushCycles(); closeModal();
+  toast(LANG==='fr'?'✓ '+name+' ouvert — les téléphones basculent à leur prochaine connexion'
+                   :'✓ '+name+' opened — phones switch at their next connection', 4000);
+  render();
 }
 function setMonth(cid,i,val){ const c=DB.d.cycles.find(x=>x.id===cid); c.monthsComplete[i]=val; DB.save();
-  audit('CYCLE_MONTH','cycle',c.name+' m'+(i+1)+'='+val); render(); }
+  audit('CYCLE_MONTH','cycle',c.name+' m'+(i+1)+'='+val); queue('cycle', c);
+  toast(LANG==='fr'?(val?'Mois inclus':'Mois retiré')+' — transmis aux téléphones'
+                   :(val?'Month included':'Month removed')+' — sent to the phones', 2600);
+  render(); }
 function setCycleStatus(cid,st){ const c=DB.d.cycles.find(x=>x.id===cid);
   if(st==='OPEN') DB.d.cycles.forEach(x=>x.status='CLOSED');
-  c.status=st; DB.save(); audit('CYCLE_STATUS','cycle',c.name+'→'+st); render(); }
-function setCycleDeadline(cid,v){ DB.d.cycles.find(x=>x.id===cid).deadline=v; DB.save(); }
+  c.status=st; DB.save(); audit('CYCLE_STATUS','cycle',c.name+'→'+st); pushCycles(); render(); }
+function setCycleDeadline(cid,v){ const c=DB.d.cycles.find(x=>x.id===cid);
+  c.deadline=v; DB.save(); queue('cycle', c); }
 
 function admApprovals(){
   const L=LANG==='fr';
@@ -4193,16 +4489,30 @@ function admApprovals(){
   const help=active.filter(u=>u.pinHelp);
 
   /* Two records for one person split their supervisions in half. Show it on both cards. */
+  /* Deactivating the twin used to be the only option — and it was a trap: the deactivated
+     account vanished from its own phone, and that phone could never learn it had been
+     reactivated. Merging keeps ONE account, moves everything onto it and archives the other. */
   const dupBanner=u=>{
     const d=duplicatesOf(u, all);
     if(!d.length) return '';
-    return `<div class="banner b-warn xs" style="margin-top:8px">⚠ ${L?'Doublon probable':'Probable duplicate'} —
-      ${L?'la même personne est aussi enrôlée comme':'the same person is also enrolled as'}
-      ${d.map(x=>`<b>${esc(x.name)}</b> (${esc(x.fn||'—')}${x.idType?', '+esc(x.idType):''}, ${userStatus(x)})`).join(' · ')}.
-      <br>${L?'Gardez le compte le plus complet et désactivez l\'autre : les supervisions déjà enregistrées sous le compte désactivé ne sont pas perdues.'
-             :'Keep the more complete account and deactivate the other: supervisions already recorded under the deactivated one are not lost.'}
-      <br>${d.map(x=>`<button class="btn dan sm" style="margin-top:6px" onclick="closeDuplicate('${x.id}','${esc(u.name).replace(/'/g,"")}')">⛔ ${
-        L?'Désactiver':'Deactivate'} ${esc(x.name)}</button>`).join(' ')}</div>`;
+    const older=(a,b)=>((a.enrolled||0)<=(b.enrolled||0)?a:b);
+    return `<div class="banner b-warn xs" style="margin-top:8px">⚠ ${L?'Doublon probable':'Probable duplicate'}
+      ${d.map(x=>`<div style="margin-top:6px">
+        <b>${esc(x.name)}</b> (${esc(x.fn||'—')}${x.idType?', '+esc(x.idType):''}, ${userStatus(x)})
+        <div class="xs">${L?'Concordance':'Match'} : ${esc((x._match&&x._match.why||[]).join(' · ')||'—')}
+          ${x._match&&x._match.sure?`<b>${L?'— certaine':'— certain'}</b>`
+            :x._match&&x._match.likely?`<b>${L?'— probable':'— likely'}</b>`
+            :`<i>${L?'— faible, à vérifier avec la personne':'— weak, check with the person'}</i>`}</div>
+        <div class="row" style="margin-top:5px">
+          ${x._match&&x._match.likely?`<button class="btn sm" onclick="confirmMerge('${older(u,x).id}','${(older(u,x).id===u.id?x:u).id}')">⇄ ${
+            L?'Fusionner':'Merge'}</button>`:''}
+          <button class="btn sec sm" onclick="closeDuplicate('${x.id}','${esc(u.name).replace(/'/g,"")}')">⛔ ${
+            L?'Désactiver seulement':'Deactivate only'}</button>
+        </div></div>`).join('')}
+      <div class="xs" style="margin-top:6px">${L
+        ?'La fusion garde le compte le plus ancien — c\'est celui auquel les supervisions sont rattachées — et archive l\'autre. Le téléphone de la personne bascule tout seul : elle n\'a rien à refaire.'
+        :'Merging keeps the older account — the one the supervisions point at — and archives the other. The person\'s phone switches by itself: nothing for them to redo.'}</div>
+    </div>`;
   };
 
   /* what the applicant supplied — read only. Central just decides. */
@@ -4308,6 +4618,32 @@ function admApprovals(){
     ${off.length?`<h3 style="margin-top:16px">${L?'Désactivés / rejetés':'Deactivated / rejected'} (${off.length})</h3>
       ${off.map(offCard).join('')}`:''}
   </div>`;
+}
+
+/* One person, one account — the confirmation before it happens. */
+function confirmMerge(keepId, dropId){
+  const keep=DB.d.users.find(x=>x.id===keepId), drop=DB.d.users.find(x=>x.id===dropId);
+  if(!keep||!drop) return;
+  const L=LANG==='fr';
+  const m=matchScore(keep,drop);
+  const nVis=DB.d.visits.filter(v=>v.uid===dropId).length;
+  modal(L?'Fusionner deux comptes':'Merge two accounts', `
+    <div class="banner ${m.sure?'b-ok':'b-warn'}">${L?'Concordance':'Match'} : ${esc(m.why.join(' · '))}
+      ${m.sure?(L?' — certaine':' — certain'):(L?' — probable, confirmez avec la personne':' — likely, confirm with the person')}</div>
+    <table><tbody>
+      <tr><td class="k">${L?'Compte conservé':'Account kept'}</td><td><b>${esc(keep.name)}</b><br>
+        <span class="xs muted">${esc(keep.fn||'')} · ${esc(keep.id)} · ${L?'enrôlé le':'enrolled'} ${keep.enrolled?fmtDT(keep.enrolled):'—'}</span></td></tr>
+      <tr><td class="k">${L?'Compte archivé':'Account archived'}</td><td>${esc(drop.name)}<br>
+        <span class="xs muted">${esc(drop.fn||'')} · ${esc(drop.id)}${nVis?' · '+nVis+(L?' supervision(s) à transférer':' supervision(s) to move'):''}</span></td></tr>
+    </tbody></table>
+    <p class="small">${L
+      ?'Les supervisions, réponses, recommandations, demandes de site et messages du compte archivé sont rattachés au compte conservé. Le compte archivé disparaît de toutes les listes ; son contenu est conservé dans l\'onglet ARCHIVE du classeur.'
+      :'The archived account\'s supervisions, answers, recommendations, site requests and messages are re-pointed to the kept account. It disappears from every list; its full record is kept in the workbook\'s ARCHIVE tab.'}</p>
+    <p class="xs muted">${L
+      ?'Le téléphone de la personne bascule seul à sa prochaine connexion réseau. Elle garde son code PIN et n\'a pas à se réenrôler.'
+      :'The person\'s phone switches by itself at its next network connection. They keep their PIN and do not re-enrol.'}</p>`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn" onclick="closeModal();mergeUsers('${keepId}','${dropId}')">⇄ ${L?'Fusionner':'Merge'}</button>`);
 }
 
 /* Close the duplicate, keeping the account the person should use. */
@@ -4417,12 +4753,15 @@ function admQuestions(){
     <p class="small muted">${LANG==='fr'
       ?'Les questions ne sont jamais supprimées : elles sont désactivées, ce qui préserve l\'historique. Toute modification incrémente la version.'
       :'Questions are never deleted: they are deactivated, which preserves history. Any change increments the version.'}</p>
+    <p class="small muted">${LANG==='fr'
+      ?'Une question marquée <b>×mois</b> est posée une fois par mois couvert par le cycle : trois mois cochés, trois lignes. Décochez un mois dans l\'onglet Cycles et ses lignes disparaissent avec lui.'
+      :'A question marked <b>×mois</b> is asked once per month the cycle covers: three months ticked, three lines. Untick a month under Cycles and its lines disappear with it.'}</p>
     <div class="tw"><table>
       <thead><tr><th>N°</th><th>Section</th><th>Question</th><th>Type</th><th>Dom.</th><th>P.</th><th></th></tr></thead>
       <tbody>${qs.map(q=>`<tr class="${q.active===false?'muted':''}">
         <td class="xs">${q.n}</td><td class="xs">${esc(q.sec)}</td>
         <td class="small">${esc(q.q.slice(0,110))}${q.q.length>110?'…':''}</td>
-        <td class="xs">${q.type}${q.dqa?' · DQA':''}</td><td class="xs">${q.dom==='MNE'?'S&E':'Clin'}</td>
+        <td class="xs">${q.type}${q.dqa?' · DQA':''}${q.perMonth?' · ×mois':''}</td><td class="xs">${q.dom==='MNE'?'S&E':'Clin'}</td>
         <td class="xs">${q.weight||1}</td>
         <td><button class="btn sec sm" onclick="editQ('${q.id}')">✎</button>
             <button class="btn sec sm" onclick="toggleQ('${q.id}')">${q.active===false?'↺':'⊘'}</button></td></tr>`).join('')}
@@ -4461,6 +4800,10 @@ function editQ(id){
      <input type="text" id="eq-fu" value="${esc(q.fu||'')}" placeholder="${LANG==='fr'?'Ce registre est-il à jour ?':'Is it up to date?'}"></label>
    <label class="chk"><input type="checkbox" id="eq-dqa" ${q.dqa?'checked':''}>
      <span class="small">${LANG==='fr'?'Question DQA (règle de concordance ±5 % / exacte)':'DQA question (concordance rule ±5 % / exact)'}</span></label>
+   <label class="chk"><input type="checkbox" id="eq-pm" ${q.perMonth?'checked':''}>
+     <span class="small">${LANG==='fr'
+       ?'Poser cette question <b>une fois par mois</b> du cycle — écrivez <b>{{MOIS}}</b> dans l\'énoncé et dans les libellés'
+       :'Ask this question <b>once per month</b> of the cycle — write <b>{{MOIS}}</b> in the wording and in the labels'}</span></label>
    ${id?`<div class="banner b-warn xs">${LANG==='fr'
      ?'Une modification portant sur l\'énoncé, le type, le dénominateur, le domaine ou le poids crée une nouvelle version. Elle s\'applique au prochain cycle.'
      :'A change to wording, type, denominator, domain or weight creates a new version. It applies from the next cycle.'}</div>`:''}`,
@@ -4486,9 +4829,14 @@ function saveQ(id){
   const patch={sec:eqSection(), q:g('eq-q').trim(), type:g('eq-type'), dom:g('eq-dom'),
     num:g('eq-num').trim()||undefined, den:g('eq-den').trim()||undefined,
     defDen:g('eq-dd')?Number(g('eq-dd')):undefined, weight:Number(g('eq-w'))||1,
-    fu:g('eq-fu').trim()||undefined, dqa:$('#eq-dqa').checked?1:undefined};
+    fu:g('eq-fu').trim()||undefined, dqa:$('#eq-dqa').checked?1:undefined,
+    perMonth:$('#eq-pm').checked?true:undefined};
   if(!patch.sec) return toast(LANG==='fr'?'Choisissez ou nommez une section':'Choose or name a section');
   if(!patch.q) return toast(LANG==='fr'?'Énoncé obligatoire':'Question text required');
+  if(patch.perMonth && !/\{\{MOIS\}\}/.test([patch.q,patch.num,patch.den].join(' ')))
+    return toast(LANG==='fr'
+      ?'Question par mois : écrivez {{MOIS}} dans l\'énoncé ou dans un libellé, sinon les lignes seront identiques'
+      :'Per-month question: write {{MOIS}} in the wording or a label, otherwise every line reads the same', 4200);
   if(id){ const q=DB.d.questions.find(x=>x.id===id);
     const scoreRelevant = q.q!==patch.q||q.type!==patch.type||q.den!==patch.den||q.dom!==patch.dom||q.weight!==patch.weight;
     Object.assign(q,patch); if(scoreRelevant) q.version=(q.version||1)+1;
@@ -4818,10 +5166,15 @@ function confirmWipe(){
 }
 
 function admAudit(){
-  const a=DB.d.audit.slice().reverse().slice(0,300);
-  return `<div class="card"><h3>${LANG==='fr'?'Journal d\'audit':'Audit log'}</h3>
-    <p class="xs muted">${LANG==='fr'?'Journal en ajout seul : aucune ligne ne peut être modifiée ou supprimée depuis l\'application.'
-      :'Append-only log: no row can be edited or deleted from the application.'}</p>
+  const L=LANG==='fr';
+  const a=DB.d.audit.slice().sort((x,y)=>(y.ts||0)-(x.ts||0)).slice(0,400);
+  const remote=a.filter(x=>x.remote).length;
+  return `<div class="card">
+    <div class="spread"><h3>${L?'Journal d\'audit — région':'Audit log — region'}</h3>
+      <button class="btn sm" ${ONLINE?'':'disabled'} onclick="pullDataNow()">⇩ ${L?'Actualiser':'Refresh'}</button></div>
+    <p class="xs muted">${L?'Journal en ajout seul : aucune ligne ne peut être modifiée ou supprimée depuis l\'application. Il couvre toute la région — chaque décision prise sur n\'importe quel téléphone y figure.'
+      :'Append-only log: no row can be edited or deleted from the application. It covers the whole region — every decision taken on any phone appears here.'}</p>
+    <p class="xs muted">${a.length} ${L?'entrées · dont':'entries · of which'} ${remote} ${L?'venues d\'autres appareils':'from other devices'}</p>
     <div class="tw"><table><thead><tr><th>${LANG==='fr'?'Date':'Date'}</th><th>${LANG==='fr'?'Utilisateur':'User'}</th>
       <th>Action</th><th>${LANG==='fr'?'Détail':'Detail'}</th></tr></thead>
       <tbody>${a.map(x=>`<tr><td class="xs">${fmtDT(x.ts)}</td><td class="xs">${esc(x.user)}</td>
@@ -4869,6 +5222,136 @@ async function pullRemote(){
     }
   }catch(e){}
 }
+
+/* =====================================================================
+   THE RETURN JOURNEY
+   Pushing was only half a sync. Until this existed, a supervision
+   submitted on a supervisor's phone stayed on that phone: the console
+   had nothing to approve and the facility never saw its report.
+   full=true also brings the questionnaire, the cycles and the site
+   registry, so a question added at the centre reaches every phone.
+   ===================================================================== */
+/* full : also bring the questionnaire, the cycles and the site registry.
+   deep : ignore the watermark and re-read the whole history — the repair button. */
+async function pullData(full, deep){
+  const api=DB.d.config.api;
+  if(!api || !ONLINE) return {changed:0};
+  const since = deep ? 0 : (DB.d.config.lastData || 0);
+  let j;
+  try{
+    const res = await fetch(api+'?action=data&token='+encodeURIComponent(API_TOKEN)
+      +'&since='+since+(full?'&full=1':''));
+    j = await res.json();
+  }catch(e){ return {changed:0, error:String(e)}; }
+  if(!j || !j.ok) return {changed:0, error:(j&&j.error)||'?'};
+  if(typeof applyReset==='function') applyReset(j);
+
+  const meNow = me() || {};
+  let changed = 0;
+
+  /* Applied FIRST: a supervision arriving for an account this phone has just had merged
+     away must land on the surviving id, not create an orphan. */
+  if(typeof applyMerges==='function') changed += applyMerges(j.merges);
+
+  /* The Journal is the region's, not this console's. */
+  if(Array.isArray(j.audit) && j.audit.length){
+    const known=new Set(DB.d.audit.map(x=>x.id));
+    j.audit.forEach(x=>{ if(x && x.id && !known.has(x.id)){ DB.d.audit.push(x); changed++; } });
+    if(DB.d.audit.length>3000) DB.d.audit=DB.d.audit.sort((a,b)=>(a.ts||0)-(b.ts||0)).slice(-3000);
+  }
+
+  /* A supervision still open on THIS phone is the one being typed into right now.
+     The server's copy of it is older by definition, so it never overwrites it. */
+  (j.visits||[]).forEach(rv=>{
+    if(!rv || !rv.id) return;
+    const i = DB.d.visits.findIndex(x=>x.id===rv.id);
+    if(i < 0){ DB.d.visits.push(rv); changed++; return; }
+    const mine = DB.d.visits[i];
+    const editingHere = mine.status==='DRAFT' && mine.uid===meNow.id;
+    if(editingHere) return;
+    if((rv.updated||0) >= (mine.updated||0)){ DB.d.visits[i] = Object.assign({}, mine, rv); changed++; }
+  });
+
+  Object.keys(j.answers||{}).forEach(vid=>{
+    const v = DB.d.visits.find(x=>x.id===vid);
+    if(v && v.status==='DRAFT' && v.uid===meNow.id) return;    // never clobber live typing
+    DB.d.answers[vid] = repairLegacyAnswers(j.answers[vid], v);
+  });
+
+  (j.swot||[]).forEach(s=>{
+    const v = DB.d.visits.find(x=>x.id===s.visitId); if(!v) return;
+    if(v.status==='DRAFT' && v.uid===meNow.id) return;
+    v.swot = {f:s.f, w:s.w, o:s.o, t:s.t};
+  });
+
+  /* A recommendation is written by the facility and read by everyone else.
+     Last update wins — there is one field per side and they do not collide. */
+  (j.actions||[]).forEach(ra=>{
+    const i = DB.d.actions.findIndex(x=>x.id===ra.id);
+    if(i < 0){ DB.d.actions.push(ra); changed++; }
+    else if((ra.updated||0) > (DB.d.actions[i].updated||0)){ DB.d.actions[i] = ra; changed++; }
+  });
+
+  (j.siteReq||[]).forEach(r=>{
+    const i = DB.d.siteReq.findIndex(x=>x.id===r.id);
+    if(i < 0) DB.d.siteReq.push(r); else DB.d.siteReq[i] = Object.assign({}, DB.d.siteReq[i], r);
+  });
+
+  /* The centre owns the questionnaire, the cycles and the registry. */
+  if(j.questions && j.questions.length){
+    const order = {}; DB.d.questions.forEach((q,i)=>order[q.id]=q.order||i+1);
+    DB.d.questions = j.questions.map((q,i)=>Object.assign({order: order[q.id] || (i+1)}, q));
+  }
+  if(j.cycles && j.cycles.length){
+    j.cycles.forEach(rc=>{
+      const i = DB.d.cycles.findIndex(x=>x.id===rc.id);
+      if(i < 0) DB.d.cycles.push(rc); else DB.d.cycles[i] = Object.assign({}, DB.d.cycles[i], rc);
+    });
+    if(j.cycles.some(c=>c.status==='OPEN'))
+      DB.d.cycles.forEach(c=>{ if(!j.cycles.some(x=>x.id===c.id && x.status==='OPEN')) c.status='CLOSED'; });
+  }
+  if(j.sites && j.sites.length){
+    j.sites.forEach(rs=>{
+      const i = DB.d.sites.findIndex(x=>x.id===rs.id);
+      if(i < 0) DB.d.sites.push(rs); else DB.d.sites[i] = Object.assign({}, DB.d.sites[i], rs);
+    });
+  }
+
+  DB.d.config.lastData = j.now || Date.now();
+  DB.save();
+  return {changed};
+}
+/* A supervision submitted BEFORE v2.9.0 was stored only in the readable columns, which
+   flatten a yes/no to 1/0 in the numerator. Read back as-is it would show as unanswered.
+   Where the question is a yes/no we can put it back exactly; a delay in days or a
+   checklist was never written at all in that format and cannot be recovered — those
+   stay unanswered rather than being guessed. */
+function repairLegacyAnswers(answers, v){
+  if(!answers || !v) return answers || {};
+  const qs = {}; visitQs(v).forEach(q=>qs[q.id]=q);
+  Object.keys(answers).forEach(qid=>{
+    const a = answers[qid], q = qs[qid];
+    if(!a || !q || a.na) return;
+    if(q.type==='BINARY' && a.v===undefined && a.num!==undefined && a.num!==''){
+      const n = Number(a.num);
+      if(n===1 || n===0){ a.v = (n===1); if(q.fu && n===1) a.fu = true; a._recovered=true; }
+    }
+  });
+  return answers;
+}
+
+/* Manual button — says plainly what came back. */
+async function pullDataNow(){
+  const L=LANG==='fr';
+  if(!ONLINE) return toast(T('offline'));
+  toast(L?'Récupération…':'Fetching…', 1500);
+  const r = await pullData(true, true);
+  toast(r.error ? (L?'Échec : ':'Failed: ')+r.error
+       : r.changed ? (L?'✓ '+r.changed+' élément(s) reçu(s)':'✓ '+r.changed+' item(s) received')
+                   : (L?'Déjà à jour':'Already up to date'), 3000);
+  render();
+}
+
 let ADMIN_TICK=0;
 setInterval(()=>{
   if(!ONLINE || !DB.d.config.api) return;
@@ -4876,6 +5359,11 @@ setInterval(()=>{
   if(DB.d.outbox.length) syncNow(true);
   const u=me();
   if(u){ if(u.role==='SUPER') refreshRoster(false); else refreshMyState(false); }
+  /* Nobody signed in: still ask the server about the accounts this phone holds, so a
+     reactivation reaches a person who cannot currently get past the sign-in screen. */
+  else if(typeof refreshLocalAccounts==='function') refreshLocalAccounts(false);
+  /* the delta every 25 s; the questionnaire, cycles and registry every 8th pass */
+  if(u) pullData(ADMIN_TICK % 8 === 0).then(r=>{ if(r && r.changed) render(); });
   if(ADMIN_TICK++ % 8 === 0) refreshAdmins(false);   // ~ every 3 minutes, all roles
 }, 25000);
 
@@ -4895,7 +5383,15 @@ DB.load();
 render();
 maybeTour();
 window.addEventListener('load', ()=>{ if(ONLINE){ pullRemote(); syncNow(true); refreshAdmins(false);
-  const u=me(); if(u){ if(u.role==='SUPER') refreshRoster(false); else refreshMyState(false); } } });
+  const u=me();
+  if(!u && typeof refreshLocalAccounts==='function') refreshLocalAccounts(false);
+  if(u){
+    if(u.role==='SUPER') refreshRoster(false); else refreshMyState(false);
+    /* first launch of the session: bring down everything, including anything
+       submitted from another phone while this one was closed */
+    pullData(true).then(r=>{ if(r && r.changed) render(); });
+  }
+} });
 
 </script>
 </body>
