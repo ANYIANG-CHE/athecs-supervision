@@ -686,12 +686,16 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '3.0.1';
+const APP_VERSION = '3.1.0';
 /* ---------------------------------------------------------------
    SECURITY TOKEN — change this ONE line, and change the matching
    line  var TOKEN = 'ATHECS';  in Code.gs to exactly the same value.
    --------------------------------------------------------------- */
-const API_TOKEN = 'ATHECS';
+const API_TOKEN = 'ATHECS';           // the default both files ship with
+/* The token was baked into this file alone, so a mismatch with the Apps Script could only
+   be fixed by hand-editing a 750 KB file and redeploying it. It is a setting now: whatever
+   is typed in Console ▸ Paramètres wins, and the constant above is only the fallback. */
+function apiToken(){ try{ return (DB.d.config.token||'').trim() || API_TOKEN; }catch(e){ return API_TOKEN; } }
 
 /* Google Apps Script Web App URL. Baked in here so every device — including
    supervisors, who cannot open the Super User Console — syncs from first launch.
@@ -1411,9 +1415,12 @@ function viewLoginRole(path){
       isS ? (L?'Espace personnel du site':'Facility staff area') : (L?'Espace superviseur':'Supervisor area')}</div>
     <hr>
     ${users.length? `
+      ${users.length>5?`<label class="f"><span>${L?'Chercher votre nom':'Search for your name'}</span>
+        <input type="text" id="lg-find" placeholder="${L?'tapez trois lettres…':'type three letters…'}"
+          oninput="filterLoginUsers(this.value)"></label>`:''}
       <label class="f"><span>${T('name')}</span>
         <select id="lg-user">${users.map(u=>
-          `<option value="${u.id}">${esc(u.name)}${esc(stChip(u))}</option>`).join('')}</select></label>
+          `<option value="${u.id}" data-f="${esc(normName(u.name))}">${esc(u.name)}${esc(stChip(u))}</option>`).join('')}</select></label>
       ${users.some(u=>userStatus(u)!==U_ACTIVE)?`<p class="xs muted" style="margin:-4px 0 10px">${L
         ?'Un compte marqué « en attente », « désactivé » ou « refusé » se connecte quand même : l\'application vous dira où en est votre dossier et qui appeler.'
         :'An account marked awaiting, deactivated or refused can still sign in: the app will tell you where your file stands and who to call.'}</p>`:''}
@@ -1426,12 +1433,22 @@ function viewLoginRole(path){
             : (L?'Enrôler un autre superviseur':'Enrol another supervisor')}</button>
       <button class="btn sec blk sm" style="margin-top:8px" onclick="forgotPinModal()">${L?'Code PIN oublié ?':'Forgotten PIN?'}</button>
       <button class="btn sec blk sm" style="margin-top:8px" ${ONLINE?'':'disabled'}
-        onclick="refreshLocalAccounts(true)">↻ ${L?'Vérifier l\'état de mon compte':'Check my account status'}</button>
+        onclick="checkMyAccount()">${L?'Demander au niveau central où en est mon compte'
+                                     :'Ask central level where my account stands'}</button>
+      <button class="btn sec blk sm" style="margin-top:8px" onclick="findMyAccountModal()">${
+        L?'Je ne trouve pas mon compte':'I cannot find my account'}</button>
     ` : `
       <div class="banner b-info">${L
-        ?'Aucun compte enrôlé sur cet appareil. Commencez par vous enrôler : votre demande sera transmise au niveau central pour validation.'
-        :'No account enrolled on this device. Start by enrolling: your request goes to central level for approval.'}</div>
-      <button class="btn blk" onclick="enrolModal('${want}')">＋ ${
+        ?'Aucun compte n\'est encore installé sur cet appareil.'
+        :'No account is installed on this device yet.'}</div>
+      <p class="small">${L
+        ?'<b>Vous vous êtes déjà enrôlé ?</b> Sur un autre téléphone, ou avant que celui-ci ne soit réinstallé — récupérez votre compte plutôt que d\'en créer un second. Deux comptes couperaient vos supervisions en deux.'
+        :'<b>Already enrolled?</b> On another phone, or before this one was reinstalled — bring your account back rather than creating a second one. Two accounts would split your supervisions.'}</p>
+      <button class="btn blk" onclick="findMyAccountModal()">${
+        L?'J\'ai déjà un compte — le récupérer':'I already have an account — bring it back'}</button>
+      <hr>
+      <p class="small muted">${L?'Première fois ? C\'est ici :':'First time? Here:'}</p>
+      <button class="btn sec blk" onclick="enrolModal('${want}')">＋ ${
         isS ? (L?'S\'enrôler comme personnel du site':'Enrol as facility staff')
             : (L?'S\'enrôler comme superviseur':'Enrol as a supervisor')}</button>
     `}
@@ -1441,6 +1458,20 @@ function viewLoginRole(path){
     <p class="xs muted" style="margin-top:12px;text-align:center">
       <a href="#" onclick="event.preventDefault();clearPath()">${L?'Changer d\'espace':'Change area'}</a></p>
   </div>`;
+}
+
+/* Only appears once the device holds more than a handful of accounts — a shared tablet,
+   or the console. A personal phone keeps its one-tap list. */
+function filterLoginUsers(q){
+  const sel=$('#lg-user'); if(!sel) return;
+  const n=normName(q||'');
+  let first=null;
+  Array.from(sel.options).forEach(o=>{
+    const hit = !n || String(o.getAttribute('data-f')||'').includes(n);
+    o.hidden = !hit;
+    if(hit && !first) first=o;
+  });
+  if(first) sel.value=first.value;
 }
 
 function viewLoginAdmin(){
@@ -2164,7 +2195,8 @@ function viewGate(u){
     L?`Votre demande a été transmise au niveau central.\nUn super utilisateur doit la valider avant que vous puissiez commencer une supervision.\n\nRéférence : ${u.id}`
      :`Your request has been sent to central level.\nA super user must approve it before you can start a supervision.\n\nReference: ${u.id}`,
     `<div class="row" style="justify-content:center;margin-top:10px">
-       <button class="btn" ${ONLINE?'':'disabled'} onclick="refreshMyState(true)">↻ ${L?'Vérifier maintenant':'Check now'}</button>
+       <button class="btn" ${ONLINE?'':'disabled'} onclick="checkMyAccount('${u.id}')">${
+         L?'Demander où en est mon compte':'Ask where my account stands'}</button>
      </div>
      <p class="xs muted" style="margin-top:8px">${ONLINE
        ? (L?'L\'application vérifie automatiquement toutes les 25 secondes.':'The app checks automatically every 25 seconds.')
@@ -2174,7 +2206,8 @@ function viewGate(u){
     L?'Compte désactivé':'Account deactivated',
     L?`Votre accès a été suspendu par le niveau central.\n${u.decisionNote?'Motif : '+u.decisionNote:''}\n\nVos données déjà enregistrées ne sont pas perdues.`
      :`Your access has been suspended by central level.\n${u.decisionNote?'Reason: '+u.decisionNote:''}\n\nData already recorded is not lost.`,
-    `<button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="refreshMyState(true)">↻ ${L?'Vérifier':'Check'}</button>`);
+    `<button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="checkMyAccount('${u.id}')">${
+       L?'Demander où en est mon compte':'Ask where my account stands'}</button>`);
 
   return box('✕','err',
     L?'Enrôlement refusé':'Enrolment refused',
@@ -2237,7 +2270,7 @@ async function refreshMyState(loud){
   if(!u || u.role==='SUPER') return;
   if(!api || !ONLINE){ if(loud) toast(T('offline')); return; }
   try{
-    const r=await fetch(api+'?action=userstate&token='+encodeURIComponent(API_TOKEN)+'&uid='+encodeURIComponent(u.id));
+    const r=await fetch(api+'?action=userstate&token='+encodeURIComponent(apiToken())+'&uid='+encodeURIComponent(u.id));
     const j=await r.json();
     if(applyReset(j)) return;
     if(!j || !j.ok || !j.user){ if(loud) toast(LANG==='fr'?'Pas encore enregistré au niveau central':'Not yet recorded at central level'); return; }
@@ -2280,7 +2313,7 @@ async function refreshLocalAccounts(loud){
   let changed = 0;
   for(const u of mine){
     try{
-      const r = await fetch(api+'?action=userstate&token='+encodeURIComponent(API_TOKEN)
+      const r = await fetch(api+'?action=userstate&token='+encodeURIComponent(apiToken())
         +'&uid='+encodeURIComponent(u.id));
       const j = await r.json();
       if(applyReset(j)) return changed;
@@ -2305,12 +2338,167 @@ async function refreshLocalAccounts(loud){
   return changed;
 }
 
+/* ---------- "where does my account stand?" ----------------------------------
+   The old button was labelled "Vérifier" and answered with a toast that said
+   "Aucun changement" — which does not even tell you whether it reached the server.
+   Its actual job is narrow but real: the app already asks the server every 25
+   seconds, so this is for when somebody is standing in front of you and you do not
+   want to wait. It now names, in a full sentence, which of six things happened. */
+async function checkMyAccount(uid){
+  const L=LANG==='fr', api=DB.d.config.api;
+  const say = t => infoModal(L?'Où en est votre compte':'Where your account stands', t);
+  const admins = DB.d.users.filter(x=>x.role==='SUPER')
+    .map(a=>'    '+a.name+(a.phone?'  —  '+a.phone:'')).join('\n') || '    —';
+
+  if(!ONLINE) return say(L
+    ?'Cet appareil est hors réseau.\n\nCette vérification interroge le niveau central : elle a besoin de signal, ne serait-ce qu\'un instant. Réessayez dès que vous en avez.'
+    :'This device is offline.\n\nThis check asks central level, so it needs signal, even for a moment. Try again as soon as you have some.');
+  if(!api) return say(L?'Aucune adresse de serveur n\'est configurée sur cet appareil. Appelez un super utilisateur.'
+                       :'No server address is configured on this device. Call a super user.');
+
+  const sel = $('#lg-user');
+  const id  = uid || (sel && sel.value) || DB.d.session;
+  const u   = DB.d.users.find(x=>x.id===id);
+  if(!u) return say(L?'Choisissez d\'abord votre nom dans la liste.':'Choose your name from the list first.');
+
+  let j=null;
+  try{
+    const r = await fetch(api+'?action=userstate&token='+encodeURIComponent(apiToken())
+      +'&uid='+encodeURIComponent(u.id));
+    j = await r.json();
+  }catch(e){
+    return say(L?'Le serveur n\'a pas répondu.\n\nVous avez du réseau, mais l\'adresse configurée ne répond pas. Ce n\'est pas votre compte qui est en cause. Appelez un super utilisateur :\n\n'+admins
+                :'The server did not answer.\n\nYou have a network, but the configured address is not responding. This is not about your account. Call a super user:\n\n'+admins);
+  }
+  if(!j || !j.ok) return say(L?'Le serveur a répondu par une erreur. Appelez un super utilisateur :\n\n'+admins
+                              :'The server answered with an error. Call a super user:\n\n'+admins);
+  if(applyReset(j)) return;
+
+  if(!j.user) return say(L
+    ?'Votre demande n\'est pas encore arrivée au niveau central.\n\nElle est enregistrée sur ce téléphone et partira toute seule à la prochaine connexion réseau. N\'enrôlez pas une deuxième fois.\n\nAdministrateurs :\n'+admins
+    :'Your request has not reached central level yet.\n\nIt is stored on this phone and will leave by itself at the next network connection. Do not enrol a second time.\n\nAdministrators:\n'+admins);
+
+  /* adopt what the server says, then report it in words */
+  const before = userStatus(u);
+  const st = normStatus(j.user.status);
+  if(st) u.status = st;
+  u.active = j.user.active !== false;
+  if(Array.isArray(j.user.districts) && j.user.districts.length) u.districts = j.user.districts;
+  const sv = realSites(j.user.sites); if(sv.length){ u.sites=sv; u.siteId=sv[0]; }
+  u.decisionNote = j.user.decisionNote || '';
+  DB.save();
+  const now = userStatus(u);
+  if(before !== now){ audit('USER_STATE','user', u.name+' : '+before+' → '+now); render(); }
+
+  const enrolled = u.enrolled ? fmtDT(u.enrolled) : '—';
+  if(now === U_ACTIVE) return say(L
+    ?'✓ Votre compte est validé.\n\nVous pouvez vous connecter avec votre code PIN — celui que vous aviez choisi à l\'enrôlement.\n\nSi vous l\'avez oublié : « Code PIN oublié ? » sur cet écran.'
+    :'✓ Your account is approved.\n\nSign in with your PIN — the one you chose when you enrolled.\n\nIf you have forgotten it: "Forgotten PIN?" on this screen.');
+  if(now === U_PENDING) return say(L
+    ?'Votre compte est toujours en attente de validation.\n\nDemande envoyée le '+enrolled+'.\nElle est bien arrivée au niveau central : personne ne l\'a encore approuvée.\n\nAppelez :\n'+admins+'\n\nN\'enrôlez pas une deuxième fois.'
+    :'Your account is still awaiting approval.\n\nRequest sent on '+enrolled+'.\nIt did reach central level: nobody has approved it yet.\n\nCall:\n'+admins+'\n\nDo not enrol a second time.');
+  if(now === U_SUSPENDED) return say(L
+    ?'Votre compte a été désactivé par le niveau central.\n\nMotif : '+(u.decisionNote||'non précisé')+'\n\nVos supervisions déjà enregistrées ne sont pas perdues. Le compte peut être réactivé — appelez :\n'+admins
+    :'Your account has been deactivated by central level.\n\nReason: '+(u.decisionNote||'not specified')+'\n\nYour recorded supervisions are not lost. The account can be reactivated — call:\n'+admins);
+  return say(L
+    ?'Votre enrôlement a été refusé.\n\nMotif : '+(u.decisionNote||'non précisé')+'\n\nNe créez pas un deuxième compte : celui-ci peut être réactivé. Appelez :\n'+admins
+    :'Your enrolment was refused.\n\nReason: '+(u.decisionNote||'not specified')+'\n\nDo not create a second account: this one can be reactivated. Call:\n'+admins);
+}
+
+/* ---------- bring an existing account onto this phone ------------------------
+   A new phone, a wiped phone, a replaced phone: the app used to offer only
+   "S'enrôler", so the person enrolled a second time and the region gained a
+   duplicate. Merging cleans that up afterwards; this stops it happening. */
+async function findMyAccount(){
+  const L=LANG==='fr';
+  const raw=(($('#fm-phone')||{}).value||'').trim();
+  const digits=raw.replace(/[^0-9]/g,'');
+  const box=$('#fm-out'); if(!box) return;
+  if(digits.length<8){
+    box.innerHTML=`<div class="banner b-warn xs">${L
+      ?'Saisissez votre numéro de téléphone complet, celui que vous avez donné à l\'enrôlement.'
+      :'Type your full phone number — the one you gave when you enrolled.'}</div>`; return; }
+  if(!ONLINE || !DB.d.config.api){
+    box.innerHTML=`<div class="banner b-err xs">${L
+      ?'Cette recherche a besoin du réseau : c\'est le serveur qui retrouve votre compte. Réessayez avec du signal.'
+      :'This search needs a network: the server is what finds your account. Try again with signal.'}</div>`; return; }
+  box.innerHTML=`<p class="small muted">${L?'Recherche…':'Searching…'}</p>`;
+  let j=null;
+  try{
+    const r=await fetch(DB.d.config.api+'?action=find&token='+encodeURIComponent(apiToken())
+      +'&phone='+encodeURIComponent(digits));
+    j=await r.json();
+  }catch(e){}
+  if(!j || !j.ok || j.found===undefined){
+    box.innerHTML=`<div class="banner b-err xs">${L
+      ?'Le serveur n\'a pas répondu, ou il n\'a pas été mis à jour. Appelez un super utilisateur.'
+      :'The server did not answer, or has not been updated. Call a super user.'}</div>`; return; }
+  if(!j.found.length){
+    box.innerHTML=`<div class="banner b-warn xs">${L
+      ?'Aucun compte n\'est enregistré avec ce numéro. Vérifiez le numéro — sinon, vous n\'êtes pas encore enrôlé : utilisez « S\'enrôler ».'
+      :'No account is registered with that number. Check the number — otherwise you are not enrolled yet: use "Enrol".'}</div>`; return; }
+  box.innerHTML = `<p class="small">${L?'Compte trouvé :':'Account found:'}</p>
+    <div class="list">${j.found.map(u=>`<div class="item" style="cursor:default">
+      <div style="min-width:0"><b>${esc(u.name)}</b>
+        <div class="s">${esc(u.fn||'')}${u.districts&&u.districts.length?' · '+esc(u.districts.join(', ')):''}
+          · ${esc(normStatus(u.status)||'—')}</div></div>
+      <button class="btn sm" onclick="adoptAccount('${esc(u.id)}')">${L?'C\'est moi':'That\'s me'}</button>
+    </div>`).join('')}</div>
+    <p class="xs muted" style="margin-top:6px">${L
+      ?'Votre code PIN reste celui que vous aviez choisi. Si vous l\'avez oublié, utilisez « Code PIN oublié ? » après avoir récupéré le compte.'
+      :'Your PIN is still the one you chose. If you have forgotten it, use "Forgotten PIN?" once the account is back.'}</p>`;
+  FOUND_ACCOUNTS = j.found;
+}
+let FOUND_ACCOUNTS = [];
+/* Install the account on this phone. No new record is created anywhere: the id is the
+   one the person already has, so their supervisions stay attached to them. */
+function adoptAccount(uid){
+  const L=LANG==='fr';
+  const s=FOUND_ACCOUNTS.find(x=>String(x.id)===String(uid)); if(!s) return;
+  if(DB.d.users.some(u=>u.id===s.id)){ closeModal();
+    return toast(L?'Ce compte est déjà sur ce téléphone.':'That account is already on this phone.'); }
+  DB.d.users.push({id:s.id, name:s.name, role:s.role||'SUPERVISOR', fn:s.fn,
+    matricule:s.matricule, idType:s.idType, idLast:s.idLast,
+    phone:s.phone?String(s.phone):'', email:s.email,
+    districts:Array.isArray(s.districts)?s.districts:[],
+    sites:realSites(s.sites), siteId:realSites(s.sites)[0],
+    status:normStatus(s.status)||U_PENDING, active:s.active!==false,
+    decisionNote:s.decisionNote||'', enrolled:s.enrolled||Date.now(), pin:''});
+  DB.save(); audit('ACCOUNT_ADOPTED','user', s.name+' récupéré sur ce téléphone');
+  closeModal();
+  setPath(s.role==='SITE'?'site':'sup');
+  setTimeout(()=>{
+    const sel=$('#lg-user'); if(sel) sel.value=s.id;
+    const pin=$('#lg-pin'); if(pin) pin.focus();
+    toast(L?'✓ Compte récupéré — saisissez votre code PIN. Oublié ? « Code PIN oublié ? » juste en dessous.'
+           :'✓ Account restored — enter your PIN. Forgotten? "Forgotten PIN?" is just below.', 5500);
+  }, 260);
+}
+function findMyAccountModal(){
+  const L=LANG==='fr';
+  FOUND_ACCOUNTS=[];
+  modal(L?'Je ne trouve pas mon compte':'I cannot find my account', `
+    <p class="small">${L
+      ?'Si vous vous êtes déjà enrôlé — sur un autre téléphone, ou avant que celui-ci ne soit réinstallé — ne recommencez pas l\'enrôlement : vous auriez deux comptes et vos supervisions seraient coupées en deux.'
+      :'If you have already enrolled — on another phone, or before this one was reinstalled — do not enrol again: you would have two accounts and your supervisions would be split between them.'}</p>
+    <label class="f"><span>${L?'Votre numéro de téléphone':'Your phone number'}</span>
+      <input type="tel" id="fm-phone" inputmode="tel" placeholder="+237 6.. .. .. ..">
+    </label>
+    <button class="btn blk" ${ONLINE?'':'disabled'} onclick="findMyAccount()">${
+      L?'Retrouver mon compte':'Find my account'}</button>
+    ${ONLINE?'':`<p class="xs muted" style="margin-top:6px">${L
+      ?'Hors réseau : cette recherche interroge le serveur. Réessayez avec du signal.'
+      :'Offline: this search asks the server. Try again with signal.'}</p>`}
+    <div id="fm-out" style="margin-top:12px"></div>`,
+    `<button class="btn sec" onclick="closeModal()">${L?'Fermer':'Close'}</button>`);
+}
+
 /* ---------- central pulls the roster ---------- */
 async function refreshRoster(loud){
   const api=DB.d.config.api;
   if(!isSuper() || !api || !ONLINE){ if(loud) toast(T('offline')); return; }
   try{
-    const r=await fetch(api+'?action=users&token='+encodeURIComponent(API_TOKEN));
+    const r=await fetch(api+'?action=users&token='+encodeURIComponent(apiToken()));
     const j=await r.json();
     if(applyReset(j)) return;
     if(!j || !j.ok || !Array.isArray(j.users)) { if(loud) toast('—'); return; }
@@ -2461,7 +2649,7 @@ async function checkTempPin(uid, code){
   const api=DB.d.config.api;
   if(!api || !ONLINE) return false;
   try{
-    const r=await fetch(api+'?action=pincheck&token='+encodeURIComponent(API_TOKEN)
+    const r=await fetch(api+'?action=pincheck&token='+encodeURIComponent(apiToken())
       +'&uid='+encodeURIComponent(uid)+'&code='+encodeURIComponent(code));
     const j=await r.json();
     return !!(j && j.ok && j.valid);
@@ -2523,7 +2711,7 @@ async function refreshAdmins(loud){
   const api=DB.d.config.api;
   if(!api || !ONLINE){ if(loud) toast(T('offline')); return; }
   try{
-    const r=await fetch(api+'?action=admins&token='+encodeURIComponent(API_TOKEN));
+    const r=await fetch(api+'?action=admins&token='+encodeURIComponent(apiToken()));
     const j=await r.json();
     if(applyReset(j)) return;
     if(!j || !j.ok || !Array.isArray(j.admins)) return;
@@ -4396,7 +4584,11 @@ function admVisits(){
   return `<div class="card">
     <div class="spread"><h3>${L?'À approuver':'To approve'}
       ${sub.length?`<span class="badge">${sub.length}</span>`:''}</h3>
-      <button class="btn sm" ${ONLINE?'':'disabled'} onclick="pullDataNow()">⇩ ${L?'Actualiser':'Refresh'}</button></div>
+      <div class="row" style="flex-wrap:nowrap;gap:6px">
+        <button class="btn sm" ${ONLINE?'':'disabled'} onclick="pullDataNow()">⇩ ${L?'Actualiser':'Refresh'}</button>
+        <button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="runDiag()" title="${
+          L?'Pourquoi une supervision n\'apparaît-elle pas ?':'Why is a supervision missing?'}">🩺</button>
+      </div></div>
     <p class="small muted">${L
       ?'Chaque ligne ouvre l\'onglet « Revue et soumission » de la supervision, où se trouvent les boutons Approuver et Retourner. Si une supervision soumise sur un autre téléphone n\'apparaît pas ici, appuyez sur Actualiser — elle est récupérée du serveur.'
       :'Each row opens the supervision\'s "Review and submit" tab, where the Approve and Return buttons are. If a supervision submitted on another phone is not listed, press Refresh — it is fetched from the server.'}</p>
@@ -5033,6 +5225,12 @@ function admCfg(){
     <label class="f"><span>${LANG==='fr'?'URL de l\'API Google Apps Script (synchronisation)':'Google Apps Script API URL (sync)'}</span>
       <input type="text" id="cf-api" value="${esc(c.api||'')}" placeholder="https://script.google.com/macros/s/…/exec"></label>
     <p class="xs muted">${LANG==='fr'?'Classeur Google : ':'Google workbook: '}<span class="sc">${SHEET_ID}</span></p>
+    <label class="f"><span>${LANG==='fr'?'Mot de passe de liaison (doit être identique à var TOKEN dans Code.gs)'
+                                        :'Link password (must match var TOKEN in Code.gs)'}</span>
+      <input type="text" id="cf-tok" value="${esc(c.token||'')}" placeholder="${esc(API_TOKEN)}"></label>
+    <p class="xs muted">${LANG==='fr'
+      ?'C\'est le mot de passe que le serveur exige de chaque téléphone. S\'il ne correspond pas, le serveur refuse TOUT — rien ne monte, rien ne descend, et l\'application a l\'air de fonctionner. Il se lit tout en haut de Code.gs, ligne 19. Laissez vide pour utiliser la valeur par défaut (<b>'+esc(API_TOKEN)+'</b>).'
+      :'This is the password the server demands from every phone. If it does not match, the server refuses everything — nothing goes up, nothing comes down, and the app looks like it is working. It is at the very top of Code.gs, line 19. Leave empty to use the default (<b>'+esc(API_TOKEN)+'</b>).'}</p>
     <label class="f"><span>${LANG==='fr'?'Lien du guide pas à pas — Google Slides, Google Drive ou YouTube'
                                           :'Step-by-step guide link — Google Slides, Google Drive or YouTube'}</span>
       <input type="text" id="cf-vid" value="${esc(c.videoUrl||'')}"
@@ -5058,6 +5256,14 @@ function admCfg(){
         <input type="number" id="cf-yl" value="${c.dqa.yellowPct}"></label>
     </div>
     <button class="btn" onclick="saveCfg()">${T('save')}</button>
+    <hr>
+    <h3 class="small">${LANG==='fr'?'Diagnostic':'Diagnostic'}</h3>
+    <p class="xs muted">${LANG==='fr'
+      ?'Répond en toutes lettres à « j\'ai soumis une supervision et je ne la vois pas » : soit le classeur ne l\'a jamais reçue, soit cet appareil ne l\'a pas récupérée, soit l\'application parle à un ancien déploiement.'
+      :'Answers "I submitted a supervision and I cannot see it" in plain words: either the workbook never received it, or this device has not fetched it, or the app is talking to an old deployment.'}</p>
+    <button class="btn blk" ${ONLINE?'':'disabled'} onclick="runDiag()">🩺 ${
+      LANG==='fr'?'Vérifier la liaison avec le serveur':'Check the link with the server'}</button>
+    ${c.serverVersion?`<p class="xs muted" style="margin-top:6px">${LANG==='fr'?'Script serveur vu la dernière fois':'Server script last seen'} : <b>v${esc(c.serverVersion)}</b></p>`:''}
     <hr>
     <div class="row">
       <button class="btn sec sm" onclick="syncNow()">⇅ ${LANG==='fr'?'Synchroniser maintenant':'Sync now'}</button>
@@ -5129,6 +5335,7 @@ function confirmWipeTests(){
   closeModal(); toast(L?'✓ Données de test effacées':'✓ Test data cleared'); go('#/home'); render();
 }
 function saveCfg(){
+  { const t=$('#cf-tok'); if(t) DB.d.config.token=(t.value||'').trim(); }
   const c=DB.d.config;
   c.api=$('#cf-api').value.trim();
   c.videoUrl=($('#cf-vid')?$('#cf-vid').value.trim():c.videoUrl)||'';
@@ -5194,26 +5401,31 @@ async function syncNow(quiet){
   if(!ONLINE){ if(!quiet) toast(T('offline')); return; }
   if(syncNow._busy) return; syncNow._busy=true;
   const box=DB.d.outbox.slice();
-  let ok=0, fail=0;
+  let ok=0, fail=0, badToken=false;
   for(const item of box){
     try{
       const res=await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({token:API_TOKEN, kind:item.kind, id:item.id, payload:item.payload})});
+        body:JSON.stringify({token:apiToken(), kind:item.kind, id:item.id, payload:item.payload})});
       const j=await res.json();
       if(j && j.ok){ DB.d.outbox=DB.d.outbox.filter(x=>x.id!==item.id); ok++; }
+      /* "bad token" is the server refusing this device outright. Counting it as an
+         ordinary failure produced "Synchronisé : 0" — which looks like success with
+         nothing to send, and hid a total communication breakdown. */
+      else if(j && /bad token/i.test(String(j.error||''))){ badToken=true; fail++; break; }
       else { item.tries++; fail++; }
     }catch(e){ item.tries++; fail++; break; }
   }
   DB.d.config.lastSync=Date.now(); DB.save(); syncNow._busy=false;
   DB.d.messages.forEach(m=>{ if(m.pending && !DB.d.outbox.some(o=>o.kind==='message'&&o.payload.id===m.id)) m.pending=false; });
   DB.save();
+  if(badToken){ render(); return tokenRefused(); }
   if(!quiet||ok) toast((LANG==='fr'?'Synchronisé : ':'Synced: ')+ok+(fail?(LANG==='fr'?' · échecs '+fail:' · failed '+fail):''));
   render();
 }
 async function pullRemote(){
   const api=DB.d.config.api; if(!api||!ONLINE) return;
   try{
-    const res=await fetch(api+'?action=pull&token='+encodeURIComponent(API_TOKEN));
+    const res=await fetch(api+'?action=pull&token='+encodeURIComponent(apiToken()));
     const j=await res.json();
     if(j && j.ok && j.messages){
       const known=new Set(DB.d.messages.map(m=>m.id));
@@ -5239,11 +5451,17 @@ async function pullData(full, deep){
   const since = deep ? 0 : (DB.d.config.lastData || 0);
   let j;
   try{
-    const res = await fetch(api+'?action=data&token='+encodeURIComponent(API_TOKEN)
+    const res = await fetch(api+'?action=data&token='+encodeURIComponent(apiToken())
       +'&since='+since+(full?'&full=1':''));
     j = await res.json();
   }catch(e){ return {changed:0, error:String(e)}; }
+  if(j && j.ok===false && /bad token/i.test(String(j.error||''))) return {changed:0, badToken:true};
   if(!j || !j.ok) return {changed:0, error:(j&&j.error)||'?'};
+  /* An old Code.gs does not know the word "data": it falls through to its generic reply,
+     which still says ok:true. The app then found no supervisions and cheerfully reported
+     "Déjà à jour" — a silent instruction that had not delivered. It says so now. */
+  if(!Array.isArray(j.visits)) return {changed:0, stale:true, serverVersion:j.version||''};
+  DB.d.config.serverVersion = j.version || '';
   if(typeof applyReset==='function') applyReset(j);
 
   const meNow = me() || {};
@@ -5346,10 +5564,108 @@ async function pullDataNow(){
   if(!ONLINE) return toast(T('offline'));
   toast(L?'Récupération…':'Fetching…', 1500);
   const r = await pullData(true, true);
+  if(r.badToken) return tokenRefused();
+  if(r.stale) return infoModal(L?'Le serveur n\'a pas été mis à jour':'The server has not been updated',
+    L?'Le script Google Apps Script qui répond à cette adresse est une ancienne version. Il ne sait pas encore renvoyer les supervisions : c\'est pour cela que rien ne descend sur cet appareil.\n\nÀ FAIRE, dans cet ordre :\n1. Classeur ▸ Extensions ▸ Apps Script\n2. Ctrl+A, coller la nouvelle version de Code.gs, Ctrl+S\n3. Menu des fonctions ▸ setup ▸ ▶ Exécuter\n4. Déployer ▸ GÉRER LES DÉPLOIEMENTS ▸ ✏️ ▸ Version : nouvelle version ▸ Déployer\n\nJamais « Nouveau déploiement » : cela crée une deuxième adresse, et l\'application continue de parler à l\'ancienne.'
+     :'The Apps Script answering this address is an older version. It does not yet know how to send supervisions back, which is why nothing arrives on this device.\n\nTO DO, in this order:\n1. Workbook ▸ Extensions ▸ Apps Script\n2. Ctrl+A, paste the new Code.gs, Ctrl+S\n3. Function menu ▸ setup ▸ ▶ Run\n4. Deploy ▸ MANAGE DEPLOYMENTS ▸ ✏️ ▸ Version: new version ▸ Deploy\n\nNever "New deployment": that creates a second address and the app keeps talking to the old one.');
   toast(r.error ? (L?'Échec : ':'Failed: ')+r.error
        : r.changed ? (L?'✓ '+r.changed+' élément(s) reçu(s)':'✓ '+r.changed+' item(s) received')
-                   : (L?'Déjà à jour':'Already up to date'), 3000);
+                   : (L?'Rien de nouveau depuis la dernière fois':'Nothing new since last time'), 3000);
   render();
+}
+
+/* The single most misleading state the app could be in: the server rejects every
+   message, and the app reports "Synchronisé : 0" as if there had been nothing to send. */
+function tokenRefused(){
+  const L=LANG==='fr';
+  infoModal(L?'Le serveur refuse cet appareil':'The server is refusing this device', L
+   ?'Le serveur répond, mais il rejette chaque message : le MOT DE PASSE DE LIAISON ne correspond pas.\n\nTant que ce n\'est pas corrigé, RIEN ne circule — ni les supervisions envoyées, ni les validations reçues. L\'application semble fonctionner : tout reste sur le téléphone.\n\nÀ FAIRE :\n1. Classeur ▸ Extensions ▸ Apps Script\n2. Tout en haut, ligne 19 :   var TOKEN = \'…\';\n3. Recopiez exactement cette valeur dans Console ▸ Paramètres ▸ « Mot de passe de liaison », puis Enregistrer.\n\nLes deux doivent être identiques, majuscules comprises.'
+   :'The server answers, but rejects every message: the LINK PASSWORD does not match.\n\nUntil that is corrected NOTHING moves — no supervision goes up, no approval comes down. The app looks like it is working: everything stays on the phone.\n\nTO DO:\n1. Workbook ▸ Extensions ▸ Apps Script\n2. At the very top, line 19:   var TOKEN = \'…\';\n3. Copy that value exactly into Console ▸ Settings ▸ "Link password", then Save.\n\nThe two must match, including capitals.');
+}
+
+/* ---------------------------------------------------------------------------
+   THE DIAGNOSTIC
+   "I submitted a supervision and I cannot see it" has exactly three answers:
+   the workbook never received it, this device never fetched it, or the address
+   the app is talking to is not the deployment that was updated. This says which,
+   in words, without anybody having to read a spreadsheet or ask me. */
+async function runDiag(){
+  const L=LANG==='fr', api=DB.d.config.api;
+  const box = h => infoModal(L?'Diagnostic':'Diagnostic', h);
+  if(!api) return box(L?'Aucune adresse de serveur n\'est configurée (Paramètres ▸ URL de l\'API).'
+                       :'No server address is configured (Settings ▸ API URL).');
+  if(!ONLINE) return box(L?'Cet appareil est hors réseau. Le diagnostic a besoin d\'une connexion.'
+                          :'This device is offline. The diagnostic needs a connection.');
+  let j=null, err='';
+  try{
+    const r = await fetch(api+'?action=diag&token='+encodeURIComponent(apiToken()));
+    j = await r.json();
+  }catch(e){ err=String(e); }
+
+  if(err) return box((L?'SERVEUR INJOIGNABLE\n\n':'SERVER UNREACHABLE\n\n')
+    + (L?'L\'adresse configurée ne répond pas :\n':'The configured address does not answer:\n')
+    + api + '\n\n' + err);
+
+  if(j && j.ok===false && /bad token/i.test(String(j.error||''))) return box(
+    (L?'LE SERVEUR REFUSE CET APPAREIL\n\n':'THE SERVER IS REFUSING THIS DEVICE\n\n')
+    + (L?'Le serveur répond, mais rejette chaque message : le mot de passe de liaison ne correspond pas. Rien ne circule dans un sens ni dans l\'autre.\n\nOuvrez Apps Script, lisez la ligne 19 (var TOKEN = \'…\') et recopiez exactement cette valeur dans Paramètres ▸ Mot de passe de liaison.\n\nAdresse interrogée :\n'
+       :'The server answers but rejects every message: the link password does not match. Nothing moves in either direction.\n\nOpen Apps Script, read line 19 (var TOKEN = \'…\') and copy that value exactly into Settings ▸ Link password.\n\nAddress queried:\n')
+    + api);
+  if(!j || !j.ok || j.visits === undefined) return box(
+    (L?'LE SERVEUR N\'A PAS ÉTÉ MIS À JOUR\n\n':'THE SERVER HAS NOT BEEN UPDATED\n\n')
+    + (L?'L\'adresse répond, mais avec une ancienne version du script — elle ne connaît pas encore le diagnostic ni le renvoi des supervisions.\n\nRedéployez Code.gs :\nApps Script ▸ coller ▸ setup ▸ Déployer ▸ GÉRER LES DÉPLOIEMENTS ▸ ✏️ ▸ nouvelle version.\nJamais « Nouveau déploiement ».\n\nAdresse interrogée :\n'
+       :'The address answers, but with an older version of the script — it does not know the diagnostic or how to send supervisions back.\n\nRedeploy Code.gs:\nApps Script ▸ paste ▸ setup ▸ Deploy ▸ MANAGE DEPLOYMENTS ▸ ✏️ ▸ new version.\nNever "New deployment".\n\nAddress queried:\n')
+    + api);
+
+  const here = {
+    visits: DB.d.visits.length,
+    subm:   DB.d.visits.filter(v=>v.status==='SUBMITTED').length,
+    answers:Object.keys(DB.d.answers||{}).length,
+    users:  DB.d.users.length,
+    queue:  DB.d.outbox.length
+  };
+  const byStatus = Object.keys(j.visitsByStatus||{})
+    .map(k=>'      '+k+' : '+j.visitsByStatus[k]).join('\n') || '      —';
+  const recent = (j.recent||[]).slice().reverse().map(v=>
+    '      '+(v.facility||'?')+'  ·  '+(v.district||'')+'  ·  '+(v.status||'')
+    +(v.supervisor?'  ·  '+v.supervisor:'')).join('\n') || '      —';
+
+  let verdict;
+  if(j.visits === 0)
+    verdict = L?'AUCUNE SUPERVISION N\'EST ARRIVÉE AU CLASSEUR.\nCe n\'est pas un problème de cet appareil : rien n\'a encore été envoyé. Le téléphone du superviseur garde sa supervision dans sa file d\'attente. Demandez-lui d\'ouvrir ATHECS une fois avec du réseau — elle part toute seule.'
+             :'NO SUPERVISION HAS REACHED THE WORKBOOK.\nThis is not a problem with this device: nothing has been sent yet. The supervisor\'s phone is still holding it in its outbox. Ask them to open ATHECS once with a network — it leaves by itself.';
+  else if(here.visits < j.visits)
+    verdict = L?'LE CLASSEUR EN A PLUS QUE CET APPAREIL.\nAppuyez sur « ⇩ Actualiser » (Console ▸ Supervisions). Si le nombre ne bouge pas, dites-le moi avec cet écran.'
+             :'THE WORKBOOK HOLDS MORE THAN THIS DEVICE.\nPress "⇩ Actualiser" (Console ▸ Supervisions). If the number does not move, send me this screen.';
+  else
+    verdict = L?'CET APPAREIL EST À JOUR AVEC LE CLASSEUR.'
+             :'THIS DEVICE IS UP TO DATE WITH THE WORKBOOK.';
+
+  box(
+    (L?'SERVEUR\n':'SERVER\n')
+    + '      '+(L?'version du script':'script version')+' : '+(j.version||'?')+'\n'
+    + '      '+(L?'classeur':'workbook')+' : '+String(j.sheetId||'').slice(0,12)+'…\n\n'
+    + (L?'DANS LE CLASSEUR\n':'IN THE WORKBOOK\n')
+    + '      '+(L?'supervisions':'supervisions')+' : '+j.visits+'\n'
+    + byStatus+'\n'
+    + '      '+(L?'réponses':'answers')+' : '+j.answers
+    + '   ·   '+(L?'recommandations':'recommendations')+' : '+j.actions+'\n'
+    + '      '+(L?'comptes':'accounts')+' : '+j.users
+    + '   ·   '+(L?'formations sanitaires':'facilities')+' : '+j.sites+'\n'
+    + '      '+(L?'questions':'questions')+' : '+j.questions
+    + '   ·   '+(L?'cycle ouvert':'open cycle')+' : '
+    + (j.openCycle ? j.openCycle.name+' ('+j.openCycle.ticked+'/'+j.openCycle.months+' '+(L?'mois':'months')+')' : '—')+'\n\n'
+    + (L?'SUR CET APPAREIL\n':'ON THIS DEVICE\n')
+    + '      '+(L?'supervisions':'supervisions')+' : '+here.visits
+    + '   ·   '+(L?'à approuver':'to approve')+' : '+here.subm+'\n'
+    + '      '+(L?'comptes':'accounts')+' : '+here.users
+    + '   ·   '+(L?'en attente d\'envoi':'waiting to be sent')+' : '+here.queue+'\n'
+    + '      '+(L?'dernière réception':'last received')+' : '
+    + (DB.d.config.lastData?fmtDT(DB.d.config.lastData):'—')+'\n\n'
+    + (L?'DERNIÈRES SUPERVISIONS DU CLASSEUR\n':'MOST RECENT IN THE WORKBOOK\n')
+    + recent+'\n\n'
+    + '— — —\n\n' + verdict
+  );
 }
 
 let ADMIN_TICK=0;
