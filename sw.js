@@ -1,7 +1,7 @@
 /* INTEGRATED SUPERVISION WEST REGION — ATHECS
    Service worker: lets the app open with no network at all.
    NACC powered by ICAP Global Health © 2025-2026 */
-const CACHE = 'athecs-v1-2-0';
+const CACHE = 'athecs-v2-5-0';
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -19,6 +19,9 @@ self.addEventListener('activate', e => {
   );
 });
 
+/* Network first, cache fallback: a new version is picked up whenever the
+   phone has signal, and the last good copy opens when it does not.
+   Requests to the Google Apps Script API are never touched. */
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   let url;
