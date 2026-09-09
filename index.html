@@ -619,6 +619,9 @@ tbody tr:hover{background:var(--brand-tint)}
   background:var(--brand-tint);border:1px dashed color-mix(in srgb,var(--brand) 35%,transparent);
   border-radius:var(--r-md);color:var(--brand);
 }
+.steps{margin:4px 0 12px 0;padding-left:20px;font-size:.88rem;line-height:1.55;color:var(--ink-2)}
+.steps li{margin-bottom:6px}
+.steps li::marker{color:var(--brand);font-weight:700}
 
 /* ---------- onboarding tour ---------- */
 .tour{
@@ -683,7 +686,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '2.3.0';
+const APP_VERSION = '2.5.0';
 /* ---------------------------------------------------------------
    SECURITY TOKEN — change this ONE line, and change the matching
    line  var TOKEN = 'ATHECS';  in Code.gs to exactly the same value.
@@ -1328,32 +1331,58 @@ function viewLoginAdmin(){
   </div>`;
 }
 
-function doLogin(){
-  const sel=$('#lg-user'); if(!sel||!sel.value) return toast(LANG==='fr'?'Aucun compte disponible':'No account available');
-  const id=sel.value, pin=($('#lg-pin')||{}).value||'';
+async function doLogin(){
+  const L=LANG==='fr';
+  const sel=$('#lg-user'); if(!sel||!sel.value) return toast(L?'Aucun compte disponible':'No account available');
+  const id=sel.value, pin=(($('#lg-pin')||{}).value||'').trim();
   const u=DB.d.users.find(x=>x.id===id);
   if(!u) return toast('Utilisateur introuvable');
-  if((u.pin||'')!==pin) return toast(LANG==='fr'?'Code PIN incorrect':'Wrong PIN');
+  if(!pin) return toast(L?'Saisissez votre code PIN':'Enter your PIN');
+
+  /* A temporary code exists only when somebody forgot their PIN. It is typed in this
+     same box — no separate recovery screen — but it is never stored on the device and
+     never matched here: the server compares it and burns it. So it can only be used
+     once, only within 24 hours, and only when a reset is actually outstanding. */
+  let temp=false;
+  if((u.pin||'')!==pin){
+    if(ONLINE && DB.d.config.api && pin.length>=4){
+      toast(L?'Vérification…':'Checking…', 1200);
+      temp = await checkTempPin(u.id, pin);
+    }
+    if(!temp) return toast(!ONLINE && !(u.pin||'')
+      ? (L?'Code temporaire : connectez-vous au réseau pour l\'utiliser':'Temporary code: connect to a network to use it')
+      : (L?'Code PIN incorrect':'Wrong PIN'));
+  }
+
   const path = u.role==='SUPER'?'adm':u.role==='SITE'?'site':'sup';
   try{ localStorage.setItem('ath_path', path); }catch(e){}
   LG_PATH = path;
   DB.d.session=u.id; DB.save(); audit('LOGIN','user',u.name); go('#/home'); render();
+  if(temp){
+    u.pinResetCode=''; u.pinResetAt=null; u.pinHelp=null; DB.save();
+    audit('PIN_RESET_USED','user',u.name); forcePinChange(u.id,'reset'); return;
+  }
   if(u.role==='SUPER' && DEFAULT_PINS.includes(u.pin)){ forcePinChange(u.id); return; }
   maybeTour();
-  if(u.role==='SUPER') refreshRoster(false); else refreshMyState(false);
+  if(u.role==='SUPER'){ pushUser(u); refreshRoster(false); } else refreshMyState(false);
+  refreshAdmins(false);
 }
 
 /* A seeded super-user PIN must be replaced before the console can be used. */
 const DEFAULT_PINS = ['1234','0000','1111'];
-function forcePinChange(uid){
+function forcePinChange(uid, why){
   const u=DB.d.users.find(x=>x.id===uid); const L=LANG==='fr';
+  const reset = why==='reset';
+  const ident = u.role==='SUPER' && !reset;   // seeded super: also fix the generic name
   $('#modal-root').innerHTML = `<div class="mask">
     <div class="modal" style="position:relative">
       <div class="gate-ico warn" style="margin-bottom:12px">🔐</div>
-      <h3>${L?'Changez votre code PIN':'Change your PIN'}</h3>
-      <div class="banner b-warn">${L
-        ?'Ce compte utilise encore le code PIN livré par défaut. Il doit être remplacé avant de continuer.'
-        :'This account still uses the PIN shipped by default. It must be replaced before you continue.'}</div>
+      <h3>${L?'Choisissez votre code PIN':'Choose your PIN'}</h3>
+      <div class="banner ${reset?'b-info':'b-warn'}">${
+        reset ? (L?'Vous vous êtes connecté avec le code temporaire donné par le niveau central. Choisissez maintenant votre propre code.'
+                  :'You signed in with the temporary code given by central level. Now choose your own code.')
+              : (L?'Ce compte utilise encore le code PIN livré par défaut. Il doit être remplacé avant de continuer.'
+                  :'This account still uses the PIN shipped by default. It must be replaced before you continue.')}</div>
       <p class="small muted">${L
         ?'Choisissez 4 à 8 chiffres que vous seul connaissez. Notez-le : personne ne peut le récupérer à votre place.'
         :'Choose 4 to 8 digits only you know. Write it down: nobody can recover it for you.'}</p>
@@ -1361,10 +1390,11 @@ function forcePinChange(uid){
         <input type="password" id="fp-new" inputmode="numeric" maxlength="8" autocomplete="new-password"></label>
       <label class="f"><span>${L?'Confirmer':'Confirm'}</span>
         <input type="password" id="fp-new2" inputmode="numeric" maxlength="8" autocomplete="new-password"></label>
+      ${ident?`
       <label class="f"><span>${L?'Votre nom (remplacez le nom générique)':'Your name (replace the generic name)'}</span>
         <input type="text" id="fp-name" value="${esc(u.name)}"></label>
       <label class="f"><span>${L?'Téléphone — affiché aux superviseurs bloqués':'Phone — shown to blocked supervisors'}</span>
-        <input type="tel" id="fp-tel" value="${esc(u.phone||'')}"></label>
+        <input type="tel" id="fp-tel" value="${esc(u.phone||'')}"></label>`:''}
       <button class="btn blk" onclick="saveForcedPin('${uid}')">${T('save')}</button>
       <button class="btn sec blk sm" style="margin-top:8px" onclick="logout()">${T('logout')}</button>
     </div></div>`;
@@ -1372,21 +1402,33 @@ function forcePinChange(uid){
 function saveForcedPin(uid){
   const u=DB.d.users.find(x=>x.id===uid);
   const a=($('#fp-new').value||'').trim(), b=($('#fp-new2').value||'').trim();
-  const nm=($('#fp-name').value||'').trim(), tel=($('#fp-tel').value||'').trim();
+  const nEl=$('#fp-name'), tEl=$('#fp-tel');
   const L=LANG==='fr';
   if(a.length<4) return toast(L?'4 chiffres minimum':'At least 4 digits');
   if(DEFAULT_PINS.includes(a)) return toast(L?'Choisissez un code moins évident':'Choose a less obvious code');
   if(a!==b) return toast(L?'Les deux codes ne correspondent pas':'The two codes do not match');
-  if(!nm) return toast(L?'Indiquez votre nom':'Enter your name');
-  u.pin=a; u.name=nm; u.phone=tel; DB.save();
-  audit('PIN_CHANGED','user',nm); queue('user',u);
+  if(nEl && !(nEl.value||'').trim()) return toast(L?'Indiquez votre nom':'Enter your name');
+  if(a===u.pinResetCode) return toast(L?'Choisissez un code différent du code temporaire'
+                                       :'Choose a code different from the temporary one');
+  u.pin=a;
+  if(nEl) u.name=(nEl.value||'').trim();
+  if(tEl) u.phone=(tEl.value||'').trim();
+  u.pinResetCode=''; u.pinResetAt=null; u.pinHelp=null;
+  DB.save();
+  audit('PIN_CHANGED','user',u.name);
+  /* a phone only ever clears its own recovery flags — it never rewrites its status,
+     districts or role by pushing a whole record it may have received long ago */
+  if(u.role==='SUPER') queue('user',u);
+  else queue('userFlag',{id:u.id, pinResetCode:'', pinResetAt:'', pinHelp:''});
   closeModal(); toast(L?'✓ Code PIN enregistré':'✓ PIN saved');
-  render(); maybeTour(); refreshRoster(false);
+  render(); maybeTour();
+  if(u.role==='SUPER') refreshRoster(false); else refreshMyState(false);
 }
 
 /* Supervisor self-enrolment — ID document captured ONCE here (decision D10) */
 function enrolModal(role){
   ENROL_ROLE = role || 'SUPERVISOR';
+  ENROL_SITES = [];
   const isS = ENROL_ROLE==='SITE';
   const dis = [...new Set(DB.d.sites.map(s=>s.district))].sort();
   modal(isS ? (LANG==='fr'?'Enrôlement — personnel du site':'Enrolment — facility staff')
@@ -1410,14 +1452,22 @@ function enrolModal(role){
      <label class="f"><span>Email</span><input type="email" id="en-mail"></label>
    </div>
    ${isS ? `
-   <label class="f"><span>${LANG==='fr'?'District *':'District *'}</span>
+   <div class="banner b-info xs">${LANG==='fr'
+     ?'Ajoutez autant de formations sanitaires que vous suivez. Elles peuvent appartenir à des districts différents.'
+     :'Add as many facilities as you follow. They may belong to different districts.'}</div>
+   <label class="f"><span>${LANG==='fr'?'District':'District'}</span>
      <select id="en-sdis" onchange="enrolSiteCascade()">
        <option value="">${T('select')}</option>
        ${dis.map(d=>`<option>${esc(d)}</option>`).join('')}</select></label>
-   <label class="f"><span>${LANG==='fr'?'Aire de santé *':'Health area *'}</span>
+   <label class="f"><span>${LANG==='fr'?'Aire de santé':'Health area'}</span>
      <select id="en-sarea" onchange="enrolSiteCascade(1)"><option value="">${T('select')}</option></select></label>
-   <label class="f"><span>${LANG==='fr'?'Ma formation sanitaire *':'My facility *'}</span>
+   <label class="f"><span>${LANG==='fr'?'Formation sanitaire':'Facility'}</span>
      <select id="en-site"><option value="">${T('select')}</option></select></label>
+   <button class="btn sec blk sm" onclick="addEnrolSite()">＋ ${LANG==='fr'
+     ?'Ajouter cette formation sanitaire':'Add this facility'}</button>
+   <label class="f" style="margin-top:12px"><span>${LANG==='fr'
+     ?'Mes formations sanitaires *':'My facilities *'}</span></label>
+   <div id="en-sitelist"></div>
    ` : `
    <label class="f"><span>${LANG==='fr'?'District(s) couvert(s) *':'District(s) covered *'}</span>
      <select id="en-dis" multiple size="6">${dis.map(d=>`<option>${esc(d)}</option>`).join('')}</select></label>`}
@@ -1427,8 +1477,35 @@ function enrolModal(role){
      :'I certify that the information and documents provided are accurate.'}</span></label>
   `, `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
       <button class="btn" onclick="doEnrol()">${T('save')}</button>`);
+  if(isS) renderEnrolSites();
 }
 let ENROL_ROLE='SUPERVISOR';
+/* Facility staff may cover several facilities, in several districts. */
+let ENROL_SITES=[];
+function renderEnrolSites(){
+  const box=$('#en-sitelist'); if(!box) return;
+  const L=LANG==='fr';
+  box.innerHTML = ENROL_SITES.length
+    ? ENROL_SITES.map((id,i)=>{ const s=siteById(id); if(!s) return '';
+        return `<div class="item" style="cursor:default"><div style="min-width:0">
+            <b>${esc(s.facility)}</b><div class="s">${esc(s.district)} › ${esc(s.area)}</div></div>
+          <button class="btn dan sm" onclick="removeEnrolSite(${i})">✕</button></div>`; }).join('')
+    : `<p class="xs muted">${L?'Aucune formation sanitaire ajoutée pour le moment.'
+                             :'No facility added yet.'}</p>`;
+}
+function addEnrolSite(){
+  const L=LANG==='fr';
+  const id=($('#en-site')||{}).value||'';
+  if(!id) return toast(L?'Choisissez une formation sanitaire':'Choose a facility');
+  if(ENROL_SITES.includes(id)) return toast(L?'Déjà ajoutée':'Already added');
+  ENROL_SITES.push(id); renderEnrolSites();
+  $('#en-site').value='';
+  toast(L?'✓ Ajoutée':'✓ Added', 1200);
+}
+function removeEnrolSite(i){ ENROL_SITES.splice(i,1); renderEnrolSites(); }
+function districtsOfSites(ids){
+  return [...new Set(ids.map(id=>(siteById(id)||{}).district).filter(Boolean))];
+}
 const FUNCTIONS=['Chef de Centre','Major','Cordo/Major','Point Focal UPEC','APS','Responsable données / S&E',
                  'Chef de District','Point Focal Régional','Mentor / Superviseur','Autre'];
 function enrolSiteCascade(level){
@@ -1451,21 +1528,21 @@ async function doEnrol(){
   const name=g('en-name'), fn=g('en-fn'), idt=g('en-idt'), idn=g('en-idn'),
         tel=g('en-tel'), pin=g('en-pin');
   const isS = ENROL_ROLE==='SITE';
-  const dis = isS ? (($('#en-sdis')||{}).value ? [$('#en-sdis').value] : [])
+  const sites = isS ? ENROL_SITES.slice() : [];
+  const dis = isS ? districtsOfSites(sites)
                   : Array.from($('#en-dis').selectedOptions).map(o=>o.value);
-  const siteId = isS ? (($('#en-site')||{}).value||'') : '';
   const file=$('#en-idf').files[0];
   const miss=[];
   if(!name)miss.push(T('name')); if(!idn)miss.push('N° pièce'); if(!file)miss.push('Photo pièce');
   if(!tel)miss.push('Téléphone');
-  if(isS){ if(!siteId) miss.push(LANG==='fr'?'Formation sanitaire':'Facility'); }
+  if(isS){ if(!sites.length) miss.push(LANG==='fr'?'Au moins une formation sanitaire':'At least one facility'); }
   else if(!dis.length) miss.push('District');
   if(pin.length<4)miss.push('PIN');
   if(!$('#en-dec').checked)miss.push('Déclaration');
   if(miss.length) return blockedModal(miss);
   const b64 = await fileToB64(file);
   const u={id:DB.id('U'), name, role:ENROL_ROLE, fn, matricule:g('en-mat'),
-    sites: siteId?[siteId]:undefined, siteId: siteId||undefined,
+    sites: sites.length?sites:undefined, siteId: sites[0]||undefined,
     idType:idt, idNumber:idn, idFile:b64, phone:tel, email:g('en-mail'),
     districts:dis, pin, status:U_PENDING, active:true, enrolled:Date.now(),
     device:(navigator.userAgent||'').slice(0,80)};
@@ -1765,7 +1842,7 @@ async function refreshMyState(loud){
     if(Array.isArray(s.districts) && s.districts.length) u.districts = s.districts;
     if(Array.isArray(s.sites) && s.sites.length){ u.sites = s.sites; u.siteId = s.sites[0]; }
     u.decisionNote = s.decisionNote || '';
-    u.pinResetCode = s.pinResetCode || '';
+    u.pinHelp = s.pinHelp || null;          // cleared once central has issued a code
     DB.save();
     const after=userStatus(u);
     if(before!==after){
@@ -1794,15 +1871,27 @@ async function refreshRoster(loud){
       const local=DB.d.users.find(x=>x.id===s.id);
       if(local){
         // never overwrite the local PIN, and never downgrade a super user
-        if(local.role!=='SUPER'){
+        if(local.role==='SUPER'){
+          // a renamed super user must reach the other console too — name and phone only
+          if(s.name && s.name!==local.name){ local.name=s.name; updated++; }
+          if(s.phone && s.phone!==local.phone){ local.phone=s.phone; }
+        } else {
           local.status=s.status; local.active=s.active!==false;
           if(Array.isArray(s.districts)&&s.districts.length) local.districts=s.districts;
           local.fn=s.fn||local.fn; local.phone=s.phone||local.phone; local.email=s.email||local.email;
+          local.matricule=local.matricule||s.matricule; local.idType=local.idType||s.idType;
+          if(!local.idNumber && s.idLast) local.idLast=s.idLast;
           if(s.sites&&s.sites.length){ local.sites=s.sites; local.siteId=s.sites[0]; }
+          // PIN recovery: who has asked, and whether a code is still outstanding.
+          // The code itself is never transmitted.
+          local.pinHelp=s.pinHelp||null;
+          local.pinResetAt=s.pinResetAt||null;
+          if(!s.pinPending) local.pinResetCode='';
           updated++;
         }
       } else {
         DB.d.users.push({id:s.id, name:s.name, role:s.role||'SUPERVISOR', fn:s.fn,
+          matricule:s.matricule, idType:s.idType, idLast:s.idLast,
           phone:s.phone, email:s.email, districts:s.districts||[], status:s.status||U_PENDING,
           active:s.active!==false, enrolled:s.enrolled||Date.now(), remote:true});
         added++;
@@ -1816,7 +1905,7 @@ async function refreshRoster(loud){
 }
 
 /* ---------- central decisions ---------- */
-function pushUser(u){ queue('user', u); }
+function pushUser(u){ if(u.role==='SUPER' && !u.status) u.status=U_ACTIVE; queue('user', u); }
 
 function approveUser(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
@@ -1856,94 +1945,131 @@ function reactivateUser(uid){
   DB.save(); audit('USER_REACTIVATE','user',u.name); pushUser(u); render();
 }
 
-/* PIN recovery — central issues a single-use code, read out by phone.
-   Central never sees or sets the PIN itself. */
-function issuePinReset(uid){
+/* ---------- PIN recovery, one click ----------------------------------------
+   A temporary code exists for exactly one reason: somebody forgot their PIN.
+   It is six digits, single use, and dies 24 hours after it is issued. It is
+   never stored as a PIN, never returned by any endpoint, and it is checked on
+   the server, which burns it the moment it is accepted. */
+const TEMP_TTL = 24*3600*1000;
+function tempAlive(u){ return !!(u && u.pinResetAt && (Date.now()-u.pinResetAt) < TEMP_TTL); }
+function tempEnds(u){ return u && u.pinResetAt ? fmtDT(u.pinResetAt + TEMP_TTL) : ''; }
+
+function resetPin(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
+  const L=LANG==='fr';
   const code=String(Math.floor(100000+Math.random()*900000));
-  u.pinResetCode=code; DB.save(); audit('PIN_RESET_ISSUED','user',u.name); pushUser(u);
-  modal(LANG==='fr'?'Code de récupération':'Recovery code', `
-    <p class="small">${LANG==='fr'
-      ?`Communiquez ce code à <b>${esc(u.name)}</b> par téléphone. Sur l'écran de connexion, il ou elle choisit « Code PIN oublié », saisit ce code, puis définit un nouveau PIN.`
-      :`Read this code to <b>${esc(u.name)}</b> by phone. On the login screen they choose "Forgotten PIN", enter this code and set a new PIN.`}</p>
-    <div class="codebox">${code}</div>
-    <p class="xs muted">${LANG==='fr'
-      ?'Usage unique. Le téléphone doit se connecter au réseau une fois pour recevoir le code.'
-      :'Single use. The phone must connect to a network once to receive the code.'}</p>`,
+  u.pinResetCode=code; u.pinResetAt=Date.now(); u.pinHelp=null;
+  DB.save(); audit('PIN_RESET','user',u.name);
+  queue('userFlag',{id:u.id, pinResetCode:code, pinResetAt:u.pinResetAt, pinHelp:''});
+  showTempPin(uid);
+}
+function showTempPin(uid){
+  const u=DB.d.users.find(x=>x.id===uid); if(!u||!u.pinResetCode) return;
+  const L=LANG==='fr';
+  modal(L?'Code temporaire':'Temporary code', `
+    <p class="small">${L
+      ?`Lisez ce code à <b>${esc(u.name)}</b> au téléphone${u.phone?' ('+esc(u.phone)+')':''}.`
+      :`Read this code to <b>${esc(u.name)}</b> over the phone${u.phone?' ('+esc(u.phone)+')':''}.`}</p>
+    <div class="codebox">${esc(u.pinResetCode)}</div>
+    <p class="small">${L
+      ?'Il ou elle le saisit à la place du code PIN sur l\'écran de connexion habituel, avec du réseau. L\'application lui demande aussitôt de choisir son propre code.'
+      :'They type it instead of their PIN on the normal login screen, with signal. The app then asks them to choose their own code straight away.'}</p>
+    <p class="xs muted">${L
+      ?'Usage unique. Valable jusqu\'au '+tempEnds(u)+'. Passé ce délai, refaites la manipulation.'
+      :'Single use. Valid until '+tempEnds(u)+'. After that, issue a new one.'}</p>`,
     `<button class="btn" onclick="closeModal()">OK</button>`);
 }
-function transferUser(uid){
-  const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
-  const dis=[...new Set(DB.d.sites.map(s=>s.district))].sort();
-  const cur=Array.isArray(u.districts)?u.districts:[];
-  modal((LANG==='fr'?'Affectation — ':'Assignment — ')+u.name, `
-    <p class="small muted">${LANG==='fr'
-      ?'Sélectionnez les districts couverts après mutation. Le changement est journalisé et prend effet sur le téléphone à la prochaine connexion réseau.'
-      :'Select the districts covered after the transfer. The change is logged and reaches the phone at its next network connection.'}</p>
-    <label class="f"><span>${T('district')}</span>
-      <select id="tr-dis" multiple size="10">${dis.map(d=>
-        `<option ${cur.includes(d)?'selected':''}>${esc(d)}</option>`).join('')}</select></label>
-    <label class="f"><span>${LANG==='fr'?'Motif / référence de la mutation':'Reason / transfer reference'}</span>
-      <input type="text" id="tr-why" placeholder="${LANG==='fr'?'Note de service n°…':'Service note no…'}"></label>`,
-    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
-     <button class="btn" onclick="saveTransfer('${uid}')">${T('save')}</button>`);
-}
-function saveTransfer(uid){
-  const u=DB.d.users.find(x=>x.id===uid);
-  const next=Array.from($('#tr-dis').selectedOptions).map(o=>o.value);
-  if(!next.length) return toast(LANG==='fr'?'Au moins un district':'At least one district');
-  const why=($('#tr-why')||{}).value||'';
-  const before=(u.districts||[]).join(', ');
-  u.districts=next; u.transferNote=why; DB.save();
-  audit('USER_TRANSFER','user',`${u.name} : ${before} → ${next.join(', ')}${why?' ('+why+')':''}`);
-  pushUser(u); closeModal();
-  toast(LANG==='fr'?'Affectation mise à jour':'Assignment updated'); render();
+/* kept for older call sites */
+function issuePinReset(uid){ return resetPin(uid); }
+function transferUser(uid){ return editScope(uid); }
+
+/* The server compares the code and never sends it back. */
+async function checkTempPin(uid, code){
+  const api=DB.d.config.api;
+  if(!api || !ONLINE) return false;
+  try{
+    const r=await fetch(api+'?action=pincheck&token='+encodeURIComponent(API_TOKEN)
+      +'&uid='+encodeURIComponent(uid)+'&code='+encodeURIComponent(code));
+    const j=await r.json();
+    return !!(j && j.ok && j.valid);
+  }catch(e){ return false; }
 }
 
-/* ---------- supervisor side: forgotten PIN ---------- */
+/* ---------- supervisor side: I forgot my PIN ---------- */
 function forgotPinModal(){
   const L=LANG==='fr';
+  const admins=DB.d.users.filter(x=>x.role==='SUPER');
+  const sel=$('#lg-user');
   const users=DB.d.users.filter(u=>u.role!=='SUPER');
+  const cur=sel?sel.value:(users[0]||{}).id;
   modal(L?'Code PIN oublié':'Forgotten PIN', `
-    <p class="small muted">${L
-      ?'Demandez un code de récupération à un super utilisateur (par téléphone). Votre appareil doit se connecter une fois au réseau pour le recevoir.'
-      :'Ask a super user for a recovery code (by phone). Your device must connect to a network once to receive it.'}</p>
-    <label class="f"><span>${T('name')}</span>
-      <select id="fp-user">${users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select></label>
-    <div class="row"><button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="pullResetCode()">↻ ${L?'Récupérer le code':'Fetch the code'}</button></div>
-    <label class="f" style="margin-top:10px"><span>${L?'Code à 6 chiffres':'6-digit code'}</span>
-      <input type="text" id="fp-code" inputmode="numeric" maxlength="6" placeholder="••••••"></label>
-    <label class="f"><span>${L?'Nouveau code PIN':'New PIN'}</span>
-      <input type="password" id="fp-pin" inputmode="numeric" maxlength="8"></label>`,
-    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
-     <button class="btn" onclick="applyPinReset()">${T('save')}</button>`);
+    <ol class="steps">
+      <li>${L?'Signalez-le ci-dessous, ou appelez directement un super utilisateur.'
+             :'Report it below, or call a super user directly.'}</li>
+      <li>${L?'Il ou elle vous donne, en un clic, un code temporaire à 6 chiffres.'
+             :'In one click they give you a temporary 6-digit code.'}</li>
+      <li>${L?'Avec du réseau, saisissez ce code à la place de votre code PIN sur cet écran.'
+             :'With signal, type that code instead of your PIN on this screen.'}</li>
+      <li>${L?'L\'application vous demande aussitôt de choisir votre nouveau code.'
+             :'The app then asks you to choose your new code straight away.'}</li>
+    </ol>
+    <label class="f"><span>${L?'Qui êtes-vous ?':'Who are you?'}</span>
+      <select id="fp-who">${users.map(u=>
+        `<option value="${u.id}" ${u.id===cur?'selected':''}>${esc(u.name)}</option>`).join('')
+        || `<option value="">—</option>`}</select></label>
+    <button class="btn blk" ${ONLINE?'':'disabled'} onclick="reportPinLoss()">
+      ${L?'Signaler mon oubli au niveau central':'Report my forgotten PIN to central level'}</button>
+    <p class="xs muted" style="margin-top:6px">${ONLINE
+      ? (L?'Votre demande apparaîtra immédiatement dans la console.':'Your request appears in the console immediately.')
+      : (L?'Hors ligne : appelez un super utilisateur, ou réessayez avec du réseau.':'Offline: call a super user, or try again with signal.')}</p>
+    <div class="banner b-info" style="margin-top:10px">
+      <b>${L?'Administrateurs':'Administrators'}</b><br>
+      ${admins.map(a=>esc(a.name)+(a.phone?' — '+esc(a.phone):'')).join('<br>')||'—'}
+    </div>`,
+    `<button class="btn sec" onclick="closeModal()">${L?'Fermer':'Close'}</button>`);
 }
-async function pullResetCode(){
-  const uid=$('#fp-user').value, api=DB.d.config.api;
-  if(!api||!ONLINE) return toast(T('offline'));
+function reportPinLoss(){
+  const L=LANG==='fr';
+  const id=($('#fp-who')||{}).value||'';
+  const u=DB.d.users.find(x=>x.id===id);
+  if(!u) return toast(L?'Choisissez votre nom':'Choose your name');
+  u.pinHelp=Date.now(); DB.save();
+  audit('PIN_HELP','user',u.name);
+  queue('userFlag',{id:u.id, pinHelp:u.pinHelp});
+  closeModal();
+  toast(L?'✓ Signalé — appelez un super utilisateur pour recevoir le code'
+        :'✓ Reported — call a super user to receive the code', 4000);
+}
+
+/* ---------- every device keeps the administrators' names up to date ----------
+   A super user who renames themselves must appear under the new name on the
+   supervisors' phones too: on the login list, on the blocked screen, and in the
+   "contact the administrator" panels. Names and phone numbers only — never a
+   PIN, never a role change. */
+async function refreshAdmins(loud){
+  const api=DB.d.config.api;
+  if(!api || !ONLINE){ if(loud) toast(T('offline')); return; }
   try{
-    const r=await fetch(api+'?action=userstate&token='+encodeURIComponent(API_TOKEN)+'&uid='+encodeURIComponent(uid));
+    const r=await fetch(api+'?action=admins&token='+encodeURIComponent(API_TOKEN));
     const j=await r.json();
-    if(j&&j.ok&&j.user){
-      const u=DB.d.users.find(x=>x.id===uid);
-      if(u){ u.pinResetCode=j.user.pinResetCode||''; u.status=j.user.status||u.status;
-             u.active=j.user.active!==false; DB.save(); }
-      toast(j.user.pinResetCode
-        ? (LANG==='fr'?'Code reçu — saisissez-le':'Code received — enter it')
-        : (LANG==='fr'?'Aucun code émis pour vous':'No code issued for you'));
-    } else toast(LANG==='fr'?'Utilisateur introuvable':'User not found');
-  }catch(e){ toast(LANG==='fr'?'Serveur injoignable':'Server unreachable'); }
-}
-function applyPinReset(){
-  const uid=$('#fp-user').value, code=($('#fp-code').value||'').trim(), pin=($('#fp-pin').value||'').trim();
-  const u=DB.d.users.find(x=>x.id===uid);
-  if(!u) return toast('—');
-  if(!u.pinResetCode) return toast(LANG==='fr'?'Aucun code de récupération reçu':'No recovery code received');
-  if(code!==u.pinResetCode) return toast(LANG==='fr'?'Code incorrect':'Wrong code');
-  if(pin.length<4) return toast(LANG==='fr'?'PIN : 4 chiffres minimum':'PIN: at least 4 digits');
-  u.pin=pin; u.pinResetCode=''; DB.save();
-  audit('PIN_RESET_USED','user',u.name); pushUser(u);
-  closeModal(); toast(LANG==='fr'?'✓ Nouveau PIN enregistré':'✓ New PIN saved'); render();
+    if(!j || !j.ok || !Array.isArray(j.admins)) return;
+    let n=0;
+    j.admins.forEach(s=>{
+      if(!s.id || !s.name) return;
+      const local=DB.d.users.find(x=>x.id===s.id);
+      if(local){
+        if(local.name!==s.name || (local.phone||'')!==(s.phone||'')){
+          local.name=s.name; local.phone=s.phone||local.phone; n++;
+        }
+      } else {
+        DB.d.users.push({id:s.id, name:s.name, role:'SUPER', phone:s.phone||'',
+          pin:'', status:U_ACTIVE, active:true, remote:true});
+        n++;
+      }
+    });
+    if(n){ DB.save(); render(); }
+    if(loud) toast(LANG==='fr'?`Administrateurs : ${n} mise(s) à jour`:`Administrators: ${n} update(s)`);
+  }catch(e){ if(loud) toast(LANG==='fr'?'Serveur injoignable':'Server unreachable'); }
 }
 
 /* ===================== HOME ===================== */
@@ -2936,14 +3062,22 @@ function viewSiteHome(){
 
   if(!sites.length) return `<div class="card">
     <div class="banner b-warn">${L
-      ?'Aucune formation sanitaire ne vous est encore rattachée. Le niveau central doit vous en attribuer une.'
-      :'No facility is assigned to you yet. Central level must assign one.'}</div></div>`;
+      ?'Aucune formation sanitaire ne vous est encore rattachée. Le niveau central doit vous en attribuer au moins une.'
+      :'No facility is assigned to you yet. Central level must assign at least one.'}</div></div>`;
+
+  const multi = sites.length>1;
+  const disList = [...new Set(sites.map(s=>s.district))];
 
   return `
   <div class="card" style="background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;border:0">
     <div class="spread">
-      <div style="min-width:0"><h2 style="color:#fff;margin:0">${esc(sites.map(s=>s.facility).join(' · '))}</h2>
-        <span class="small" style="opacity:.88">${esc(sites[0].district)} › ${esc(sites[0].area)}</span></div>
+      <div style="min-width:0">
+        <h2 style="color:#fff;margin:0">${multi
+          ? esc(sites.length+(L?' formations sanitaires':' facilities'))
+          : esc(sites[0].facility)}</h2>
+        <span class="small" style="opacity:.88">${multi
+          ? esc(disList.join(' · '))
+          : esc(sites[0].district)+' › '+esc(sites[0].area)}</span></div>
       <span class="chip" style="background:rgba(255,255,255,.2);color:#fff;border-color:transparent">
         ${L?'Point focal':'Focal point'}</span>
     </div>
@@ -2951,6 +3085,28 @@ function viewSiteHome(){
       ${L?'Dernière supervision':'Last supervision'} : <b>${esc(last.date||'')}</b> · ${pc((last.scores||visitScores(last)).overall.pct)}</div>`:''}
   </div>
 
+  ${multi?`<div class="card">
+    <h3>${L?'Mes formations sanitaires':'My facilities'}</h3>
+    <p class="small muted">${L
+      ?'Les chiffres ci-dessous couvrent l\'ensemble de vos formations sanitaires. Le détail de chacune est dans son rapport.'
+      :'The figures below cover all your facilities together. Each one\'s detail is in its own report.'}</p>
+    <div class="list">${sites.map(st=>{
+      const vs=DB.d.visits.filter(v=>v.siteId===st.id && reportReady(v))
+                          .sort((a,b)=>(b.submitted||0)-(a.submitted||0));
+      const lv=vs[0], sc=lv?(lv.scores||visitScores(lv)).overall:null;
+      const op=DB.d.actions.filter(a=>a.siteId===st.id && a.status!=='RESOLVED').length;
+      return `<div class="item" ${lv?`onclick="go('#/report/${lv.id}')"`:'style="cursor:default"'}>
+        <div style="min-width:0"><b>${esc(st.facility)}</b>
+          <div class="s">${esc(st.district)} › ${esc(st.area)} · ${
+            op?(op+(L?' recommandation(s) ouverte(s)':' open recommendation(s)')):(L?'à jour':'up to date')}</div></div>
+        ${sc?`<span class="chip ${band(sc.pct)}">${pc(sc.pct)}</span>`
+            :`<span class="chip n">${L?'aucun rapport':'no report'}</span>`}</div>`;}).join('')}
+    </div>
+  </div>`:''}
+
+  ${last&&multi?`<p class="xs muted" style="margin:0 0 6px">${L
+    ?'Scores de la dernière supervision — '+esc((siteById(last.siteId)||{}).facility||'')
+    :'Scores of the most recent supervision — '+esc((siteById(last.siteId)||{}).facility||'')}</p>`:''}
   ${last?`<div class="grid g3 rings" style="margin-bottom:13px">
     <div class="stat">${ring((last.scores||visitScores(last)).clinical.pct,56,T('clinical'))}</div>
     <div class="stat">${ring((last.scores||visitScores(last)).mne.pct,56,T('mne'))}</div>
@@ -2973,7 +3129,7 @@ function viewSiteHome(){
       ?'Mettez à jour chaque recommandation dès qu\'elle est réalisée. Le superviseur et la coordination le voient à la synchronisation suivante.'
       :'Update each recommendation as soon as it is done. The supervisor and coordination see it at the next sync.'}</p>
 
-    <div class="list">${open.length? open.map(a=>siteActionCard(a)).join('')
+    <div class="list">${open.length? open.map(a=>siteActionCard(a, multi)).join('')
       : `<div class="banner b-ok">${L?'Aucune recommandation en attente. Bon travail.':'No recommendation outstanding. Good work.'}</div>`}</div>
 
     ${done? `<hr><h3 class="small">${L?'Déjà résolues':'Already resolved'} (${done})</h3>
@@ -2999,10 +3155,12 @@ function viewSiteHome(){
   ${syncCard()}`;
 }
 
-function siteActionCard(a){
+function siteActionCard(a, showSite){
   const L=LANG==='fr';
   const late=a.deadline && a.deadline<today() && a.status!=='RESOLVED';
+  const st=showSite?siteById(a.siteId):null;
   return `<div class="card tight ${late?'fill-r':''}" style="margin:0">
+    ${st?`<div class="xs muted" style="margin-bottom:4px">🏥 ${esc(st.facility)}</div>`:''}
     <div class="spread" style="margin-bottom:6px">
       <span class="chip ${a.qid?'n':'a'}">${a.qid?'Q'+esc(a.qn):(L?'Observation':'Observation')} · ${esc(a.sec||'')}</span>
       ${a.deadline?`<span class="chip ${late?'r':'n'}">${L?'échéance':'due'} ${esc(a.deadline)}</span>`:''}
@@ -3500,64 +3658,187 @@ function setCycleDeadline(cid,v){ DB.d.cycles.find(x=>x.id===cid).deadline=v; DB
 
 function admApprovals(){
   const L=LANG==='fr';
-  const dis=[...new Set(DB.d.sites.map(s=>s.district))].sort();
   const all=DB.d.users.filter(u=>u.role!=='SUPER');
   const pending=all.filter(u=>userStatus(u)===U_PENDING);
   const active=all.filter(u=>userStatus(u)===U_ACTIVE);
   const off=all.filter(u=>[U_SUSPENDED,U_REJECTED].includes(userStatus(u)));
+  const help=active.filter(u=>u.pinHelp);
 
-  const chips=u=>{const st=userStatus(u);
-    return `<span class="chip ${st===U_ACTIVE?'g':st===U_PENDING?'a':'r'}">${st}</span>`;};
+  /* what the applicant supplied — read only. Central just decides. */
+  const row=(k,v)=>v?`<tr><td class="k">${esc(k)}</td><td>${v}</td></tr>`:'';
+  const scope=u=>{
+    if(u.role==='SITE'){
+      const st=(u.sites||[]).map(id=>{ const x=siteById(id);
+        return `<span class="chip n">${x?esc(x.district)+' › '+esc(x.facility):esc(id)}</span>`; }).join(' ');
+      return st || `<span class="chip r">${L?'aucune formation sanitaire':'no facility'}</span>`; }
+    const d=(u.districts||[]);
+    return d.length? d.map(x=>`<span class="chip n">${esc(x)}</span>`).join(' ')
+                   : `<span class="chip r">${L?'aucun district':'no district'}</span>`;
+  };
 
-  const card=(u,mode)=>`<div class="card tight">
-    <div class="spread" style="margin-bottom:6px">
+  /* The full ID number never leaves the private workbook. On a device that took the
+     enrolment it is here; on any other device only the last four characters arrive —
+     enough to read back to the person on the phone, never enough to reconstruct. */
+  const idLine=(u,L)=>{
+    if(u.idNumber) return esc(u.idType||'')+' n° '+esc(u.idNumber)
+      + (u.idFile?` <a href="${u.idFile}" target="_blank">↗</a>`:'');
+    if(u.idLast) return esc(u.idType||'')+' •••'+esc(u.idLast)
+      + ` <span class="xs muted">(${L?'n° complet dans le classeur':'full number in the workbook'})</span>`;
+    return `<span class="chip a">${L?'à vérifier dans le classeur':'check in the workbook'}</span>`;
+  };
+
+  const pendingCard=u=>`<div class="card tight">
+    <div class="spread" style="margin-bottom:8px">
+      <div style="min-width:0"><b style="font-size:1rem">${esc(u.name)}</b>
+        <div class="xs muted">${esc(u.fn||'')}</div></div>
+      <span class="chip ${u.role==='SITE'?'g':'n'}">${u.role==='SITE'?(L?'Personnel du site':'Facility staff'):(L?'Superviseur':'Supervisor')}</span>
+    </div>
+    <div class="tw"><table><tbody>
+      ${row(u.role==='SITE'?T('facility'):T('district'), scope(u))}
+      ${row(L?'Téléphone':'Phone', esc(u.phone||''))}
+      ${row('Email', esc(u.email||''))}
+      ${row(L?'Pièce d\'identité':'ID document', idLine(u,L))}
+      ${row(L?'Matricule':'Matricule', esc(u.matricule||''))}
+      ${row(L?'Demande reçue':'Request received', u.enrolled?fmtDT(u.enrolled):'')}
+    </tbody></table></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn ok" style="flex:2" onclick="approveUser('${u.id}')">✓ ${L?'Approuver':'Approve'}</button>
+      <button class="btn dan" style="flex:1" onclick="rejectUser('${u.id}')">✕ ${L?'Rejeter':'Reject'}</button>
+    </div>
+    <button class="btn sec blk sm" style="margin-top:8px" onclick="editScope('${u.id}')">
+      ✎ ${L?'Modifier l\'affectation avant d\'approuver':'Change the assignment before approving'}</button>
+  </div>`;
+
+  const activeCard=u=>`<div class="card tight ${u.pinHelp?'fill-a':''}">
+    <div class="spread">
       <div style="min-width:0"><b>${esc(u.name)}</b>
-        <span class="chip n xs">${u.role==='SITE'?(L?'Site':'Site'):(L?'Superviseur':'Supervisor')}</span>
-        <div class="xs muted">${esc(u.fn||'')}${u.phone?' · '+esc(u.phone):''}
-          ${u.idNumber?' · '+esc(u.idType||'')+' '+esc(u.idNumber):''}</div></div>
-      ${chips(u)}
+        <div class="xs muted">${esc(u.fn||'')}${u.phone?' · '+esc(u.phone):''}</div>
+        <div class="xs" style="margin-top:4px">${scope(u)}</div></div>
+      <span class="chip g">${L?'Actif':'Active'}</span>
     </div>
-    ${u.role==='SITE'
-      ? `<label class="f" style="margin-bottom:8px"><span>${T('facility')}</span>
-           <select onchange="setUserSite('${u.id}',this.value)">
-             <option value="">${T('select')}</option>
-             ${DB.d.sites.filter(s=>s.status!=='CLOSED').map(s=>
-               `<option value="${s.id}" ${(u.sites||[]).includes(s.id)?'selected':''}>${esc(s.district)} › ${esc(s.facility)}</option>`).join('')}
-           </select></label>`
-      : `<label class="f" style="margin-bottom:8px"><span>${T('district')}</span>
-           <select multiple size="4" onchange="setDistricts('${u.id}',this)">
-             ${dis.map(d=>`<option ${(u.districts||[]).includes(d)?'selected':''}>${esc(d)}</option>`).join('')}
-           </select></label>`}
-    ${u.decisionNote?`<div class="banner b-warn xs">${esc(u.decisionNote)}</div>`:''}
-    <div class="row">
-      ${mode==='pending'?`
-        <button class="btn ok sm" onclick="approveUser('${u.id}')">✓ ${L?'Valider':'Approve'}</button>
-        <button class="btn dan sm" onclick="rejectUser('${u.id}')">✕ ${L?'Refuser':'Refuse'}</button>`:''}
-      ${mode==='active'?`
-        <button class="btn sec sm" onclick="transferUser('${u.id}')">⇄ ${L?'Muter':'Transfer'}</button>
-        <button class="btn sec sm" onclick="issuePinReset('${u.id}')">🔑 ${L?'PIN oublié':'PIN reset'}</button>
-        <button class="btn dan sm" onclick="suspendUser('${u.id}')">⛔ ${L?'Désactiver':'Deactivate'}</button>`:''}
-      ${mode==='off'?`
-        <button class="btn ok sm" onclick="reactivateUser('${u.id}')">↺ ${L?'Réactiver':'Reactivate'}</button>`:''}
+    ${u.pinHelp?`<div class="banner b-warn xs" style="margin-top:8px">🔑 ${L
+      ?'A signalé un code PIN oublié le '+fmtDT(u.pinHelp)+'. Appelez-le/la et donnez le code temporaire.'
+      :'Reported a forgotten PIN on '+fmtDT(u.pinHelp)+'. Call them and give the temporary code.'}</div>`
+     : tempAlive(u)?`<div class="banner b-info xs" style="margin-top:8px">${L
+      ?'Code temporaire en cours, valable jusqu\'au '+tempEnds(u)+'.'
+      :'Temporary code outstanding, valid until '+tempEnds(u)+'.'}
+      ${u.pinResetCode?`<a href="#" onclick="event.preventDefault();showTempPin('${u.id}')">${
+        L?'revoir le code':'show the code again'}</a>`:''}</div>`:''}
+    <div class="row" style="margin-top:9px">
+      <button class="btn sec sm" onclick="editScope('${u.id}')">⇄ ${
+        u.role==='SITE'?(L?'Formations sanitaires':'Facilities'):(L?'Muter':'Transfer')}</button>
+      <button class="btn ${u.pinHelp?'':'sec'} sm" onclick="resetPin('${u.id}')">🔑 ${
+        u.pinHelp?(L?'Donner un code':'Give a code'):(L?'PIN oublié':'Forgotten PIN')}</button>
+      <button class="btn dan sm" onclick="suspendUser('${u.id}')">⛔ ${L?'Désactiver':'Deactivate'}</button>
     </div>
+  </div>`;
+
+  const offCard=u=>`<div class="card tight">
+    <div class="spread">
+      <div style="min-width:0"><b>${esc(u.name)}</b>
+        <div class="xs muted">${esc(u.decisionNote||'')}</div></div>
+      <span class="chip r">${userStatus(u)}</span>
+    </div>
+    <button class="btn ok sm" style="margin-top:8px" onclick="reactivateUser('${u.id}')">↺ ${L?'Réactiver':'Reactivate'}</button>
   </div>`;
 
   return `<div class="card">
-    <div class="spread"><h3>${L?'Validation des superviseurs':'Supervisor approvals'}</h3>
+    <div class="spread"><h3>${L?'Validation des comptes':'Account approvals'}</h3>
       <button class="btn sm" ${ONLINE?'':'disabled'} onclick="refreshRoster(true)">↻ ${L?'Actualiser':'Refresh'}</button></div>
     <p class="small muted">${L
-      ?'Les superviseurs s\'enrôlent sur leur propre téléphone. Actualisez pour recevoir les demandes, attribuez les districts, puis validez. Le téléphone reçoit la décision dès qu\'il a du réseau.'
-      :'Supervisors enrol on their own phone. Refresh to receive requests, assign districts, then approve. The phone receives the decision as soon as it has signal.'}</p>
+      ?'Chaque personne renseigne elle-même toutes ses informations à l\'enrôlement. Ici, il suffit d\'approuver ou de rejeter.'
+      :'Each person supplies all their own details at enrolment. Here you simply approve or reject.'}</p>
+
+    ${help.length?`<h3 style="margin-top:14px">🔑 ${L?'Codes PIN oubliés':'Forgotten PINs'}
+      <span class="badge">${help.length}</span></h3>
+      <p class="small muted">${L
+        ?'Ces personnes ont signalé avoir oublié leur code. Appelez-les et donnez-leur le code temporaire.'
+        :'These people reported a forgotten PIN. Call them and read out the temporary code.'}</p>
+      ${help.map(activeCard).join('')}`:''}
 
     <h3 style="margin-top:14px">${L?'En attente':'Pending'} ${pending.length?`<span class="badge">${pending.length}</span>`:''}</h3>
-    ${pending.map(u=>card(u,'pending')).join('')||`<p class="small muted">—</p>`}
+    ${pending.map(pendingCard).join('')||`<p class="small muted">${L?'Aucune demande en attente.':'No pending request.'}</p>`}
 
-    <h3 style="margin-top:14px">${L?'Actifs':'Active'} (${active.length})</h3>
-    ${active.map(u=>card(u,'active')).join('')||`<p class="small muted">—</p>`}
+    <h3 style="margin-top:16px">${L?'Comptes actifs':'Active accounts'} (${active.length})</h3>
+    ${active.map(activeCard).join('')||`<p class="small muted">—</p>`}
 
-    ${off.length?`<h3 style="margin-top:14px">${L?'Désactivés / refusés':'Deactivated / refused'} (${off.length})</h3>
-      ${off.map(u=>card(u,'off')).join('')}`:''}
+    ${off.length?`<h3 style="margin-top:16px">${L?'Désactivés / rejetés':'Deactivated / rejected'} (${off.length})</h3>
+      ${off.map(offCard).join('')}`:''}
   </div>`;
+}
+
+/* change districts (supervisor) or facility (site staff) — only when needed */
+function editScope(uid){
+  const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
+  const L=LANG==='fr';
+  if(u.role==='SITE'){
+    /* One person may follow several facilities, in several districts. */
+    const byDis={};
+    DB.d.sites.filter(s=>s.status!=='CLOSED').forEach(s=>{ (byDis[s.district]=byDis[s.district]||[]).push(s); });
+    const cur=u.sites||[];
+    modal((L?'Formations sanitaires — ':'Facilities — ')+u.name, `
+      <p class="small muted">${L
+        ?'Cochez toutes les formations sanitaires suivies par cette personne. Elles peuvent appartenir à plusieurs districts : les districts sont déduits automatiquement.'
+        :'Select every facility this person follows. They may span several districts: the districts are derived automatically.'}</p>
+      <label class="f"><span>${L?'Filtrer':'Filter'}</span>
+        <input type="text" id="sc-find" placeholder="${L?'nom de la formation ou du district…':'facility or district name…'}"
+          oninput="filterScopeSites(this.value)"></label>
+      <label class="f"><span>${T('facility')}</span>
+        <select id="sc-site" multiple size="14">
+          ${Object.keys(byDis).sort().map(d=>`<optgroup label="${esc(d)}">${
+            byDis[d].sort((a,b)=>(a.area+a.facility).localeCompare(b.area+b.facility)).map(s=>
+              `<option value="${s.id}" data-f="${esc((d+' '+s.area+' '+s.facility).toLowerCase())}" ${
+                cur.includes(s.id)?'selected':''}>${esc(s.area)} › ${esc(s.facility)}</option>`).join('')
+          }</optgroup>`).join('')}
+        </select></label>
+      <p class="xs muted">${L
+        ?'Sur téléphone : appuyez longuement ou touchez plusieurs lignes pour en sélectionner plusieurs.'
+        :'On a phone: press and hold, or tap several rows, to select more than one.'}</p>`,
+      `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+       <button class="btn" onclick="saveScope('${uid}')">${T('save')}</button>`);
+  } else {
+    const dis=[...new Set(DB.d.sites.map(s=>s.district))].sort();
+    modal((L?'Districts — ':'Districts — ')+u.name, `
+      <p class="small muted">${L?'Sélectionnez les districts couverts. Le changement est journalisé.'
+                                :'Select the districts covered. The change is logged.'}</p>
+      <label class="f"><span>${T('district')}</span>
+        <select id="sc-dis" multiple size="10">${dis.map(d=>
+          `<option ${(u.districts||[]).includes(d)?'selected':''}>${esc(d)}</option>`).join('')}</select></label>
+      <label class="f"><span>${L?'Motif / référence (facultatif)':'Reason / reference (optional)'}</span>
+        <input type="text" id="sc-why" placeholder="${L?'Note de service n°…':'Service note no…'}"></label>`,
+      `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+       <button class="btn" onclick="saveScope('${uid}')">${T('save')}</button>`);
+  }
+}
+function filterScopeSites(q){
+  const sel=$('#sc-site'); if(!sel) return;
+  const t=(q||'').trim().toLowerCase();
+  Array.from(sel.querySelectorAll('option')).forEach(o=>{
+    o.hidden = !!t && !(o.dataset.f||'').includes(t);
+  });
+  Array.from(sel.querySelectorAll('optgroup')).forEach(g=>{
+    g.hidden = !Array.from(g.querySelectorAll('option')).some(o=>!o.hidden);
+  });
+}
+function saveScope(uid){
+  const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
+  if(u.role==='SITE'){
+    const ids=Array.from(($('#sc-site')||{selectedOptions:[]}).selectedOptions).map(o=>o.value);
+    if(!ids.length) return toast(LANG==='fr'?'Choisissez au moins une formation sanitaire'
+                                            :'Choose at least one facility');
+    const before=(u.sites||[]).map(i=>(siteById(i)||{}).facility||i).join(', ');
+    u.sites=ids; u.siteId=ids[0];
+    u.districts=[...new Set(ids.map(i=>(siteById(i)||{}).district).filter(Boolean))];
+    audit('USER_SITE','user',`${u.name} : ${before||'—'} → ${ids.map(i=>(siteById(i)||{}).facility||i).join(', ')}`);
+  } else {
+    const next=Array.from($('#sc-dis').selectedOptions).map(o=>o.value);
+    if(!next.length) return toast(LANG==='fr'?'Au moins un district':'At least one district');
+    const why=($('#sc-why')||{}).value||'';
+    audit('USER_TRANSFER','user',`${u.name} : ${(u.districts||[]).join(', ')} → ${next.join(', ')}${why?' ('+why+')':''}`);
+    u.districts=next; if(why) u.transferNote=why;
+  }
+  DB.save(); pushUser(u); closeModal();
+  toast(LANG==='fr'?'✓ Affectation enregistrée':'✓ Assignment saved'); render();
 }
 
 function admQuestions(){
@@ -3712,7 +3993,7 @@ function admUsers(){
         <td class="xs">${userStatus(u)}</td>
         <td>${u.role==='SUPER'
           ? `<input type="text" style="width:70px" value="${esc(u.pin||'')}" onchange="setPin('${u.id}',this.value)">`
-          : `<button class="btn sec sm" onclick="issuePinReset('${u.id}')">🔑</button>`}</td></tr>`).join('')}
+          : `<button class="btn sec sm" onclick="resetPin('${u.id}')">🔑</button>`}</td></tr>`).join('')}
       </tbody></table></div>
     <p class="xs muted" style="margin-top:8px">${LANG==='fr'
       ?'Deux super utilisateurs sont prévus. Changez leurs noms et leurs PIN dès la mise en service.'
@@ -3720,21 +4001,41 @@ function admUsers(){
     <button class="btn sec sm" onclick="renameSuper()">${LANG==='fr'?'Renommer les super utilisateurs':'Rename super users'}</button>
   </div>`;
 }
-function setRole(uid,r){ DB.d.users.find(u=>u.id===uid).role=r; DB.save(); audit('USER_ROLE','user',uid+'→'+r); render(); }
-function setPin(uid,p){ DB.d.users.find(u=>u.id===uid).pin=p; DB.save(); }
-function toggleUser(uid){ const u=DB.d.users.find(x=>x.id===uid); u.active=u.active===false; DB.save(); render(); }
+function setRole(uid,r){ const u=DB.d.users.find(x=>x.id===uid); u.role=r; DB.save();
+  audit('USER_ROLE','user',u.name+'→'+r); pushUser(u); render(); }
+function setPin(uid,p){ const u=DB.d.users.find(x=>x.id===uid); u.pin=p; DB.save(); }
+function toggleUser(uid){ const u=DB.d.users.find(x=>x.id===uid); u.active=u.active===false;
+  DB.save(); pushUser(u); render(); }
 function renameSuper(){
   const su=DB.d.users.filter(u=>u.role==='SUPER');
-  modal(LANG==='fr'?'Super utilisateurs':'Super users',
-    su.map((u,i)=>`<label class="f"><span>${LANG==='fr'?'Nom':'Name'} ${i+1}</span>
+  const L=LANG==='fr';
+  modal(L?'Super utilisateurs':'Super users',
+    `<p class="small muted">${L
+      ?'Le nom et le téléphone saisis ici s\'affichent sur tous les téléphones : liste de connexion Administration, écran d\'attente de validation, et « contactez l\'administrateur ». La mise à jour part au serveur dès l\'enregistrement et arrive sur les autres appareils à leur prochaine connexion réseau.'
+      :'The name and phone entered here appear on every phone: the Administration sign-in list, the awaiting-approval screen and the "contact the administrator" panels. The update leaves for the server as soon as you save and reaches the other devices at their next network connection.'}</p><hr>`+
+    su.map((u,i)=>`<label class="f"><span>${L?'Nom':'Name'} ${i+1}</span>
       <input type="text" id="su-${u.id}" value="${esc(u.name)}"></label>
-      <label class="f"><span>${LANG==='fr'?'Téléphone':'Phone'}</span><input type="tel" id="sp-${u.id}" value="${esc(u.phone||'')}"></label>`).join('<hr>'),
+      <label class="f"><span>${L?'Téléphone':'Phone'}</span><input type="tel" id="sp-${u.id}" value="${esc(u.phone||'')}"></label>`).join('<hr>'),
     `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
      <button class="btn" onclick="saveSuper()">${T('save')}</button>`);
 }
-function saveSuper(){ DB.d.users.filter(u=>u.role==='SUPER').forEach(u=>{
-  const n=$('#su-'+u.id), p=$('#sp-'+u.id); if(n)u.name=n.value; if(p)u.phone=p.value; });
-  DB.save(); closeModal(); render(); }
+function saveSuper(){
+  const changed=[];
+  DB.d.users.filter(u=>u.role==='SUPER').forEach(u=>{
+    const n=$('#su-'+u.id), p=$('#sp-'+u.id);
+    const before=u.name+'|'+(u.phone||'');
+    if(n && n.value.trim()) u.name=n.value.trim();
+    if(p) u.phone=p.value.trim();
+    if(before !== u.name+'|'+(u.phone||'')) changed.push(u);
+  });
+  DB.save();
+  changed.forEach(u=>{ audit('SUPER_RENAME','user',u.name); pushUser(u); });
+  closeModal();
+  toast(changed.length
+    ? (LANG==='fr'?'✓ Enregistré et transmis à tous les appareils':'✓ Saved and sent to every device')
+    : T('save'));
+  render();
+}
 
 function admCfg(){
   const c=DB.d.config;
@@ -3847,12 +4148,14 @@ async function pullRemote(){
     }
   }catch(e){}
 }
+let ADMIN_TICK=0;
 setInterval(()=>{
   if(!ONLINE || !DB.d.config.api) return;
   pullRemote();
   if(DB.d.outbox.length) syncNow(true);
   const u=me();
   if(u){ if(u.role==='SUPER') refreshRoster(false); else refreshMyState(false); }
+  if(ADMIN_TICK++ % 8 === 0) refreshAdmins(false);   // ~ every 3 minutes, all roles
 }, 25000);
 
 /* ===================== boot ===================== */
@@ -3870,7 +4173,7 @@ function afterRender(){
 DB.load();
 render();
 maybeTour();
-window.addEventListener('load', ()=>{ if(ONLINE){ pullRemote(); syncNow(true);
+window.addEventListener('load', ()=>{ if(ONLINE){ pullRemote(); syncNow(true); refreshAdmins(false);
   const u=me(); if(u){ if(u.role==='SUPER') refreshRoster(false); else refreshMyState(false); } } });
 
 </script>
