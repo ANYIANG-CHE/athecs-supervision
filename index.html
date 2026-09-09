@@ -686,7 +686,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '2.5.1';
+const APP_VERSION = '2.6.0';
 /* ---------------------------------------------------------------
    SECURITY TOKEN — change this ONE line, and change the matching
    line  var TOKEN = 'ATHECS';  in Code.gs to exactly the same value.
@@ -1546,7 +1546,38 @@ async function doEnrol(){
     idType:idt, idNumber:idn, idFile:b64, phone:tel, email:g('en-mail'),
     districts:dis, pin, status:U_PENDING, active:true, enrolled:Date.now(),
     device:(navigator.userAgent||'').slice(0,80)};
-  DB.d.users.push(u); DB.save(); audit('ENROL','user',name+' / '+fn);
+
+  /* Somebody who already has an account on this device almost never means to make a second
+     one — their supervisions would be split between the two. Ask before creating it. */
+  const dup = duplicatesOf(u);
+  if(dup.length){ PENDING_ENROL = u; return dupEnrolModal(dup); }
+  saveEnrol(u);
+}
+let PENDING_ENROL=null;
+function dupEnrolModal(dup){
+  const L=LANG==='fr';
+  modal(L?'Ce compte existe déjà':'This account already exists', `
+    <div class="banner b-warn">${L
+      ?'Une personne avec le même nom, le même téléphone ou le même email est déjà enrôlée sur cet appareil.'
+      :'Someone with the same name, phone or email is already enrolled on this device.'}</div>
+    <div class="list">${dup.map(x=>`<div class="item" style="cursor:default">
+      <div style="min-width:0"><b>${esc(x.name)}</b>
+        <div class="s">${esc(x.fn||'')}${x.phone?' · '+esc(String(x.phone)):''}</div></div>
+      <span class="chip ${userStatus(x)===U_ACTIVE?'g':'a'}">${userStatus(x)}</span></div>`).join('')}</div>
+    <p class="small">${L
+      ?'Si c\'est vous, revenez à l\'écran de connexion et utilisez ce compte : votre code PIN est celui que vous aviez choisi. Si vous l\'avez oublié, choisissez « Code PIN oublié ? ».'
+      :'If this is you, go back to the sign-in screen and use that account: your PIN is the one you chose. If you have forgotten it, choose "Forgotten PIN?".'}</p>
+    <p class="xs muted">${L
+      ?'Créer un deuxième compte partagerait vos supervisions et vos recommandations entre deux comptes.'
+      :'Creating a second account would split your supervisions and recommendations between two accounts.'}</p>`,
+    `<button class="btn" onclick="cancelEnrol()">${L?'Utiliser le compte existant':'Use the existing account'}</button>
+     <button class="btn sec sm" onclick="forceEnrol()">${L?'C\'est une autre personne':'This is somebody else'}</button>`);
+}
+function cancelEnrol(){ PENDING_ENROL=null; closeModal(); render(); }
+function forceEnrol(){ const u=PENDING_ENROL; PENDING_ENROL=null;
+  if(u){ audit('ENROL_DUP','user',u.name+' — créé malgré un doublon signalé'); saveEnrol(u); } }
+function saveEnrol(u){
+  DB.d.users.push(u); DB.save(); audit('ENROL','user',u.name+' / '+(u.fn||''));
   queue('user', u);
   closeModal();
   modal(LANG==='fr'?'Demande transmise':'Request sent', `
@@ -1555,7 +1586,10 @@ async function doEnrol(){
       :'Your enrolment is recorded and will reach central level as soon as you have signal.'}</div>
     <p class="small">${LANG==='fr'
       ?'Un super utilisateur doit valider votre compte avant que vous puissiez commencer une supervision. Connectez-vous maintenant pour suivre l\'état de votre demande.'
-      :'A super user must approve your account before you can start a supervision. Sign in now to follow the state of your request.'}</p>`,
+      :'A super user must approve your account before you can start a supervision. Sign in now to follow the state of your request.'}</p>
+    <p class="xs muted">${LANG==='fr'
+      ?'N\'enrôlez pas une deuxième fois : si votre compte est refusé ou bloqué, appelez l\'administrateur.'
+      :'Do not enrol a second time: if your account is refused or blocked, call the administrator.'}</p>`,
     `<button class="btn" onclick="closeModal()">OK</button>`);
   render();
 }
@@ -1796,6 +1830,24 @@ function userStatus(u){
   return normStatus(u.status) || (u.active===false ? U_SUSPENDED : U_ACTIVE);
 }
 function canWork(u){ return userStatus(u)===U_ACTIVE; }
+/* ---------- one person, one account ----------------------------------------
+   Two records for the same person are not a cosmetic problem: their supervisions,
+   their recommendations and their scores end up split between the two. Matching is
+   deliberately loose — the same phone, the same email, or the same name once case,
+   accents, spaces and hyphens are removed ("Josiane NGOTTE NTONDO" and
+   "Josiane Ngotte-Ntondo" are the same person). */
+function normPhone(p){ return String(p==null?'':p).replace(/[^0-9]/g,'').slice(-9); }
+function normName(n){ return String(n||'').toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,''); }
+function normMail(m){ return String(m||'').trim().toLowerCase(); }
+function duplicatesOf(u, list){
+  const ph=normPhone(u.phone), nm=normName(u.name), em=normMail(u.email);
+  return (list||DB.d.users).filter(x=> x && x.id!==u.id && x.role!=='SUPER' && (
+      (ph.length>=8 && normPhone(x.phone)===ph) ||
+      (em && normMail(x.email)===em) ||
+      (nm.length>=6 && normName(x.name)===nm)));
+}
+
 /* Only ids that match a facility we actually know are accepted from the server. */
 function realSites(list){
   return (Array.isArray(list)?list:[]).map(x=>String(x).trim()).filter(x=>!!siteById(x));
@@ -1836,8 +1888,57 @@ function viewGate(u){
 
   return box('✕','err',
     L?'Enrôlement refusé':'Enrolment refused',
-    L?`Motif : ${u.decisionNote||'non précisé'}\n\nContactez l'administrateur pour reprendre votre enrôlement.`
-     :`Reason: ${u.decisionNote||'not specified'}\n\nContact the administrator to redo your enrolment.`);
+    L?`Motif : ${u.decisionNote||'non précisé'}\n\nNe créez pas un deuxième compte : appelez l'administrateur, il peut réactiver celui-ci.`
+     :`Reason: ${u.decisionNote||'not specified'}\n\nDo not create a second account: call the administrator, who can reactivate this one.`);
+}
+
+/* ---------- remise à zéro -----------------------------------------------------
+   Central runs startFresh() in the Apps Script editor at the end of the test period.
+   That stamps the reset; every read the app already makes carries the stamp, so each
+   phone empties its own copy of the test data the next time it has signal. Nobody has
+   to collect the phones.
+
+   What goes: supervisions (including drafts), answers, SWOT, action plans, site-change
+   requests, messages and the local log — plus any facility invented during the tests.
+   What stays: the 84 facilities, the 64 questions, the cycles, and the person's own
+   account and PIN, unless central chose the version that clears accounts too. */
+function wipeLocalData(withUsers){
+  const d=DB.d;
+  d.visits=[]; d.answers={}; d.actions=[]; d.siteReq=[];
+  d.messages=[]; d.threads=[]; d.audit=[]; d.outbox=[];
+  d.sites=(d.sites||[]).filter(s=>String(s.status||'').toUpperCase()!=='PROVISIONAL');
+  if(withUsers){
+    d.users=(d.users||[]).filter(u=>u.role==='SUPER');
+    d.session=null;
+  }
+  DB.save(); DB.migrate(); DB.save();     // puts the general announcements thread back
+}
+function applyReset(j){
+  if(!j) return false;
+  const c=DB.d.config, L=LANG==='fr';
+  let data=false, users=false;
+  if(j.resetAt && Number(j.resetAt) > (c.resetSeen||0)){ data=true; c.resetSeen=Number(j.resetAt); }
+  if(j.resetUsersAt && Number(j.resetUsersAt) > (c.resetUsersSeen||0)){ users=true; c.resetUsersSeen=Number(j.resetUsersAt); }
+  if(!data && !users) return false;
+  /* A phone that arrives after the reset has nothing to clear — record the stamp quietly
+     rather than announcing a wipe that did not happen. */
+  const had = (DB.d.visits||[]).length + (DB.d.actions||[]).length + (DB.d.messages||[]).length;
+  if(!had){ wipeLocalData(users); DB.save(); return false; }
+  wipeLocalData(users);
+  DB.save();
+  modal(L?'Données de test effacées':'Test data cleared', `
+    <div class="banner b-ok">${L
+      ?'Le niveau central a remis l\'application à zéro pour le démarrage des supervisions réelles.'
+      :'Central level has reset the app for the start of the real supervisions.'}</div>
+    <p class="small">${L
+      ?'Les supervisions d\'essai, les plans d\'action et les messages de test ont été effacés de cet appareil. Les 84 formations sanitaires et les 64 questions sont intactes.'
+      :'The test supervisions, action plans and test messages have been cleared from this device. The 84 facilities and the 64 questions are untouched.'}</p>
+    ${users?`<p class="small">${L
+      ?'Les comptes ont également été réinitialisés : enrôlez-vous à nouveau pour commencer.'
+      :'Accounts were reset as well: enrol again to start.'}</p>`:''}`,
+    `<button class="btn" onclick="closeModal()">OK</button>`);
+  render();
+  return true;
 }
 
 /* ---------- device pulls its own state ---------- */
@@ -1848,6 +1949,7 @@ async function refreshMyState(loud){
   try{
     const r=await fetch(api+'?action=userstate&token='+encodeURIComponent(API_TOKEN)+'&uid='+encodeURIComponent(u.id));
     const j=await r.json();
+    if(applyReset(j)) return;
     if(!j || !j.ok || !j.user){ if(loud) toast(LANG==='fr'?'Pas encore enregistré au niveau central':'Not yet recorded at central level'); return; }
     const s=j.user, before=userStatus(u);
     const st=normStatus(s.status);
@@ -1879,6 +1981,7 @@ async function refreshRoster(loud){
   try{
     const r=await fetch(api+'?action=users&token='+encodeURIComponent(API_TOKEN));
     const j=await r.json();
+    if(applyReset(j)) return;
     if(!j || !j.ok || !Array.isArray(j.users)) { if(loud) toast('—'); return; }
     let added=0, updated=0;
     j.users.forEach(s=>{
@@ -2069,6 +2172,7 @@ async function refreshAdmins(loud){
   try{
     const r=await fetch(api+'?action=admins&token='+encodeURIComponent(API_TOKEN));
     const j=await r.json();
+    if(applyReset(j)) return;
     if(!j || !j.ok || !Array.isArray(j.admins)) return;
     let n=0;
     j.admins.forEach(s=>{
@@ -3682,6 +3786,19 @@ function admApprovals(){
   const off=all.filter(u=>[U_SUSPENDED,U_REJECTED].includes(userStatus(u)));
   const help=active.filter(u=>u.pinHelp);
 
+  /* Two records for one person split their supervisions in half. Show it on both cards. */
+  const dupBanner=u=>{
+    const d=duplicatesOf(u, all);
+    if(!d.length) return '';
+    return `<div class="banner b-warn xs" style="margin-top:8px">⚠ ${L?'Doublon probable':'Probable duplicate'} —
+      ${L?'la même personne est aussi enrôlée comme':'the same person is also enrolled as'}
+      ${d.map(x=>`<b>${esc(x.name)}</b> (${esc(x.fn||'—')}${x.idType?', '+esc(x.idType):''}, ${userStatus(x)})`).join(' · ')}.
+      <br>${L?'Gardez le compte le plus complet et désactivez l\'autre : les supervisions déjà enregistrées sous le compte désactivé ne sont pas perdues.'
+             :'Keep the more complete account and deactivate the other: supervisions already recorded under the deactivated one are not lost.'}
+      <br>${d.map(x=>`<button class="btn dan sm" style="margin-top:6px" onclick="closeDuplicate('${x.id}','${esc(u.name).replace(/'/g,"")}')">⛔ ${
+        L?'Désactiver':'Deactivate'} ${esc(x.name)}</button>`).join(' ')}</div>`;
+  };
+
   /* what the applicant supplied — read only. Central just decides. */
   const row=(k,v)=>v?`<tr><td class="k">${esc(k)}</td><td>${v}</td></tr>`:'';
   const scope=u=>{
@@ -3719,6 +3836,7 @@ function admApprovals(){
       ${row(L?'Matricule':'Matricule', esc(u.matricule||''))}
       ${row(L?'Demande reçue':'Request received', u.enrolled?fmtDT(u.enrolled):'')}
     </tbody></table></div>
+    ${dupBanner(u)}
     <div class="row" style="margin-top:10px">
       <button class="btn ok" style="flex:2" onclick="approveUser('${u.id}')">✓ ${L?'Approuver':'Approve'}</button>
       <button class="btn dan" style="flex:1" onclick="rejectUser('${u.id}')">✕ ${L?'Rejeter':'Reject'}</button>
@@ -3734,6 +3852,7 @@ function admApprovals(){
         <div class="xs" style="margin-top:4px">${scope(u)}</div></div>
       <span class="chip g">${L?'Actif':'Active'}</span>
     </div>
+    ${dupBanner(u)}
     ${u.pinHelp?`<div class="banner b-warn xs" style="margin-top:8px">🔑 ${L
       ?'A signalé un code PIN oublié le '+fmtDT(u.pinHelp)+'. Appelez-le/la et donnez le code temporaire.'
       :'Reported a forgotten PIN on '+fmtDT(u.pinHelp)+'. Call them and give the temporary code.'}</div>`
@@ -3783,6 +3902,31 @@ function admApprovals(){
     ${off.length?`<h3 style="margin-top:16px">${L?'Désactivés / rejetés':'Deactivated / rejected'} (${off.length})</h3>
       ${off.map(offCard).join('')}`:''}
   </div>`;
+}
+
+/* Close the duplicate, keeping the account the person should use. */
+function closeDuplicate(uid, keptName){
+  const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
+  const L=LANG==='fr';
+  modal(L?'Désactiver un doublon':'Deactivate a duplicate', `
+    <p class="small">${L
+      ?`<b>${esc(u.name)}</b> sera désactivé et disparaîtra de l'écran de connexion. La personne continuera avec <b>${esc(keptName)}</b>.`
+      :`<b>${esc(u.name)}</b> will be deactivated and will disappear from the sign-in screen. The person carries on with <b>${esc(keptName)}</b>.`}</p>
+    <p class="xs muted">${L
+      ?'Les supervisions déjà enregistrées sous ce compte restent dans les données et dans les rapports. Rien n\'est supprimé.'
+      :'Supervisions already recorded under this account stay in the data and in the reports. Nothing is deleted.'}</p>`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn dan" onclick="confirmCloseDuplicate('${uid}','${esc(keptName).replace(/'/g,'')}')">${
+       L?'Désactiver':'Deactivate'}</button>`);
+}
+function confirmCloseDuplicate(uid, keptName){
+  const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
+  const L=LANG==='fr';
+  u.status=U_SUSPENDED; u.active=false;
+  u.decisionNote=(L?'Compte en double — utilisez ':'Duplicate account — use ')+keptName;
+  DB.save(); audit('USER_DUPLICATE','user',u.name+' → doublon de '+keptName);
+  pushUser(u); closeModal();
+  toast(L?'✓ Doublon désactivé':'✓ Duplicate deactivated'); render();
 }
 
 /* change districts (supervisor) or facility (site staff) — only when needed */
@@ -4095,7 +4239,66 @@ function admCfg(){
     </div>
     <p class="xs muted" style="margin-top:8px">${LANG==='fr'?'Éléments en attente de synchronisation':'Items waiting to sync'} : <b>${DB.d.outbox.length}</b>
       ${c.lastSync?' · '+(LANG==='fr'?'dernière synchro':'last sync')+' '+fmtDT(c.lastSync):''}</p>
+  </div>
+
+  <div class="card">
+    <h3>${LANG==='fr'?'Fin de la période de test':'End of the test period'}</h3>
+    <p class="small muted">${LANG==='fr'
+      ?'Quand les supervisions réelles commencent, tout ce qui a été saisi pendant les essais doit disparaître — ici, dans le classeur, et sur chaque téléphone.'
+      :'When the real supervisions start, everything entered during the trials must go — here, in the workbook, and on every phone.'}</p>
+    <div class="banner b-info">
+      <b>${LANG==='fr'?'Remise à zéro de toute la région':'Region-wide reset'}</b><br>
+      ${LANG==='fr'
+        ?'Elle se lance depuis l\'éditeur Apps Script du classeur — jamais depuis l\'application, pour que personne d\'autre ne puisse l\'utiliser :'
+        :'It is launched from the workbook\'s Apps Script editor — never from the app, so that nobody else can use it:'}
+      <ol class="steps" style="margin-top:8px">
+        <li>${LANG==='fr'?'Classeur → Extensions → Apps Script.':'Workbook → Extensions → Apps Script.'}</li>
+        <li>${LANG==='fr'?'Choisir <b>startFresh</b> dans la liste des fonctions, puis <b>▶ Exécuter</b>.'
+                          :'Choose <b>startFresh</b> in the function list, then <b>▶ Run</b>.'}</li>
+        <li>${LANG==='fr'?'Une sauvegarde complète du classeur est créée d\'abord : le lien s\'affiche dans le journal.'
+                          :'A full copy of the workbook is made first: the link appears in the log.'}</li>
+        <li>${LANG==='fr'?'Chaque téléphone se vide tout seul dès qu\'il a du réseau.'
+                          :'Every phone empties itself as soon as it has signal.'}</li>
+      </ol>
+      ${LANG==='fr'
+        ?'Conservés : les 84 formations sanitaires, les 64 questions, les cycles et les comptes. Utilisez <b>startFreshIncludingUsers</b> si les comptes doivent repartir de zéro également.'
+        :'Kept: the 84 facilities, the 64 questions, the cycles and the accounts. Use <b>startFreshIncludingUsers</b> if the accounts must start over too.'}
+    </div>
+    <button class="btn dan blk sm" onclick="wipeTestsHere()">
+      ${LANG==='fr'?'Vider les données de test sur CET appareil seulement'
+                   :'Clear the test data on THIS device only'}</button>
+    <p class="xs muted" style="margin-top:6px">${LANG==='fr'
+      ?'Efface les supervisions, plans d\'action et messages enregistrés ici. Les comptes, les formations sanitaires et les questions restent. N\'affecte aucun autre téléphone.'
+      :'Clears the supervisions, action plans and messages stored here. Accounts, facilities and questions stay. No other phone is affected.'}</p>
   </div>`;
+}
+function wipeTestsHere(){
+  const L=LANG==='fr';
+  const n=(DB.d.visits||[]).length, a=(DB.d.actions||[]).length, m=(DB.d.messages||[]).length;
+  modal(L?'Vider les données de test':'Clear the test data', `
+    <div class="banner b-warn">${L
+      ?'Cet appareil va perdre ce qui n\'a pas encore été envoyé au serveur.'
+      :'This device will lose anything not yet sent to the server.'}</div>
+    <div class="grid g3 always">
+      <div class="stat"><b>${n}</b><span>${L?'SUPERVISIONS':'SUPERVISIONS'}</span></div>
+      <div class="stat"><b>${a}</b><span>${L?'RECOMMANDATIONS':'RECOMMENDATIONS'}</span></div>
+      <div class="stat"><b>${DB.d.outbox.length}</b><span>${L?'EN ATTENTE':'PENDING'}</span></div>
+    </div>
+    <p class="small">${L
+      ?'Les comptes, les 84 formations sanitaires, les 64 questions et les cycles ne sont pas touchés. Les autres téléphones ne sont pas touchés.'
+      :'Accounts, the 84 facilities, the 64 questions and the cycles are untouched. Other phones are untouched.'}</p>
+    <label class="f"><span>${L?'Tapez EFFACER pour confirmer':'Type ERASE to confirm'}</span>
+      <input type="text" id="wt-c" autocomplete="off"></label>`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn dan" onclick="confirmWipeTests()">${L?'Vider':'Clear'}</button>`);
+}
+function confirmWipeTests(){
+  const L=LANG==='fr';
+  const v=(($('#wt-c')||{}).value||'').trim().toUpperCase();
+  if(v!=='EFFACER' && v!=='ERASE') return toast(L?'Tapez EFFACER pour confirmer':'Type ERASE to confirm');
+  wipeLocalData(false);
+  audit('RESET_LOCAL','device',L?'Données de test effacées sur cet appareil':'Test data cleared on this device');
+  closeModal(); toast(L?'✓ Données de test effacées':'✓ Test data cleared'); go('#/home'); render();
 }
 function saveCfg(){
   const c=DB.d.config;
