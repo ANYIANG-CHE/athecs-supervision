@@ -929,6 +929,26 @@ const DB = {
        A privileged slot now arrives from the server, already assigned to a named
        person, and is claimed with a one-time code. The app carries no PIN at all. */
     d.users = d.users || [];
+
+    /* ---- and the ones already sitting on the phones -------------------------------
+       Deleting the seed only stopped NEW installs. Every phone that ever ran an older
+       version still has "Super Utilisateur 1" and "Super Utilisateur 2" — with PIN 1234
+       — written into its own database, and an update does not touch that. So the old
+       accounts kept appearing in the Administration list, where a real 6-digit code is
+       naturally refused, and the person could go no further.
+
+       A genuine v4 slot always arrives from the server carrying slot:true. Anything
+       privileged on this phone WITHOUT it was seeded by an old version: it is removed
+       here, and whoever was signed into it is signed out. Nothing is lost — a slot is
+       re-assigned from the console in one click, and no supervision is attached to it. */
+    const legacy = d.users.filter(u => u && (u.role==='SUPER'||u.role==='ADMIN') && !u.slot);
+    if(legacy.length){
+      const ids = legacy.map(u=>u.id);
+      d.users = d.users.filter(u => !ids.includes(u.id));
+      if(ids.includes(d.session)) d.session = null;
+      d.legacySlotsRemoved = (d.legacySlotsRemoved||0) + legacy.length;
+    }
+
     if(!d.config.dqa) d.config.dqa = {tolPct:5, exactBelow:100, yellowPct:10};
     if(!d.config.api && typeof DEFAULT_API==='string' && DEFAULT_API) d.config.api = DEFAULT_API;
     if(!d.threads.length){
@@ -2798,6 +2818,11 @@ async function refreshRoster(loud){
     let added=0, updated=0;
     j.users.forEach(s=>{
       if(!s.id) return;
+      /* A privileged slot is NOT an ordinary account and this is not the place that owns
+         it — refreshSlots() is. Letting the roster add one here re-created it without the
+         slot marker, which the upgrade clean-up then deleted on the next load, which the
+         roster then re-added… a loop with a phantom account flickering in the list. */
+      if(s.role==='SUPER' || s.role==='ADMIN') return;
       const local=DB.d.users.find(x=>x.id===s.id);
       if(local){
         // never overwrite the local PIN, and never downgrade a super user
