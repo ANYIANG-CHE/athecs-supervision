@@ -596,6 +596,12 @@ tbody tr:hover{background:var(--brand-tint)}
 .pico.sup{background:var(--brand-tint);border-color:color-mix(in srgb,var(--brand) 20%,transparent)}
 .pico.adm{background:var(--warn-tint);border-color:var(--warn-line)}
 .pico.site{background:var(--ok-tint);border-color:var(--ok-line)}
+.item.admpick{width:100%;cursor:pointer;border:1px solid var(--line-2);background:var(--surface);
+  border-radius:var(--r-md,12px);padding:12px 14px;margin-bottom:8px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  transition:all var(--fast) var(--ease)}
+.item.admpick:hover{border-color:var(--brand-3)}
+.item.admpick.on{border-color:var(--brand);background:var(--brand-tint);box-shadow:var(--sh-1)}
 .pico.dash{background:var(--info-tint,var(--brand-tint));border-color:var(--info-line,color-mix(in srgb,var(--brand) 20%,transparent))}
 .pathbadge{
   display:flex;align-items:center;justify-content:center;gap:8px;
@@ -1679,17 +1685,37 @@ function viewLoginAdmin(){
     <div class="pathbadge adm"><span class="pico adm sm">🛡</span> ${L?'Administration':'Administration'}</div>
     <hr>
     ${slots.length ? `
-      <label class="f"><span>${T('name')}</span>
-        <select id="lg-user" onchange="render()">${slots.map(u=>
-          `<option value="${u.id}" ${DB.d.config.lastAdmPick===u.id?'selected':''}>${esc(u.name)} — ${
-            esc(roleLabel(u.role))}${u.claimed?'':(L?' · à activer':' · to activate')}</option>`).join('')}</select></label>
-      ${toClaim.length ? `<div class="banner b-info xs" style="margin-bottom:10px">${L
-        ?'Un compte marqué « à activer » n\'accepte pas encore de code PIN : saisissez le <b>code à 6 chiffres</b> qui vous a été communiqué. L\'application vous demandera ensuite de choisir votre propre code.'
-        :'An account marked "to activate" does not accept a PIN yet: type the <b>6-digit code</b> you were given. The app will then ask you to choose your own.'}</div>`:''}
-      <label class="f"><span>${L?'Code PIN, ou code à 6 chiffres si le compte est à activer'
-                                :'PIN, or the 6-digit code if the account is to be activated'}</span>
-        <input type="password" id="lg-pin" inputmode="numeric" placeholder="••••" autocomplete="current-password"></label>
-      <button class="btn blk" onclick="doLoginAdmin()">${T('login')}</button>
+      ${(() => { const cur = slots.some(u=>u.id===DB.d.config.lastAdmPick)
+                             ? DB.d.config.lastAdmPick : slots[0].id;
+                   DB.d.config.lastAdmPick = cur;
+                   const sel = slots.find(u=>u.id===cur);
+        /* Tap your name. This used to be a dropdown whose onchange called render(),
+           which rebuilt the list and snapped the choice straight back to the first
+           entry — so the account you picked never held. There are at most four of
+           these accounts, so a list you tap is both simpler and impossible to
+           get wrong. The hidden select keeps the same name for anything that
+           addresses this screen by it. */
+        return `
+      <span class="small muted">${T('name')}</span>
+      <div class="list" style="margin:6px 0 12px">${slots.map(u=>`
+        <button class="item admpick ${u.id===cur?'on':''}" onclick="pickAdmSlot('${u.id}')">
+          <div style="min-width:0;text-align:left"><b>${esc(u.name)}</b>
+            <div class="xs muted">${esc(roleLabel(u.role))}${
+              u.claimed ? '' : (L?' · à activer':' · to activate')}</div></div>
+          <span class="chip ${u.id===cur?'g':'n'}">${u.id===cur?'✓':'○'}</span>
+        </button>`).join('')}</div>
+      <select id="lg-user" style="display:none">${slots.map(u=>
+        `<option value="${u.id}" ${u.id===cur?'selected':''}>${esc(u.name)}</option>`).join('')}</select>
+      ${sel && !sel.claimed ? `<div class="banner b-info xs" style="margin-bottom:10px">${L
+        ?'<b>'+esc(sel.name)+'</b> n\'a pas encore de code PIN. Saisissez le <b>code à 6 chiffres</b> qui vous a été communiqué — l\'application vous fera ensuite choisir votre propre code.'
+        :'<b>'+esc(sel.name)+'</b> has no PIN yet. Type the <b>6-digit code</b> you were given — the app will then ask you to choose your own.'}</div>`:''}
+      <label class="f"><span>${sel && !sel.claimed
+          ? (L?'Code à 6 chiffres':'6-digit code')
+          : (L?'Code PIN':'PIN')}</span>
+        <input type="password" id="lg-pin" inputmode="numeric"
+          placeholder="${sel && !sel.claimed?'••••••':'••••'}" autocomplete="current-password"></label>
+      <button class="btn blk" onclick="doLoginAdmin()">${sel && !sel.claimed
+        ? (L?'Activer ce compte':'Activate this account') : T('login')}</button>`; })()}
     ` : `
       <div class="banner b-warn">${L
         ?'Aucun compte d\'administration n\'est encore attribué pour cette région.'
@@ -1706,6 +1732,15 @@ function viewLoginAdmin(){
       ${L?'Réservé à la coordination régionale.':'Regional coordination only.'}<br>
       <a href="#" onclick="event.preventDefault();clearPath()">${L?'Changer d\'espace':'Change area'}</a></p>
   </div>`;
+}
+
+/* Choosing which privileged account to sign into. It is remembered before anything is
+   redrawn, so the choice survives the redraw instead of being undone by it. */
+function pickAdmSlot(id){
+  DB.d.config.lastAdmPick = id; DB.save();
+  const pin = $('#lg-pin'); const typed = pin ? pin.value : '';
+  render();
+  const again = $('#lg-pin'); if(again){ again.value = typed; again.focus(); }
 }
 
 /* Administration sign-in. A slot that has not been claimed accepts ONLY its one-time
