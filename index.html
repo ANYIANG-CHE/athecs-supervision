@@ -1867,7 +1867,7 @@ function saveForcedPin(uid){
   audit('PIN_CHANGED','user',u.name);
   /* a phone only ever clears its own recovery flags — it never rewrites its status,
      districts or role by pushing a whole record it may have received long ago */
-  if(isSlot(u)) queue('user',u);
+  if(isSlot(u)){ /* a slot's row is the server's — see pushUser() */ }
   else queue('userFlag',{id:u.id, pinResetCode:'', pinResetAt:'', pinHelp:''});
   closeModal(); toast(L?'✓ Code PIN enregistré':'✓ PIN saved');
   render(); maybeTour();
@@ -2897,7 +2897,15 @@ async function refreshRoster(loud){
 }
 
 /* ---------- central decisions ---------- */
-function pushUser(u){ if(isSlot(u) && !u.status) u.status=U_ACTIVE; queue('user', u); }
+/* A privileged account's row on the server belongs to assign / claim / release — never
+   to a phone. Pushing it was how a phone came to blank its own activation and lock its
+   holder out. Belt and braces alongside the server-side fix: the phone does not send it
+   at all. Nothing is lost — a slot's name and telephone are set when it is assigned. */
+function pushUser(u){
+  if(!u) return;
+  if(isSlot(u)) return;
+  queue('user', u);
+}
 
 function approveUser(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
@@ -6275,11 +6283,113 @@ async function pullDataNow(){
 
 /* The single most misleading state the app could be in: the server rejects every
    message, and the app reports "Synchronisé : 0" as if there had been nothing to send. */
-function tokenRefused(){
-  const L=LANG==='fr';
-  infoModal(L?'Le serveur refuse cet appareil':'The server is refusing this device', L
-   ?'Le serveur répond, mais il rejette chaque message : le MOT DE PASSE DE LIAISON ne correspond pas.\n\nTant que ce n\'est pas corrigé, RIEN ne circule — ni les supervisions envoyées, ni les validations reçues. L\'application semble fonctionner : tout reste sur le téléphone.\n\nÀ FAIRE :\n1. Classeur ▸ Extensions ▸ Apps Script\n2. Tout en haut, ligne 19 :   var TOKEN = \'…\';\n3. Recopiez exactement cette valeur dans Console ▸ Paramètres ▸ « Mot de passe de liaison », puis Enregistrer.\n\nLes deux doivent être identiques, majuscules comprises.'
-   :'The server answers, but rejects every message: the LINK PASSWORD does not match.\n\nUntil that is corrected NOTHING moves — no supervision goes up, no approval comes down. The app looks like it is working: everything stays on the phone.\n\nTO DO:\n1. Workbook ▸ Extensions ▸ Apps Script\n2. At the very top, line 19:   var TOKEN = \'…\';\n3. Copy that value exactly into Console ▸ Settings ▸ "Link password", then Save.\n\nThe two must match, including capitals.');
+/* =====================================================================
+   THE SERVER IS REFUSING THIS DEVICE — WHICH SIDE IS WRONG?
+
+   The old version of this message told the person what to type and left
+   them to work out where the mismatch was. That is not good enough when
+   the app is otherwise working and sites are waiting: the person is told
+   something is broken and given homework.
+
+   So it now finds out first, with two probes that write nothing:
+
+     · GET  ?action=ping        — does the address accept this password?
+     · POST kind:'__probe__'    — the token is checked BEFORE the kind, so
+                                  "unknown kind" means the password passed
+                                  and "bad token" means it did not.
+
+   It then tries the password built into the app. If that one works, the
+   phone simply has a stale value saved in Settings, and a single button
+   fixes it here and now.
+   ===================================================================== */
+async function probeToken(tok){
+  const api = DB.d.config.api;
+  const out = {get:'?', post:'?'};
+  try{
+    const r = await fetch(api+'?action=ping&token='+encodeURIComponent(tok));
+    const j = await r.json();
+    out.get = (j && j.ok) ? 'ok' : (/bad token/i.test(String((j&&j.error)||'')) ? 'refused' : 'other');
+    out.version = (j && j.version) || '';
+  }catch(e){ out.get = 'unreachable'; }
+  try{
+    const r = await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({token:tok, kind:'__probe__', id:'PROBE', payload:{}})});
+    const j = await r.json();
+    /* the token is checked before the kind: "unknown kind" is a PASS */
+    out.post = /bad token/i.test(String((j&&j.error)||'')) ? 'refused'
+             : (/unknown kind/i.test(String((j&&j.error)||'')) || (j&&j.ok)) ? 'ok' : 'other';
+  }catch(e){ out.post = 'unreachable'; }
+  return out;
+}
+function useDefaultToken(){
+  DB.d.config.token = '';
+  DB.save();
+  closeModal();
+  toast(LANG==='fr'?'Mot de passe de liaison remis par défaut — nouvel essai…'
+                   :'Link password reset to the default — trying again…', 3000);
+  setTimeout(()=>syncNow(false), 400);
+}
+async function tokenRefused(){
+  const L = LANG==='fr';
+  const api = DB.d.config.api;
+  const mine = apiToken();
+  const shown = mine ? mine : (L?'(vide)':'(empty)');
+  const box = h => infoModal(L?'Le serveur refuse cet appareil':'The server is refusing this device', h);
+
+  if(!api) return box(L?'Aucune adresse de serveur n\'est configurée (Console ▸ Paramètres ▸ URL de l\'API).'
+                       :'No server address is configured (Console ▸ Settings ▸ API URL).');
+  if(!ONLINE) return box(L?'Cet appareil est hors réseau. Reconnectez-vous, puis réessayez.'
+                          :'This device is offline. Reconnect and try again.');
+
+  const a = await probeToken(mine);
+  const b = (mine === API_TOKEN) ? a : await probeToken(API_TOKEN);
+
+  /* 1 · the address does not answer at all */
+  if(a.get === 'unreachable' && a.post === 'unreachable')
+    return box((L?'L\'adresse configurée ne répond pas :\n\n':'The configured address does not answer:\n\n')
+      + api + (L?'\n\nCe n\'est pas un problème de mot de passe. Vérifiez la connexion, puis l\'adresse dans Console ▸ Paramètres.'
+                :'\n\nThis is not a password problem. Check the connection, then the address in Console ▸ Settings.'));
+
+  /* 2 · the password saved on this phone is stale, and the built-in one works */
+  if(a.post === 'refused' && b.post === 'ok'){
+    return modal(L?'Mot de passe de liaison incorrect sur ce téléphone'
+                  :'Wrong link password on this phone', `
+      <div class="banner b-ok">${L
+        ?'Bonne nouvelle : le serveur va bien, et le mot de passe d\'origine fonctionne. C\'est la valeur enregistrée sur CE téléphone qui est mauvaise.'
+        :'Good news: the server is fine, and the built-in password works. It is the value saved on THIS phone that is wrong.'}</div>
+      <p class="small">${L?'Enregistré ici :':'Saved here:'} <b class="sc">${esc(shown)}</b><br>
+        ${L?'Attendu par le serveur :':'Expected by the server:'} <b class="sc">${esc(API_TOKEN)}</b></p>
+      <button class="btn blk" onclick="useDefaultToken()">${
+        L?'Corriger maintenant et réessayer':'Fix it now and try again'}</button>
+      <p class="xs muted" style="margin-top:8px">${L
+        ?'Rien n\'est perdu : ce qui attendait d\'être envoyé partira aussitôt.'
+        :'Nothing is lost: whatever was waiting to be sent will go straight away.'}</p>`,
+      `<button class="btn sec" onclick="closeModal()">${L?'Plus tard':'Later'}</button>`);
+  }
+
+  /* 3 · neither password is accepted: the workbook's TOKEN is something else */
+  if(a.post === 'refused' && b.post === 'refused')
+    return box((L?'LE MOT DE PASSE DU CLASSEUR EST DIFFÉRENT\n\n':'THE WORKBOOK PASSWORD IS DIFFERENT\n\n')
+      + (L?'Ni la valeur enregistrée ici (' : 'Neither the value saved here (') + shown
+      + (L?'), ni celle d\'origine (' : '), nor the built-in one (') + API_TOKEN
+      + (L?') n\'est acceptée.\n\nÀ FAIRE :\n1. Classeur ▸ Extensions ▸ Apps Script\n2. Cherchez tout en haut :   var TOKEN = \'…\';\n3. Recopiez EXACTEMENT cette valeur dans Console ▸ Paramètres ▸ « Mot de passe de liaison », puis Enregistrer.\n\nMajuscules comprises, sans espace avant ni après.'
+          :') is accepted.\n\nTO DO:\n1. Workbook ▸ Extensions ▸ Apps Script\n2. Near the top, find:   var TOKEN = \'…\';\n3. Copy that value EXACTLY into Console ▸ Settings ▸ "Link password", then Save.\n\nCapitals included, no space before or after.'));
+
+  /* 4 · the password is fine now — whatever was refused has cleared */
+  if(a.post === 'ok'){
+    closeModal();
+    toast(L?'✓ La liaison est rétablie — envoi en cours' : '✓ The link is working again — sending', 3500);
+    return setTimeout(()=>syncNow(true), 500);
+  }
+
+  /* 5 · anything else: say exactly what was observed rather than guessing */
+  return box((L?'RÉPONSE INATTENDUE DU SERVEUR\n\n':'UNEXPECTED ANSWER FROM THE SERVER\n\n')
+    + api + '\n\n'
+    + (L?'Avec le mot de passe enregistré ici (':'With the password saved here (') + shown + ') :\n'
+    + '  lecture : ' + a.get + '   ·   écriture : ' + a.post + '\n'
+    + (a.version ? (L?'  version du script : ':'  script version: ') + a.version + '\n' : '')
+    + (L?'\nMontrez cet écran à la personne qui gère le classeur.'
+        :'\nShow this screen to whoever manages the workbook.'));
 }
 
 /* ---------------------------------------------------------------------------
