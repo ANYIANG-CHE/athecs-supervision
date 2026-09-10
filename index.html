@@ -1191,6 +1191,17 @@ function isSuper(){ const u=me(); return !!u && (u.role==='SUPER' || u.role==='A
 function isAdmin(){ const u=me(); return !!u && u.role==='ADMIN'; }
 function isSlot(u){ return !!u && (u.role==='SUPER' || u.role==='ADMIN'); }
 
+/* ---------- who may CONDUCT a supervision -------------------------------------
+   An administrator and a super user run the region: they open cycles, approve, return,
+   reopen, manage accounts and read every score. They do NOT conduct supervisions.
+   The separation is deliberate — the person who validates the work cannot be the person
+   who did it, or the validation means nothing. If a super user must go to the field,
+   they enrol a supervisor account like anybody else and use that.
+
+   This is enforced at three levels, not one: the screens do not offer it, the routes
+   refuse it, and the functions that write refuse it. Hiding a button is not a rule. */
+function canSupervise(){ const u=me(); return !!u && !isSlot(u) && u.role!=='SITE'; }
+
 /* ---------- one supervision per site per cycle --------------------------------
    The rule in the field is one supervisor phone per site. When the server finds a
    second submission for the same site and the same cycle it flags BOTH, and every
@@ -1325,23 +1336,93 @@ function shell(inner, navKey){
 function setLang(l){ LANG=l; localStorage.setItem('ath_lang',l); render(); }
 function logout(){ DB.d.session=null; DB.save(); go('#/home'); render(); }
 
+/* =====================================================================
+   PAINTING THE SCREEN WITHOUT THROWING THE USER OFF IT
+
+   Every repaint replaces the whole of #app. The app repaints on its own —
+   the 25-second tick, a sync finishing, an account refresh arriving — and
+   each of those used to send the page back to the top and empty whatever
+   box the person was typing in. To somebody halfway down a questionnaire
+   that reads as the app losing its place for no reason. It is the single
+   most irritating thing in the app and it has nothing to do with the data.
+
+   So: a repaint of the SAME screen keeps the scroll position, keeps the
+   focused field and its cursor, and keeps the section strip where it was.
+   Only a real navigation goes back to the top. Nothing here changes what
+   is displayed — only whether the ground moves under the person.
+   ===================================================================== */
+let VIEW_KEY = '';
+function viewKey(){ return (location.hash||'#/home'); }
+
+/* what the person was doing, captured the instant before the repaint */
+function keepPlace(){
+  const el = document.activeElement;
+  const inApp = el && el.id && $('#app') && $('#app').contains(el)
+             && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
+  const strips = {};
+  ['#secnav','#tabnav'].forEach(sel=>{ const n=$(sel); if(n) strips[sel]=n.scrollLeft; });
+  return {
+    same: VIEW_KEY === viewKey(),
+    y: window.scrollY || window.pageYOffset || 0,
+    id: inApp ? el.id : '',
+    start: inApp && el.selectionStart!=null ? el.selectionStart : null,
+    end:   inApp && el.selectionEnd!=null   ? el.selectionEnd   : null,
+    strips
+  };
+}
+function restorePlace(p){
+  /* A repaint of the same screen must not move the page. A navigation goes to the
+     top, unless somebody has deliberately asked to hold the position. */
+  if(window._toSection){
+    /* A deliberate move between sections: the questionnaire starts again at the top,
+       but glided to rather than snapped to, so the eye can follow it. */
+    window._toSection = false;
+    const anchor = $('#secanchor');
+    const top = anchor ? (anchor.getBoundingClientRect().top + window.scrollY - 8) : 0;
+    try{ window.scrollTo({top: Math.max(0, top), behavior:'smooth'}); }
+    catch(e){ window.scrollTo(0, Math.max(0, top)); }
+  } else {
+    const y = p.same ? p.y : (window._keepScroll || 0);
+    window.scrollTo(0, y);
+  }
+  window._keepScroll = 0;
+  if(p.same){
+    Object.keys(p.strips).forEach(sel=>{ const n=$(sel); if(n) n.scrollLeft = p.strips[sel]; });
+    if(p.id){
+      const el=document.getElementById(p.id);
+      if(el && el!==document.activeElement){
+        try{
+          el.focus({preventScroll:true});
+          if(p.start!=null && el.setSelectionRange) el.setSelectionRange(p.start, p.end);
+        }catch(e){}
+      }
+    }
+  }
+  VIEW_KEY = viewKey();
+}
+function paint(html, key, r){
+  const p = keepPlace();
+  $('#app').innerHTML = shell(html, key);
+  restorePlace(p);
+  if(typeof afterRender==='function') afterRender(r, p.same);
+}
+
 function render(){
   const r = route(); const u = me();
-  if(!u){ $('#app').innerHTML = shell(viewLogin()); return; }
-  if(!canWork(u)){ $('#app').innerHTML = shell(viewGate(u)); return; }
+  if(!u)          return paint(viewLogin(), undefined, r);
+  if(!canWork(u)) return paint(viewGate(u), undefined, r);
   let html='', key=r[0];
   if(isSite()){
     // facility staff: their own site only
-    if(r[0]==='report' && mySiteIds().includes((DB.d.visits.find(v=>v.id===r[1])||{}).siteId)){
-      $('#app').innerHTML = shell(viewReport(r[1]),'home'); afterRender(r); return;
-    }
-    if(r[0]==='chat'){ $('#app').innerHTML = shell(viewChat(r[1]),'chat'); afterRender(r); return; }
-    $('#app').innerHTML = shell(viewSiteHome(),'home'); afterRender(r); return;
+    if(r[0]==='report' && mySiteIds().includes((DB.d.visits.find(v=>v.id===r[1])||{}).siteId))
+      return paint(viewReport(r[1]), 'home', r);
+    if(r[0]==='chat') return paint(viewChat(r[1]), 'chat', r);
+    return paint(viewSiteHome(), 'home', r);
   }
   switch(r[0]){
     case 'home':   html=viewHome(); break;
     case 'report': html=viewReport(r[1]); key='visits'; break;
-    case 'new':    html=viewNewVisit(); break;
+    case 'new':    html=viewNewVisit(); break;   // refuses a console account itself
     case 'visit':  html=viewVisit(r[1], r[2]||'q', r[3]); key='visits'; break;
     case 'visits': html=viewVisits(); break;
     case 'dash':   html=viewDash(); break;
@@ -1350,9 +1431,7 @@ function render(){
     case 'sitereq':html=viewSiteReq(r[1]); key='visits'; break;
     default: html=viewHome(); key='home';
   }
-  $('#app').innerHTML = shell(html, key);
-  window.scrollTo(0, window._keepScroll||0); window._keepScroll=0;
-  if(typeof afterRender==='function') afterRender(r);
+  paint(html, key, r);
 }
 
 /* ===================== login ===================== */
@@ -2996,7 +3075,10 @@ function viewHome(){
       L?'RECOS EN RETARD':'OVERDUE ACTIONS'}</span></div>
   </div>
 
-  <button class="btn blk" style="padding:14px" onclick="go('#/new')">＋ ${T('newVisit')}</button>
+  ${canSupervise()?`<button class="btn blk" style="padding:14px" onclick="go('#/new')">＋ ${T('newVisit')}</button>`
+    :`<div class="banner b-info">${L
+      ?'Vous administrez la région : vous validez, retournez et rouvrez les supervisions, mais vous n\'en conduisez pas. Si vous devez aller sur le terrain, enrôlez-vous un compte de superviseur.'
+      :'You administer the region: you approve, return and reopen supervisions, but you do not conduct them. If you have to go to the field, enrol yourself a supervisor account.'}</div>`}
 
   ${syncCard()}
 
@@ -3056,6 +3138,14 @@ function toggleShowAll(on){
 
 function viewNewVisit(){
   const u=me();
+  if(!canSupervise()) return `<div class="card">
+    <div class="banner b-err">${LANG==='fr'
+      ?'Un administrateur ou un super utilisateur ne conduit pas de supervision.'
+      :'An administrator or a super user does not conduct supervisions.'}</div>
+    <p class="small">${LANG==='fr'
+      ?'C\'est vous qui approuvez, retournez et rouvrez le travail des superviseurs. Pour aller sur le terrain, enrôlez un compte de superviseur à votre nom : Se connecter ▸ Superviseur ▸ Enrôler.'
+      :'You are the person who approves, returns and reopens the supervisors\' work. To go to the field, enrol a supervisor account in your own name: Sign in ▸ Supervisor ▸ Enrol.'}</p>
+    <button class="btn sec blk sm" onclick="go('#/home')">${T('back')}</button></div>`;
   let sites=DB.d.sites.filter(s=>s.status!=='CLOSED');
   if(!isSuper() && Array.isArray(u.districts) && !NV.showAll)
     sites = sites.filter(s=>u.districts.includes(s.district));
@@ -3118,6 +3208,9 @@ function pickSite(id){ const s=siteById(id); NV.district=s.district; NV.area=s.a
 
 async function startVisit(){
   const L=LANG==='fr';
+  if(!canSupervise()) return toast(L
+    ?'Un administrateur ou un super utilisateur ne conduit pas de supervision.'
+    :'An administrator or a super user does not conduct supervisions.', 5000);
   const c=activeCycle();
   if(!c) return toast(L?'Aucun cycle ouvert':'No open cycle');
   const dup=DB.d.visits.find(v=>v.siteId===NV.siteId && v.cycleId===c.id && v.status!=='DRAFT');
@@ -3161,6 +3254,7 @@ async function siteAlreadyTaken(cycleId, siteId){
   }catch(e){ return null; }
 }
 function startVisitAnyway(){
+  if(!canSupervise()) return;
   const c=activeCycle(); if(!c) return;
   const v={id:DB.id('V'), siteId:NV.siteId, cycleId:c.id, uid:DB.d.session,
     supervisor:(me()||{}).name, comentors:'', type:'Mentorat intégré', date:today(),
@@ -3181,7 +3275,7 @@ function viewVisit(vid, tab, arg){
   if(!VISIT_TABS.includes(tab)) tab='q';   // an unknown tab is the questionnaire, on purpose
   const s=siteById(v.siteId)||{}; const c=DB.d.cycles.find(x=>x.id===v.cycleId)||activeCycle();
   const sc=visitScores(v);
-  const locked = v.status==='SUBMITTED'||v.status==='APPROVED';
+  const locked = v.status==='SUBMITTED'||v.status==='APPROVED'||!canSupervise();
   const tabs=[['q',LANG==='fr'?'Questionnaire':'Questionnaire'],['swot',T('swot')],
               ['plan',T('actionPlan')],['fu',T('followup')],['rev',T('review')],
               ['rep',LANG==='fr'?'📄 Rapport':'📄 Report']];
@@ -3239,6 +3333,7 @@ function visitQuestions(v, sc, locked){
   const done=all.filter(q=>scoreAnswer(q,A[q.id]).answered).length;
   const tot=all.length;
   return `
+  <div id="secanchor"></div>
   <div class="secwrap">
     <button class="arw" ${VSEC===0?'disabled':''} title="${LANG==='fr'?'Section précédente':'Previous section'}"
       onclick="gotoSec(${VSEC-1})">‹</button>
@@ -3269,7 +3364,9 @@ function visitQuestions(v, sc, locked){
 }
 function gotoSec(i){
   const secs=sectionList(cycleOf(DB.d.visits.find(x=>x.id===(route()[1]||''))));
+  const before=VSEC;
   VSEC=Math.max(0,Math.min(i,secs.length-1));
+  if(VSEC!==before) window._toSection=true;
   window._keepScroll=0; render();
 }
 function qBox(v,q,a,locked,c){
@@ -3387,7 +3484,7 @@ function refreshQ(vid,qid,full){
   const q=qById(qid, v); if(!q) return;
   const a=(DB.d.answers[vid]||{})[qid]||{};
   const r=scoreAnswer(q,a);
-  const locked=v.status==='SUBMITTED'||v.status==='APPROVED';
+  const locked=v.status==='SUBMITTED'||v.status==='APPROVED'||!canSupervise();
   const box=document.getElementById('qb-'+qid); if(!box) return;
   if(full){
     const c=cycleOf(v);
@@ -3422,7 +3519,16 @@ function refreshHeader(vid){
     cur.className='chip '+p.band; cur.textContent=pc(p.pct); }
 }
 
+/* The console reads a supervision; it never types into one. */
+function mayAnswer(vid){
+  if(canSupervise()) return true;
+  toast(LANG==='fr'
+    ?'Lecture seule : vous validez cette supervision, vous ne la remplissez pas.'
+    :'Read only: you approve this supervision, you do not fill it in.', 4000);
+  return false;
+}
 function setA(vid,qid,patch){
+  if(!mayAnswer(vid)) return;
   const A=DB.d.answers[vid]=DB.d.answers[vid]||{};
   const a=A[qid]=A[qid]||{};
   Object.assign(a,patch);
@@ -3430,11 +3536,13 @@ function setA(vid,qid,patch){
   touch(vid); refreshQ(vid,qid,true); refreshHeader(vid);
 }
 function setItem(vid,qid,i,val,len){
+  if(!mayAnswer(vid)) return;
   const A=DB.d.answers[vid]=DB.d.answers[vid]||{}; const a=A[qid]=A[qid]||{};
   a.items=a.items||new Array(len).fill(false); a.items[i]=val; a.na=false;
   touch(vid); refreshQ(vid,qid,false); refreshHeader(vid);
 }
 function markNA(vid,qid){
+  if(!mayAnswer(vid)) return;
   const A=DB.d.answers[vid]=DB.d.answers[vid]||{}; const a=A[qid]=A[qid]||{};
   a.na=!a.na; if(a.na){ a.v=undefined; a.fu=undefined; a.num=''; a.den=''; a.days=''; a.items=undefined; }
   touch(vid); refreshQ(vid,qid,true); refreshHeader(vid);
@@ -3657,7 +3765,7 @@ function visitReview(v, sc){
   const acts=visitActions(v.id);
   const noReco=acts.filter(a=>!(a.reco||'').trim());
   const ok = un.length===0 && mc.length===0 && noReco.length===0;
-  const locked = v.status==='SUBMITTED'||v.status==='APPROVED';
+  const locked = v.status==='SUBMITTED'||v.status==='APPROVED'||!canSupervise();
   return `
   <div class="card">
     <h3>${LANG==='fr'?'Informations de la supervision':'Supervision details'}</h3>
@@ -3768,6 +3876,10 @@ function visitForSync(v){
 }
 function submitVisit(vid){
   const v=DB.d.visits.find(x=>x.id===vid);
+  if(!v) return;
+  if(!canSupervise()) return toast(LANG==='fr'
+    ?'Un administrateur ou un super utilisateur ne soumet pas de supervision.'
+    :'An administrator or a super user does not submit supervisions.', 4500);
   v.status='SUBMITTED'; v.submitted=Date.now(); v.scores=visitScores(v); v.updated=Date.now();
   DB.save(); audit('VISIT_SUBMIT','visit',siteById(v.siteId).facility);
   const c=DB.d.cycles.find(x=>x.id===v.cycleId);
@@ -4343,7 +4455,7 @@ function viewVisits(){
   const list=myVisits();
   return `<div class="card">
     <div class="spread"><h2>${T('visits')}</h2>
-      <button class="btn sm" onclick="go('#/new')">＋</button></div>
+      ${canSupervise()?`<button class="btn sm" onclick="go('#/new')">＋</button>`:''}</div>
     <div class="list">${list.map(v=>visitRow(v)).join('')||'<p class="small muted">—</p>'}</div>
     <hr>
     <button class="btn sec blk sm" onclick="exportAll()">⇩ ${LANG==='fr'?'Exporter toutes les données (CSV)':'Export all data (CSV)'}</button>
@@ -4804,7 +4916,7 @@ function viewSiteReq(id){
   return `<div class="card">
     <div class="spread"><h2>${editing?(LANG==='fr'?'Modifier une formation sanitaire':'Edit a facility')
                                      :(LANG==='fr'?'Demander l\'ajout d\'un site':'Request a new site')}</h2>
-      <button class="btn sec sm" onclick="go('#/new')">${T('back')}</button></div>
+      <button class="btn sec sm" onclick="go(canSupervise()?'#/new':'#/home')">${T('back')}</button></div>
 
     <div class="banner b-warn">${LANG==='fr'
       ?'Un superviseur propose une modification, il ne la réalise jamais. Une demande sans pièce justificative n\'est pas acceptée.'
@@ -4914,7 +5026,7 @@ async function submitSiteReq(editId){
                     :'The site is usable immediately as <b>PROVISIONAL</b> (flagged orange). Its data is excluded from regional aggregates until a super user approves it.')
       : (LANG==='fr'?'La modification sera appliquée après validation par un super utilisateur. Le registre est versionné : l\'ancienne version est conservée.'
                     :'The change will be applied after a super user approves it. The registry is versioned: the old version is kept.')}</p>`,
-   `<button class="btn" onclick="closeModal();go('#/new')">OK</button>`);
+   `<button class="btn" onclick="closeModal();go(canSupervise()?'#/new':'#/home')">OK</button>`);
 }
 
 /* ===================== SUPER USER CONSOLE ===================== */
@@ -6214,13 +6326,23 @@ setInterval(()=>{
 }, 25000);
 
 /* ===================== boot ===================== */
-function afterRender(){
+let STRIP_ON = {};
+function afterRender(r, sameView){
   const th=$('#thread'); if(th) th.scrollTop=th.scrollHeight;
-  // keep the active section pill visible when navigating with the arrows
+  /* Keep the active pill in view — but only MOVE the strip when the active pill has
+     actually changed. It used to re-run on every repaint, and because the repaint had
+     already reset the strip to the far left, the person watched it slide back across
+     the screen every twenty-five seconds. That is the sideways "jump". */
   ['#secnav','#tabnav'].forEach(sel=>{
     const nav=$(sel); if(!nav) return;
     const on=nav.querySelector('button.on'); if(!on) return;
-    nav.scrollTo({left: on.offsetLeft - nav.clientWidth/2 + on.offsetWidth/2, behavior:'smooth'});
+    const label=(on.getAttribute('data-i')||on.textContent||'').trim();
+    if(sameView && STRIP_ON[sel]===label) return;      // nothing moved: leave it alone
+    STRIP_ON[sel]=label;
+    const left = on.offsetLeft - nav.clientWidth/2 + on.offsetWidth/2;
+    if(Math.abs(nav.scrollLeft - left) < 4) return;
+    try{ nav.scrollTo({left, behavior: sameView?'smooth':'auto'}); }
+    catch(e){ nav.scrollLeft = left; }
   });
   // reserve room for the sticky bottom bar
   const app=$('#app'); if(app) app.classList.toggle('hasbar', !!$('.bottombar'));
