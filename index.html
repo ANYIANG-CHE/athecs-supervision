@@ -596,6 +596,7 @@ tbody tr:hover{background:var(--brand-tint)}
 .pico.sup{background:var(--brand-tint);border-color:color-mix(in srgb,var(--brand) 20%,transparent)}
 .pico.adm{background:var(--warn-tint);border-color:var(--warn-line)}
 .pico.site{background:var(--ok-tint);border-color:var(--ok-line)}
+.pico.dash{background:var(--info-tint,var(--brand-tint));border-color:var(--info-line,color-mix(in srgb,var(--brand) 20%,transparent))}
 .pathbadge{
   display:flex;align-items:center;justify-content:center;gap:8px;
   margin-top:12px;font-size:.755rem;font-weight:690;letter-spacing:.04em;
@@ -686,7 +687,10 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '4.0.0';
+/* The public dashboard. A separate, online-only page: nothing of it is downloaded
+   to a phone. Central level can override this per console in Réglages. */
+const DASH_URL = '';
 /* ---------------------------------------------------------------
    SECURITY TOKEN — change this ONE line, and change the matching
    line  var TOKEN = 'ATHECS';  in Code.gs to exactly the same value.
@@ -838,11 +842,12 @@ function isStandalone(){
 }
 
 /* The four roles, named once so every screen agrees and both languages are covered. */
-const ROLES=[{k:'SUPERVISOR'},{k:'SUPER'},{k:'SITE'},{k:'VIEWER'}];
+const ROLES=[{k:'SUPERVISOR'},{k:'SUPER'},{k:'ADMIN'},{k:'SITE'},{k:'VIEWER'}];
 function roleLabel(k){
   const L=LANG==='fr';
   return ({SUPERVISOR: L?'Superviseur':'Supervisor',
            SUPER:      L?'Super utilisateur':'Super user',
+           ADMIN:      L?'Administrateur':'Administrator',
            SITE:       L?'Personnel du site':'Facility staff',
            VIEWER:     L?'Lecteur':'Viewer'})[k] || k;
 }
@@ -897,7 +902,7 @@ const DB = {
     return {
       users:[], sites:[], questions:[], cycles:[], visits:[], answers:{},
       actions:[], threads:[], messages:[], siteReq:[], audit:[], outbox:[],
-      config:{ api:'', bands:{green:100,yellow:90}, dqa:{tolPct:5, exactBelow:100, yellowPct:10},
+      config:{ api:'', dashUrl:'', bands:{green:100,yellow:90}, dqa:{tolPct:5, exactBelow:100, yellowPct:10},
                admins:[], lastSync:null },
       session:null, seq:1
     };
@@ -918,12 +923,12 @@ const DB = {
     if(!d.cycles || !d.cycles.length){
       d.cycles = [ mkCycle('FY26 Q4', 2026, 4, true) ];
     }
-    if(!d.users || !d.users.length){
-      d.users = [
-        {id:'U001', name:'Super Utilisateur 1', role:'SUPER', pin:'1234', districts:'ALL', active:true},
-        {id:'U002', name:'Super Utilisateur 2', role:'SUPER', pin:'1234', districts:'ALL', active:true}
-      ];
-    }
+    /* NOTHING privileged is seeded any more. The app used to ship with two super
+       accounts on PIN 1234, in a file served from a public address — so anyone who
+       installed it could open the regional console by typing four digits.
+       A privileged slot now arrives from the server, already assigned to a named
+       person, and is claimed with a one-time code. The app carries no PIN at all. */
+    d.users = d.users || [];
     if(!d.config.dqa) d.config.dqa = {tolPct:5, exactBelow:100, yellowPct:10};
     if(!d.config.api && typeof DEFAULT_API==='string' && DEFAULT_API) d.config.api = DEFAULT_API;
     if(!d.threads.length){
@@ -1180,7 +1185,38 @@ function toast(m,ms){ const t=$('#toast'); t.textContent=m; t.style.display='blo
 function today(){ return new Date().toISOString().slice(0,10); }
 function fmtDT(ts){ const d=new Date(ts); return d.toLocaleDateString(LANG==='fr'?'fr-FR':'en-GB')+' '+d.toLocaleTimeString(LANG==='fr'?'fr-FR':'en-GB',{hour:'2-digit',minute:'2-digit'}); }
 function me(){ return DB.d.session ? DB.d.users.find(u=>u.id===DB.d.session) : null; }
-function isSuper(){ const u=me(); return !!u && u.role==='SUPER'; }
+/* An administrator IS a super user, plus the right to assign super users. Every
+   existing isSuper() gate therefore keeps working unchanged for both roles. */
+function isSuper(){ const u=me(); return !!u && (u.role==='SUPER' || u.role==='ADMIN'); }
+function isAdmin(){ const u=me(); return !!u && u.role==='ADMIN'; }
+function isSlot(u){ return !!u && (u.role==='SUPER' || u.role==='ADMIN'); }
+
+/* ---------- one supervision per site per cycle --------------------------------
+   The rule in the field is one supervisor phone per site. When the server finds a
+   second submission for the same site and the same cycle it flags BOTH, and every
+   score holds them out until a supervisor has chosen which one counts. A wrong
+   average is worse than a missing one: it is believed. */
+function inConflict(v){ return !!(v && Array.isArray(v.conflict) && v.conflict.length); }
+function countable(v){ return (v.status==='SUBMITTED'||v.status==='APPROVED') && !inConflict(v); }
+/* Every supervision caught in the same conflict as this one, this one included. */
+function conflictGroup(v){
+  if(!inConflict(v)) return [];
+  const ids=[v.id].concat(v.conflict);
+  return DB.d.visits.filter(x=>ids.includes(x.id));
+}
+/* The conflicts THIS person has to settle: they own one of the supervisions in it. */
+function myConflicts(){
+  const u=me(); if(!u) return [];
+  const seen={}, out=[];
+  DB.d.visits.forEach(v=>{
+    if(!inConflict(v)) return;
+    const g=conflictGroup(v);
+    if(!g.some(x=>x.uid===u.id)) return;
+    const key=g.map(x=>x.id).sort().join('|');
+    if(seen[key]) return; seen[key]=1; out.push(g);
+  });
+  return out;
+}
 function activeCycle(){ return DB.d.cycles.find(c=>c.status==='OPEN') || DB.d.cycles[0]; }
 function siteById(id){ return DB.d.sites.find(s=>s.id===id); }
 function audit(action, entity, detail){
@@ -1324,7 +1360,10 @@ function render(){
    and the administration path is a deliberate choice rather than the default. */
 let LG_PATH = localStorage.getItem('ath_path') || '';
 function setPath(p){ LG_PATH=p; try{localStorage.setItem('ath_path',p);}catch(e){} render(); }
-function clearPath(){ LG_PATH=''; try{localStorage.removeItem('ath_path');}catch(e){} render(); }
+/* « Changer d'espace » goes back to the three cards, not out to the welcome page:
+   somebody who took the wrong door wants the other doors, not the front step. */
+function clearPath(){ setPath('choose'); }
+function backToWelcome(){ LG_PATH=''; try{localStorage.removeItem('ath_path');}catch(e){} render(); }
 
 function loginHeader(){
   return `<div class="logos" style="margin-bottom:16px">
@@ -1335,9 +1374,63 @@ function loginHeader(){
 }
 
 function viewLogin(){
-  if(!['sup','adm','site'].includes(LG_PATH)) return viewLoginChooser();
+  if(LG_PATH==='choose') return viewLoginChooser();
+  if(!['sup','adm','site'].includes(LG_PATH)) return viewWelcome();
   if(LG_PATH==='adm') return viewLoginAdmin();
   return viewLoginRole(LG_PATH);
+}
+
+/* ---------- the page the app opens on -----------------------------------------
+   Two doors, each saying in one line what is behind it. It is shown only while
+   nobody is signed in: a supervisor who stays signed in never sees it again, and
+   does not pay a tap every morning for a page they will never use in the field.
+   Once signed in, the dashboard lives in the ? guide. */
+function viewWelcome(){
+  const L=LANG==='fr';
+  return `
+  <div class="card" style="max-width:470px;margin:24px auto">
+    ${loginHeader()}
+    <hr>
+    <button class="pathcard" onclick="openDashboard()">
+      <div class="pico dash">📊</div>
+      <div class="ptxt"><b>${L?'Tableau de bord national':'National dashboard'}</b>
+        <span>${L?'Les résultats de la région, en lecture seule. Aucun compte n\'est nécessaire. Demande une connexion internet.'
+                 :'The region\'s results, read only. No account is needed. Requires an internet connection.'}</span></div>
+      <span class="parr">›</span>
+    </button>
+
+    <button class="pathcard" onclick="setPath('choose')">
+      <div class="pico adm">🔐</div>
+      <div class="ptxt"><b>${L?'Se connecter':'Sign in'}</b>
+        <span>${L?'Pour conduire une supervision, suivre votre formation sanitaire, ou administrer la région. Fonctionne hors réseau.'
+                 :'To run a supervision, follow your facility, or administer the region. Works with no network.'}</span></div>
+      <span class="parr">›</span>
+    </button>
+
+    <hr>
+    ${installBanner()}
+    <button class="btn sec blk sm" onclick="openTour(0)">？ ${L?'Guide de navigation':'Navigation guide'}</button>
+    <p class="xs muted" style="margin-top:12px;text-align:center">
+      ${L?'Accès réservé au personnel autorisé.':'Authorised personnel only.'}</p>
+  </div>`;
+}
+
+/* The dashboard is a separate, online-only page. Nothing of it is downloaded to
+   this phone — this opens a link, and says so plainly when there is no network. */
+function openDashboard(){
+  const L=LANG==='fr';
+  const url=(DB.d.config.dashUrl||DASH_URL||'').trim();
+  if(!url) return modal(L?'Tableau de bord national':'National dashboard',
+    `<div class="banner b-warn">${L
+      ?'L\'adresse du tableau de bord n\'a pas encore été renseignée par le niveau central.'
+      :'Central level has not set the dashboard address yet.'}</div>`,
+    `<button class="btn sec" onclick="closeModal()">${L?'Fermer':'Close'}</button>`);
+  if(!ONLINE) return modal(L?'Tableau de bord national':'National dashboard',
+    `<div class="banner b-err">${L
+      ?'Le tableau de bord est en ligne uniquement : il lit les résultats consolidés sur le serveur. Reconnectez-vous au réseau et réessayez.'
+      :'The dashboard is online only: it reads consolidated results from the server. Reconnect to a network and try again.'}</div>`,
+    `<button class="btn sec" onclick="closeModal()">${L?'Fermer':'Close'}</button>`);
+  try{ window.open(url,'_blank','noopener'); }catch(e){ location.href=url; }
 }
 
 function viewLoginChooser(){
@@ -1377,7 +1470,8 @@ function viewLoginChooser(){
     ${installBanner()}
     <button class="btn sec blk sm" onclick="openTour(0)">？ ${L?'Guide de navigation':'Navigation guide'}</button>
     <p class="xs muted" style="margin-top:12px;text-align:center">
-      ${L?'Accès réservé au personnel autorisé.':'Authorised personnel only.'}</p>
+      <a href="#" onclick="event.preventDefault();backToWelcome()">‹ ${L?'Retour':'Back'}</a>
+      &nbsp;·&nbsp; ${L?'Accès réservé au personnel autorisé.':'Authorised personnel only.'}</p>
   </div>`;
 }
 /* Shown until the app is opened from its own icon. On iPhone this is the only prompt
@@ -1431,7 +1525,7 @@ function viewLoginRole(path){
       <button class="btn sec blk sm" onclick="enrolModal('${want}')">＋ ${
         isS ? (L?'Enrôler un autre agent du site':'Enrol another staff member')
             : (L?'Enrôler un autre superviseur':'Enrol another supervisor')}</button>
-      <button class="btn sec blk sm" style="margin-top:8px" onclick="forgotPinModal()">${L?'Code PIN oublié ?':'Forgotten PIN?'}</button>
+      <button class="btn sec blk sm" style="margin-top:8px" onclick="forgotPinModal()">${L?'Obtenir un code temporaire':'Get a temporary code'}</button>
       <button class="btn sec blk sm" style="margin-top:8px" ${ONLINE?'':'disabled'}
         onclick="checkMyAccount()">${L?'Demander au niveau central où en est mon compte'
                                      :'Ask central level where my account stands'}</button>
@@ -1476,22 +1570,80 @@ function filterLoginUsers(q){
 
 function viewLoginAdmin(){
   const L=LANG==='fr';
-  const supers = DB.d.users.filter(u=>u.role==='SUPER' && u.active!==false);
+  /* Only slots the server says are ASSIGNED appear here. The app carries none of its
+     own — there is no longer any account with a default PIN to walk into. */
+  const slots = DB.d.users.filter(u=>isSlot(u) && u.active!==false && String(u.name||'').trim());
+  const toClaim = slots.filter(u=>!u.claimed);
   return `
   <div class="card" style="max-width:470px;margin:24px auto">
     ${loginHeader()}
     <div class="pathbadge adm"><span class="pico adm sm">🛡</span> ${L?'Administration':'Administration'}</div>
     <hr>
-    <label class="f"><span>${T('name')}</span>
-      <select id="lg-user">${supers.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')
-        || `<option value="">—</option>`}</select></label>
-    <label class="f"><span>${T('pin')}</span>
-      <input type="password" id="lg-pin" inputmode="numeric" placeholder="••••" autocomplete="current-password"></label>
-    <button class="btn blk" onclick="doLogin()">${T('login')}</button>
+    ${slots.length ? `
+      <label class="f"><span>${T('name')}</span>
+        <select id="lg-user" onchange="render()">${slots.map(u=>
+          `<option value="${u.id}" ${DB.d.config.lastAdmPick===u.id?'selected':''}>${esc(u.name)} — ${
+            esc(roleLabel(u.role))}${u.claimed?'':(L?' · à activer':' · to activate')}</option>`).join('')}</select></label>
+      ${toClaim.length ? `<div class="banner b-info xs" style="margin-bottom:10px">${L
+        ?'Un compte marqué « à activer » n\'accepte pas encore de code PIN : saisissez le <b>code à 6 chiffres</b> qui vous a été communiqué. L\'application vous demandera ensuite de choisir votre propre code.'
+        :'An account marked "to activate" does not accept a PIN yet: type the <b>6-digit code</b> you were given. The app will then ask you to choose your own.'}</div>`:''}
+      <label class="f"><span>${L?'Code PIN, ou code à 6 chiffres si le compte est à activer'
+                                :'PIN, or the 6-digit code if the account is to be activated'}</span>
+        <input type="password" id="lg-pin" inputmode="numeric" placeholder="••••" autocomplete="current-password"></label>
+      <button class="btn blk" onclick="doLoginAdmin()">${T('login')}</button>
+    ` : `
+      <div class="banner b-warn">${L
+        ?'Aucun compte d\'administration n\'est encore attribué pour cette région.'
+        :'No administration account has been assigned for this region yet.'}</div>
+      <p class="small muted">${L
+        ?'Un compte d\'administrateur ou de super utilisateur n\'est jamais créé depuis l\'application : il est <b>attribué</b> à une personne nommée, qui reçoit un code à 6 chiffres pour l\'activer sur son téléphone.'
+        :'An administrator or super-user account is never created from the app: it is <b>assigned</b> to a named person, who receives a 6-digit code to activate it on their phone.'}</p>
+    `}
+    <button class="btn sec blk sm" style="margin-top:10px" ${ONLINE?'':'disabled'}
+      onclick="refreshSlots(true)">↻ ${L?'Actualiser la liste':'Refresh the list'}</button>
+    <button class="btn sec blk sm" style="margin-top:8px" onclick="openTour(0)">？ ${
+      L?'Guide de navigation':'Navigation guide'}</button>
     <p class="xs muted" style="margin-top:12px;text-align:center">
       ${L?'Réservé à la coordination régionale.':'Regional coordination only.'}<br>
       <a href="#" onclick="event.preventDefault();clearPath()">${L?'Changer d\'espace':'Change area'}</a></p>
   </div>`;
+}
+
+/* Administration sign-in. A slot that has not been claimed accepts ONLY its one-time
+   code; a claimed slot accepts only the PIN its holder chose on this phone. */
+async function doLoginAdmin(){
+  const L=LANG==='fr';
+  const sel=$('#lg-user'); if(!sel||!sel.value) return toast(L?'Aucun compte disponible':'No account available');
+  const id=sel.value, typed=(($('#lg-pin')||{}).value||'').trim();
+  const u=DB.d.users.find(x=>x.id===id); if(!u) return;
+  DB.d.config.lastAdmPick=id; DB.save();
+  if(!typed) return toast(L?'Saisissez votre code':'Enter your code');
+
+  if(!u.claimed){
+    if(!ONLINE) return toast(L?'L\'activation a besoin du réseau, une seule fois.'
+                              :'Activation needs a network, once.', 4000);
+    toast(L?'Vérification…':'Checking…', 1200);
+    const r = await claimSlot(id, typed);
+    if(!r || !r.valid) return toast(L
+      ?'Code refusé. Il est valable 24 heures et une seule fois — demandez-en un nouveau.'
+      :'Code refused. It is valid for 24 hours and once only — ask for a new one.', 4500);
+    u.claimed=true; u.pin=''; if(r.name) u.name=r.name; if(r.role) u.role=r.role;
+    DB.d.session=u.id; DB.save();
+    audit('SLOT_CLAIM','user', u.name+' — '+roleLabel(u.role));
+    try{ localStorage.setItem('ath_path','adm'); }catch(e){}
+    LG_PATH='adm'; go('#/home'); render();
+    return forcePinChange(u.id, 'claim');
+  }
+
+  if((u.pin||'') !== typed) return toast(L?'Code PIN incorrect':'Wrong PIN');
+  DB.d.session=u.id; DB.save(); audit('LOGIN','user',u.name);
+  try{ localStorage.setItem('ath_path','adm'); }catch(e){}
+  LG_PATH='adm'; go('#/home'); render();
+  /* A privileged account may not sit on an obvious code. The old sign-in enforced this
+     and the rewrite lost it — put back before anything else happens. */
+  if(DEFAULT_PINS.includes(u.pin)){ forcePinChange(u.id); return; }
+  maybeTour();          // the rewrite dropped this: a new super user never saw the guide
+  pushUser(u); refreshRoster(false); refreshAdmins(false); refreshSlots(false);
 }
 
 async function doLogin(){
@@ -1517,7 +1669,7 @@ async function doLogin(){
       : (L?'Code PIN incorrect':'Wrong PIN'));
   }
 
-  const path = u.role==='SUPER'?'adm':u.role==='SITE'?'site':'sup';
+  const path = isSlot(u)?'adm':u.role==='SITE'?'site':'sup';
   try{ localStorage.setItem('ath_path', path); }catch(e){}
   LG_PATH = path;
   DB.d.session=u.id; DB.save(); audit('LOGIN','user',u.name); go('#/home'); render();
@@ -1525,9 +1677,9 @@ async function doLogin(){
     u.pinResetCode=''; u.pinResetAt=null; u.pinHelp=null; DB.save();
     audit('PIN_RESET_USED','user',u.name); forcePinChange(u.id,'reset'); return;
   }
-  if(u.role==='SUPER' && DEFAULT_PINS.includes(u.pin)){ forcePinChange(u.id); return; }
+  if(isSlot(u) && DEFAULT_PINS.includes(u.pin)){ forcePinChange(u.id); return; }
   maybeTour();
-  if(u.role==='SUPER'){ pushUser(u); refreshRoster(false); } else refreshMyState(false);
+  if(isSlot(u)){ pushUser(u); refreshRoster(false); } else refreshMyState(false);
   refreshAdmins(false);
 }
 
@@ -1535,8 +1687,8 @@ async function doLogin(){
 const DEFAULT_PINS = ['1234','0000','1111'];
 function forcePinChange(uid, why){
   const u=DB.d.users.find(x=>x.id===uid); const L=LANG==='fr';
-  const reset = why==='reset';
-  const ident = u.role==='SUPER' && !reset;   // seeded super: also fix the generic name
+  const reset = why==='reset' || why==='claim';
+  const ident = isSlot(u) && !reset;   // seeded super: also fix the generic name
   $('#modal-root').innerHTML = `<div class="mask">
     <div class="modal" style="position:relative">
       <div class="gate-ico warn" style="margin-bottom:12px">🔐</div>
@@ -1581,11 +1733,11 @@ function saveForcedPin(uid){
   audit('PIN_CHANGED','user',u.name);
   /* a phone only ever clears its own recovery flags — it never rewrites its status,
      districts or role by pushing a whole record it may have received long ago */
-  if(u.role==='SUPER') queue('user',u);
+  if(isSlot(u)) queue('user',u);
   else queue('userFlag',{id:u.id, pinResetCode:'', pinResetAt:'', pinHelp:''});
   closeModal(); toast(L?'✓ Code PIN enregistré':'✓ PIN saved');
   render(); maybeTour();
-  if(u.role==='SUPER') refreshRoster(false); else refreshMyState(false);
+  if(isSlot(u)) refreshRoster(false); else refreshMyState(false);
 }
 
 /* Supervisor self-enrolment — ID document captured ONCE here (decision D10) */
@@ -1776,7 +1928,7 @@ function fileToB64(f){ return new Promise(res=>{ if(!f) return res(''); const r=
 
 /* Blocking screen when mandatory evidence is missing */
 function blockedModal(missing, ref){
-  const admins = DB.d.users.filter(u=>u.role==='SUPER');
+  const admins = DB.d.users.filter(u=>isSlot(u));
   const reference = ref || ('ATH-SR-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000));
   modal(LANG==='fr'?'Éléments obligatoires manquants':'Mandatory elements missing', `
     <div class="banner b-err">${LANG==='fr'
@@ -1965,6 +2117,8 @@ function openTour(i){
     </div>
     ${!isStandalone()?`<button class="btn sec blk sm" style="margin-top:8px" onclick="closeTour();installModal()">
       📲 ${L?'Installer l\'application sur ce téléphone':'Install the app on this phone'}</button>`:''}
+    <button class="btn sec blk sm" style="margin-top:8px" onclick="closeTour();openDashboard()">
+      📊 ${L?'Tableau de bord national (en ligne)':'National dashboard (online)'}</button>
     ${vid?`<button class="btn sec blk sm" style="margin-top:8px" onclick="watchVideo()">▶ ${guideLabel()}</button>`
         :`<p class="xs muted" style="text-align:center;margin-top:10px">${L?'Un guide pas à pas sera ajouté ici.':'A step-by-step guide will be added here.'}</p>`}
     <p class="xs muted" style="text-align:center;margin-top:8px">
@@ -2062,7 +2216,7 @@ function normStatus(v){
 }
 function userStatus(u){
   if(!u) return null;
-  if(u.role==='SUPER') return U_ACTIVE;          // super users are never gated
+  if(isSlot(u)) return U_ACTIVE;          // super users are never gated
   return normStatus(u.status) || (u.active===false ? U_SUSPENDED : U_ACTIVE);
 }
 function canWork(u){ return userStatus(u)===U_ACTIVE; }
@@ -2104,7 +2258,7 @@ function matchScore(a, b){
 /* Candidates worth showing a human. `sure` or `likely` may be merged; the rest are only flagged. */
 function duplicatesOf(u, list){
   return (list||DB.d.users)
-    .filter(x=> x && x.id!==u.id && x.role!=='SUPER')
+    .filter(x=> x && x.id!==u.id && !isSlot(x))
     /* A COPY carrying its score. Writing _match onto the shared user object meant the
        next comparison silently overwrote the previous one's result. */
     .map(x=> Object.assign({}, x, {_match: matchScore(u,x)}))
@@ -2177,7 +2331,7 @@ function realSites(list){
 /* ---------- the gate shown instead of the app while not approved ---------- */
 function viewGate(u){
   const st=userStatus(u), L=LANG==='fr';
-  const admins=DB.d.users.filter(x=>x.role==='SUPER');
+  const admins=DB.d.users.filter(x=>isSlot(x));
   const box=(icon,tone,title,body,extra)=>`
     <div class="card" style="max-width:520px;margin:20px auto;text-align:center">
       <div class="gate-ico ${tone}">${icon}</div>
@@ -2231,7 +2385,7 @@ function wipeLocalData(withUsers){
   d.messages=[]; d.threads=[]; d.audit=[]; d.outbox=[];
   d.sites=(d.sites||[]).filter(s=>String(s.status||'').toUpperCase()!=='PROVISIONAL');
   if(withUsers){
-    d.users=(d.users||[]).filter(u=>u.role==='SUPER');
+    d.users=(d.users||[]).filter(u=>isSlot(u));
     d.session=null;
   }
   DB.save(); DB.migrate(); DB.save();     // puts the general announcements thread back
@@ -2267,7 +2421,7 @@ function applyReset(j){
 /* ---------- device pulls its own state ---------- */
 async function refreshMyState(loud){
   const u=me(), api=DB.d.config.api;
-  if(!u || u.role==='SUPER') return;
+  if(!u || isSlot(u)) return;
   if(!api || !ONLINE){ if(loud) toast(T('offline')); return; }
   try{
     const r=await fetch(api+'?action=userstate&token='+encodeURIComponent(apiToken())+'&uid='+encodeURIComponent(u.id));
@@ -2308,7 +2462,7 @@ let ACCT_TICK = 0;
 async function refreshLocalAccounts(loud){
   const api=DB.d.config.api;
   if(!api || !ONLINE){ if(loud) toast(T('offline')); return 0; }
-  const mine = DB.d.users.filter(u=>u.role!=='SUPER' && !u.remote);
+  const mine = DB.d.users.filter(u=>!isSlot(u) && !u.remote);
   if(!mine.length) return 0;
   let changed = 0;
   for(const u of mine){
@@ -2338,6 +2492,66 @@ async function refreshLocalAccounts(loud){
   return changed;
 }
 
+/* ---------- the privileged slots, as the server describes them ----------------
+   The app ships with none. A slot appears on the Administration screen only once an
+   administrator has assigned it to a named person, and it accepts nothing but its
+   one-time code until that person has claimed it and chosen their own PIN. */
+async function refreshSlots(loud){
+  const api=DB.d.config.api;
+  if(!api || !ONLINE){ if(loud) toast(T('offline')); return 0; }
+  let j=null;
+  try{
+    const r=await fetch(api+'?action=slots&token='+encodeURIComponent(apiToken()));
+    j=await r.json();
+  }catch(e){ if(loud) toast(LANG==='fr'?'Serveur injoignable':'Server unreachable'); return 0; }
+  if(applyReset(j)) return 0;
+  if(!j || !j.ok || !Array.isArray(j.slots)){ if(loud) toast(LANG==='fr'?'Serveur non à jour':'Server out of date'); return 0; }
+  let n=0;
+  j.slots.forEach(sl=>{
+    const local = DB.d.users.find(u=>u.id===sl.id);
+    if(!sl.assigned || sl.active===false){
+      /* released, or never assigned: it must vanish from this phone, and if somebody
+         is signed into it right now they are signed out. */
+      if(local){
+        if(DB.d.session===sl.id){ DB.d.session=null; }
+        DB.d.users = DB.d.users.filter(u=>u.id!==sl.id); n++;
+      }
+      return;
+    }
+    if(!local){
+      DB.d.users.push({id:sl.id, name:sl.name, role:sl.role, phone:sl.phone,
+        districts:'ALL', status:U_ACTIVE, active:true, pin:'',
+        claimed:sl.claimed, slot:true}); n++; return;
+    }
+    if(local.name!==sl.name){ local.name=sl.name; n++; }
+    if(local.role!==sl.role){ local.role=sl.role; n++; }
+    if(sl.phone && local.phone!==sl.phone) local.phone=sl.phone;
+    /* Reassigned to somebody else: the slot is unclaimed again, so this phone must
+       let go of the PIN it was holding. */
+    if(local.claimed && !sl.claimed){
+      local.pin=''; local.claimed=false;
+      if(DB.d.session===sl.id) DB.d.session=null;
+      n++;
+    }
+    if(sl.claimed) local.claimed=true;
+  });
+  if(n){ DB.save(); render(); }
+  if(loud) toast(LANG==='fr'?'Comptes privilégiés à jour':'Privileged accounts updated', 2200);
+  return n;
+}
+
+/* Claim a slot: the code is compared on the server and burned there. */
+async function claimSlot(slotId, code){
+  const api=DB.d.config.api;
+  if(!api || !ONLINE) return {ok:false, offline:true};
+  try{
+    const r=await fetch(api+'?action=claim&token='+encodeURIComponent(apiToken())
+      +'&slotId='+encodeURIComponent(slotId)+'&code='+encodeURIComponent(code));
+    const j=await r.json();
+    return j||{ok:false};
+  }catch(e){ return {ok:false, error:String(e)}; }
+}
+
 /* ---------- "where does my account stand?" ----------------------------------
    The old button was labelled "Vérifier" and answered with a toast that said
    "Aucun changement" — which does not even tell you whether it reached the server.
@@ -2347,7 +2561,7 @@ async function refreshLocalAccounts(loud){
 async function checkMyAccount(uid){
   const L=LANG==='fr', api=DB.d.config.api;
   const say = t => infoModal(L?'Où en est votre compte':'Where your account stands', t);
-  const admins = DB.d.users.filter(x=>x.role==='SUPER')
+  const admins = DB.d.users.filter(x=>isSlot(x))
     .map(a=>'    '+a.name+(a.phone?'  —  '+a.phone:'')).join('\n') || '    —';
 
   if(!ONLINE) return say(L
@@ -2445,8 +2659,8 @@ async function findMyAccount(){
       <button class="btn sm" onclick="adoptAccount('${esc(u.id)}')">${L?'C\'est moi':'That\'s me'}</button>
     </div>`).join('')}</div>
     <p class="xs muted" style="margin-top:6px">${L
-      ?'Votre code PIN reste celui que vous aviez choisi. Si vous l\'avez oublié, utilisez « Code PIN oublié ? » après avoir récupéré le compte.'
-      :'Your PIN is still the one you chose. If you have forgotten it, use "Forgotten PIN?" once the account is back.'}</p>`;
+      ?'Le serveur ne renvoie jamais un code PIN : ce téléphone ne connaîtra donc pas celui que vous aviez. Après avoir récupéré le compte, appuyez sur « Obtenir un code temporaire » — un super utilisateur vous en donne un, et l\'application vous fait aussitôt choisir votre nouveau code.'
+      :'The server never returns a PIN, so this phone will not know the one you had. Once the account is back, tap "Get a temporary code" — a super user gives you one, and the app then asks you to choose your new PIN.'}</p>`;
   FOUND_ACCOUNTS = j.found;
 }
 let FOUND_ACCOUNTS = [];
@@ -2470,8 +2684,8 @@ function adoptAccount(uid){
   setTimeout(()=>{
     const sel=$('#lg-user'); if(sel) sel.value=s.id;
     const pin=$('#lg-pin'); if(pin) pin.focus();
-    toast(L?'✓ Compte récupéré — saisissez votre code PIN. Oublié ? « Code PIN oublié ? » juste en dessous.'
-           :'✓ Account restored — enter your PIN. Forgotten? "Forgotten PIN?" is just below.', 5500);
+    toast(L?'✓ Compte récupéré. Ce téléphone n\'a pas votre code PIN : appuyez sur « Obtenir un code temporaire » juste en dessous.'
+           :'✓ Account restored. This phone does not have your PIN: tap "Get a temporary code" just below.', 6500);
   }, 260);
 }
 function findMyAccountModal(){
@@ -2508,7 +2722,7 @@ async function refreshRoster(loud){
       const local=DB.d.users.find(x=>x.id===s.id);
       if(local){
         // never overwrite the local PIN, and never downgrade a super user
-        if(local.role==='SUPER'){
+        if(isSlot(local)){
           // a renamed super user must reach the other console too — name and phone only
           if(s.name && s.name!==local.name){ local.name=s.name; updated++; }
           if(s.phone && s.phone!==local.phone){ local.phone=s.phone; }
@@ -2544,7 +2758,7 @@ async function refreshRoster(loud){
 }
 
 /* ---------- central decisions ---------- */
-function pushUser(u){ if(u.role==='SUPER' && !u.status) u.status=U_ACTIVE; queue('user', u); }
+function pushUser(u){ if(isSlot(u) && !u.status) u.status=U_ACTIVE; queue('user', u); }
 
 function approveUser(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
@@ -2580,7 +2794,7 @@ function rejectUser(uid){
 }
 function suspendUser(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
-  if(u.role==='SUPER') return toast(LANG==='fr'?'Un super utilisateur ne peut pas être désactivé ici'
+  if(isSlot(u)) return toast(LANG==='fr'?'Un super utilisateur ne peut pas être désactivé ici'
                                                :'A super user cannot be deactivated here');
   const L=LANG==='fr';
   askReason({
@@ -2659,11 +2873,17 @@ async function checkTempPin(uid, code){
 /* ---------- supervisor side: I forgot my PIN ---------- */
 function forgotPinModal(){
   const L=LANG==='fr';
-  const admins=DB.d.users.filter(x=>x.role==='SUPER');
+  /* A privileged account never asks for a temporary PIN here: it is re-assigned
+     by an administrator, which issues a fresh claim code. Keep slots out of both
+     lists — out of "who are you", and into "who to call". */
+  const admins=DB.d.users.filter(x=>isSlot(x));
   const sel=$('#lg-user');
-  const users=DB.d.users.filter(u=>u.role!=='SUPER');
+  const users=DB.d.users.filter(u=>!isSlot(u));
   const cur=sel?sel.value:(users[0]||{}).id;
-  modal(L?'Code PIN oublié':'Forgotten PIN', `
+  modal(L?'Code PIN oublié, ou nouveau téléphone':'Forgotten PIN, or a new phone', `
+    <p class="small">${L
+      ?'Un code temporaire sert dans deux cas : vous avez oublié votre code PIN, ou vous venez de récupérer votre compte sur cet appareil — le serveur ne renvoie jamais un code PIN, ce téléphone ne connaît donc pas celui que vous aviez.'
+      :'A temporary code is for two situations: you have forgotten your PIN, or you have just restored your account on this device — the server never returns a PIN, so this phone does not know the one you had.'}</p>
     <ol class="steps">
       <li>${L?'Signalez-le ci-dessous, ou appelez directement un super utilisateur.'
              :'Report it below, or call a super user directly.'}</li>
@@ -2679,7 +2899,7 @@ function forgotPinModal(){
         `<option value="${u.id}" ${u.id===cur?'selected':''}>${esc(u.name)}</option>`).join('')
         || `<option value="">—</option>`}</select></label>
     <button class="btn blk" ${ONLINE?'':'disabled'} onclick="reportPinLoss()">
-      ${L?'Signaler mon oubli au niveau central':'Report my forgotten PIN to central level'}</button>
+      ${L?'Demander un code temporaire au niveau central':'Ask central level for a temporary code'}</button>
     <p class="xs muted" style="margin-top:6px">${ONLINE
       ? (L?'Votre demande apparaîtra immédiatement dans la console.':'Your request appears in the console immediately.')
       : (L?'Hors ligne : appelez un super utilisateur, ou réessayez avec du réseau.':'Offline: call a super user, or try again with signal.')}</p>
@@ -2765,6 +2985,7 @@ function viewHome(){
     </div>
     <div class="small" style="opacity:.9;margin-top:6px">${T('period')} : <b>${c?esc(cyclePeriodLabel(c)):'—'}</b></div>
   </div>
+  ${conflictBanner()}
 
   <div class="grid g3 always" style="margin-bottom:12px">
     <div class="stat"><b>${mySites.length}</b><span>${
@@ -2895,15 +3116,52 @@ function nvSearch(q){
 }
 function pickSite(id){ const s=siteById(id); NV.district=s.district; NV.area=s.area; NV.siteId=id; render(); }
 
-function startVisit(){
+async function startVisit(){
+  const L=LANG==='fr';
   const c=activeCycle();
-  if(!c) return toast(LANG==='fr'?'Aucun cycle ouvert':'No open cycle');
+  if(!c) return toast(L?'Aucun cycle ouvert':'No open cycle');
   const dup=DB.d.visits.find(v=>v.siteId===NV.siteId && v.cycleId===c.id && v.status!=='DRAFT');
-  if(dup) return infoModal(LANG==='fr'?'Supervision déjà soumise':'Visit already submitted',
-    LANG==='fr'?'Une supervision a déjà été soumise pour cette formation sanitaire sur ce cycle. Demandez sa réouverture à un super utilisateur.'
-               :'A visit has already been submitted for this facility in this cycle. Ask a super user to reopen it.');
+  if(dup) return infoModal(L?'Supervision déjà soumise':'Visit already submitted',
+    L?'Une supervision a déjà été soumise pour cette formation sanitaire sur ce cycle. Demandez sa réouverture à un super utilisateur.'
+     :'A visit has already been submitted for this facility in this cycle. Ask a super user to reopen it.');
   const ex=DB.d.visits.find(v=>v.siteId===NV.siteId && v.cycleId===c.id && v.status==='DRAFT' && v.uid===DB.d.session);
   if(ex) return go('#/visit/'+ex.id);
+
+  /* The rule is one supervisor phone per site. If there IS signal at this moment, use it:
+     asking the server now costs one request and prevents a double submission that would
+     otherwise cost two people a resolution later. With no signal we simply start — the
+     server will flag it, and the supervisor will settle it. */
+  const taken = await siteAlreadyTaken(c.id, NV.siteId);
+  if(taken && taken.taken){
+    const who=(taken.by||[]).map(x=>esc(x.supervisor||'—')+(x.date?' · '+esc(x.date):'')).join('<br>');
+    return modal(L?'Déjà supervisée sur ce cycle':'Already supervised in this cycle', `
+      <div class="banner b-warn">${L
+        ?'Le serveur a déjà une supervision pour cette formation sanitaire sur <b>'+esc(c.name)+'</b> :'
+        :'The server already holds a supervision for this facility in <b>'+esc(c.name)+'</b>:'}
+        <div style="margin-top:6px">${who}</div></div>
+      <p class="small">${L
+        ?'La règle est d\'un seul téléphone superviseur par formation sanitaire. Si vous en ouvrez une deuxième, les deux seront signalées et il faudra choisir laquelle compte — et tant que ce n\'est pas fait, cette formation sanitaire ne figure dans aucun score.'
+        :'The rule is one supervisor phone per facility. If you open a second one, both will be flagged and somebody will have to choose which counts — and until that is done, this facility appears in no score.'}</p>`,
+      `<button class="btn sec" onclick="closeModal()">${L?'Annuler':'Cancel'}</button>
+       <button class="btn dan" onclick="closeModal();startVisitAnyway()">${
+         L?'Ouvrir quand même':'Open one anyway'}</button>`);
+  }
+  return startVisitAnyway();
+}
+/* Ask the server whether this facility is already taken for this cycle. Silent and
+   forgiving: no network, no API, no answer — we carry on and let the server flag it. */
+async function siteAlreadyTaken(cycleId, siteId){
+  const api=DB.d.config.api;
+  if(!api || !ONLINE) return null;
+  try{
+    const r=await fetch(api+'?action=taken&token='+encodeURIComponent(apiToken())
+      +'&cycleId='+encodeURIComponent(cycleId)+'&siteId='+encodeURIComponent(siteId));
+    const j=await r.json();
+    return (j && j.ok && j.taken) ? j : null;
+  }catch(e){ return null; }
+}
+function startVisitAnyway(){
+  const c=activeCycle(); if(!c) return;
   const v={id:DB.id('V'), siteId:NV.siteId, cycleId:c.id, uid:DB.d.session,
     supervisor:(me()||{}).name, comentors:'', type:'Mentorat intégré', date:today(),
     status:'DRAFT', created:Date.now(), updated:Date.now(),
@@ -3459,7 +3717,14 @@ function visitReview(v, sc){
       ${ok?'':`<p class="xs muted" style="margin-top:8px">${LANG==='fr'
         ?'La soumission partielle n\'est pas possible : complétez les points listés ci-dessus.'
         :'Partial submission is not possible: complete the points listed above.'}</p>`}`}
-    ${isSuper()&&v.status==='SUBMITTED'?`<hr>
+    ${inConflict(v)?`<div class="banner b-err" style="margin-top:10px">
+      <b>${LANG==='fr'?'Double soumission':'Double submission'}</b><br>${LANG==='fr'
+        ?'Cette formation sanitaire a été soumise plus d\'une fois pour ce cycle. Tant que le superviseur n\'a pas choisi celle qui compte, aucune de ces supervisions n\'entre dans les scores, et la console ne peut ni approuver ni retourner.'
+        :'This facility was submitted more than once for this cycle. Until the supervisor has chosen which one counts, none of these supervisions enters any score, and the console can neither approve nor return.'}
+      ${conflictOwner(v)?`<div style="margin-top:8px"><button class="btn dan sm" onclick="resolveConflictModal('${v.id}')">
+        ${LANG==='fr'?'Choisir celle qui compte':'Choose the one that counts'}</button></div>`:''}
+    </div>`:''}
+    ${isSuper()&&v.status==='SUBMITTED'&&!inConflict(v)?`<hr>
       <label class="f"><span>${LANG==='fr'?'Retour au superviseur':'Feedback to the supervisor'}</span>
         <textarea id="rv-note"></textarea></label>
       <div class="row"><button class="btn ok" onclick="approveVisit('${v.id}')">✓ ${
@@ -3572,6 +3837,113 @@ function downloadCSV(rows, name){
   const csv='﻿'+rows.map(r=>r.map(c=>'"'+String(c==null?'':c).replace(/"/g,'""')+'"').join(';')).join('\n');
   const b=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; a.click();
+}
+
+/* =====================================================================
+   DOUBLE SUBMISSION — THE SUPERVISOR CHOOSES, NOT THE CONSOLE
+
+   One supervisor phone per site is the rule. When it is broken — a team
+   that split up, a phone reinstalled mid-cycle, a visit begun twice — the
+   server flags every submission for that site and cycle. None of them
+   counts anywhere until somebody who actually did the work says which one
+   is the real supervision. The other is archived, not deleted: it stays in
+   the workbook, out of every score, recoverable.
+
+   The console can SEE the conflict. It cannot settle it. That is deliberate
+   and it is the one place where the app refuses the coordination team: only
+   the people who were in the facility know which visit is the true one.
+   ===================================================================== */
+function conflictOwner(v){
+  const u=me(); if(!u) return false;
+  return conflictGroup(v).some(x=>x.uid===u.id);
+}
+function conflictLine(v){
+  const L=LANG==='fr';
+  const sc=(v.scores||visitScores(v)).overall;
+  const A=DB.d.answers[v.id]||{};
+  const answered=Object.keys(A).length;
+  return `${esc(v.supervisor||'—')} · ${fmtDate?fmtDate(v.date):v.date}
+    · ${answered} ${L?'question(s) renseignée(s)':'question(s) answered'}
+    · ${sc.pct===null?'—':sc.pct.toFixed(1)+' %'}
+    ${v.submitted?' · '+(L?'soumise le ':'submitted ')+fmtDT(v.submitted):''}`;
+}
+function resolveConflictModal(vid){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
+  const g=conflictGroup(v); const L=LANG==='fr';
+  if(g.length<2) return toast(L?'Ce conflit est déjà réglé':'This conflict is already settled');
+  if(!conflictOwner(v)) return toast(L
+    ?'Seul un superviseur qui a conduit l\'une de ces supervisions peut trancher.'
+    :'Only a supervisor who ran one of these supervisions can settle it.', 5000);
+  const s=siteById(v.siteId)||{facility:'?'};
+  const c=DB.d.cycles.find(x=>x.id===v.cycleId)||{name:'?'};
+  modal(L?'Deux supervisions pour la même formation sanitaire':'Two supervisions for the same facility', `
+    <div class="banner b-warn">${L
+      ?'<b>'+esc(s.facility)+'</b> a été soumise '+g.length+' fois pour <b>'+esc(c.name)+'</b>. Une seule peut compter.'
+      :'<b>'+esc(s.facility)+'</b> was submitted '+g.length+' times for <b>'+esc(c.name)+'</b>. Only one can count.'}</div>
+    <p class="small">${L
+      ?'Choisissez celle qui est la vraie supervision de cette visite. Les autres sont archivées : elles sortent de tous les scores et de tous les rapports, mais elles restent dans le classeur et peuvent être consultées par la coordination.'
+      :'Choose the one that is the real supervision for this visit. The others are archived: they leave every score and every report, but stay in the workbook and can still be consulted by the coordination team.'}</p>
+    <div class="list" style="margin-top:10px">${g.map(x=>`
+      <div class="item">
+        <div style="min-width:0"><b>${esc(x.supervisor||'—')}</b>
+          <span class="small muted">${conflictLine(x)}</span></div>
+        <button class="btn sm" onclick="doResolveConflict('${x.id}')">${
+          L?'C\'est celle-ci':'This is the one'}</button>
+      </div>`).join('')}</div>
+    <p class="xs muted" style="margin-top:10px">${L
+      ?'Ce choix a besoin du réseau : il est enregistré sur le serveur, pour que les deux téléphones et la console voient le même résultat.'
+      :'This choice needs a network: it is recorded on the server, so that both phones and the console see the same result.'}</p>`,
+    `<button class="btn sec" onclick="closeModal()">${L?'Plus tard':'Later'}</button>`);
+}
+async function doResolveConflict(keepId){
+  const L=LANG==='fr';
+  const v=DB.d.visits.find(x=>x.id===keepId); if(!v) return;
+  if(!ONLINE) return toast(L?'Ce choix a besoin du réseau — réessayez avec du signal.'
+                            :'This choice needs a network — try again with signal.', 4500);
+  const api=DB.d.config.api;
+  if(!api) return toast(L?'Aucune URL d\'API configurée':'No API URL configured');
+  const drop=conflictGroup(v).filter(x=>x.id!==keepId);
+  toast(L?'Enregistrement…':'Recording…', 1500);
+  let j=null;
+  try{
+    const r=await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({token:apiToken(), kind:'resolve', id:'RC-'+Date.now(),
+        payload:{keepId, byId:(me()||{}).id}})});
+    j=await r.json();
+  }catch(e){}
+  if(!j || !j.ok) return toast((L?'Échec : ':'Failed: ')+((j&&j.error)||'—'), 5000);
+  /* the server has archived the others: let go of them here too, and clear the flag */
+  drop.forEach(x=>{
+    DB.d.visits = DB.d.visits.filter(y=>y.id!==x.id);
+    delete DB.d.answers[x.id];
+    DB.d.actions = DB.d.actions.filter(a=>a.visitId!==x.id);
+  });
+  v.conflict=[]; DB.save();
+  audit('CONFLICT_RESOLVED','visit', (siteById(v.siteId)||{}).facility+' — '+keepId+
+        ' ' + (L?'conservée, ':'kept, ') + drop.length + (L?' archivée(s)':' archived'));
+  closeModal();
+  toast(L?'✓ Supervision retenue — les autres sont archivées'
+        :'✓ Supervision kept — the others are archived', 4500);
+  render();
+}
+/* The banner the supervisor cannot miss. It sits on the home screen, because a
+   conflict left alone silently removes a facility from the region's figures. */
+function conflictBanner(){
+  const groups=myConflicts(); if(!groups.length) return '';
+  const L=LANG==='fr';
+  return groups.map(g=>{
+    const v=g[0], s=siteById(v.siteId)||{facility:'?'};
+    const c=DB.d.cycles.find(x=>x.id===v.cycleId)||{name:'?'};
+    return `<div class="banner b-err">
+      <b>${L?'Double soumission à régler':'Double submission to settle'}</b><br>
+      ${L?'<b>'+esc(s.facility)+'</b> a été soumise '+g.length+' fois pour '+esc(c.name)+
+          '. Tant que vous n\'avez pas choisi celle qui compte, cette formation sanitaire ne figure dans aucun score.'
+        :'<b>'+esc(s.facility)+'</b> was submitted '+g.length+' times for '+esc(c.name)+
+          '. Until you choose which one counts, this facility appears in no score.'}
+      <div style="margin-top:8px"><button class="btn dan sm" onclick="resolveConflictModal('${v.id}')">
+        ${L?'Choisir celle qui compte':'Choose the one that counts'}</button></div>
+    </div>`;
+  }).join('');
 }
 
 /* =====================================================================
@@ -4009,7 +4381,7 @@ function myDistricts(){
 function scopedVisits(cid){
   const mine=myDistricts();
   return DB.d.visits.filter(v=>{
-    if(v.status!=='SUBMITTED' && v.status!=='APPROVED') return false;
+    if(!countable(v)) return false;      // a supervision in conflict counts nowhere
     if(cid && v.cycleId!==cid) return false;
     const s=siteById(v.siteId); if(!s) return false;
     return !mine || mine.includes(s.district);
@@ -4178,7 +4550,7 @@ function viewDashRegional(){
   const cycles=DB.d.cycles, u=me(), L=LANG==='fr';
   const cid=DASH.cycle||(activeCycle()||{}).id;
   const inScope = v => !DASH.district || (siteById(v.siteId)||{}).district===DASH.district;
-  let vs=DB.d.visits.filter(v=>v.status==='SUBMITTED'||v.status==='APPROVED');
+  let vs=DB.d.visits.filter(countable);
   if(cid) vs=vs.filter(v=>v.cycleId===cid);
   vs=vs.filter(inScope);
   const agg=vs.filter(v=>{ const s=siteById(v.siteId); return s && s.status==='ACTIVE'; });
@@ -4413,7 +4785,7 @@ function createThread(){
 }
 function openThreadWith(ref){
   let t=DB.d.threads.find(x=>x.scope==='DIRECT'&&(x.members||[]).includes(DB.d.session));
-  if(!t){ const su=DB.d.users.find(u=>u.role==='SUPER');
+  if(!t){ const su=DB.d.users.find(u=>isSlot(u));
     t={id:DB.id('T'),scope:'DIRECT',members:[DB.d.session,su?su.id:''],title:'Administrateur',created:Date.now()};
     DB.d.threads.push(t); }
   DB.d.messages.push({id:DB.id('M'),threadId:t.id,uid:DB.d.session,who:(me()||{}).name,
@@ -4553,12 +4925,136 @@ function viewAdmin(tab){
     ['cycles',L?'Cycles':'Cycles'],['approvals',L?'Validations':'Approvals'],
     ['questions',L?'Questions':'Questions'],['sites',L?'Demandes de sites':'Site requests'],
     ['users',L?'Utilisateurs':'Users'],['cfg',L?'Paramètres':'Settings'],
-    ['audit',L?'Journal':'Audit log']];
+    ['audit',L?'Journal':'Audit log']]
+    .concat(isAdmin()? [['slots', L?'Super utilisateurs':'Super users']] : []);
   return `<div class="card tight"><h2 style="margin:0">${T('admin')}</h2></div>
   <div class="secnav">${tabs.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="go('#/admin/${t[0]}')">${t[1]}</button>`).join('')}</div>
-  ${ tab==='supervisions'?admVisits(): tab==='cycles'?admCycles(): tab==='approvals'?admApprovals()
+  ${ tab==='slots'? (isAdmin()?admSlots():'<div class="banner b-err">Réservé à l\'administrateur.</div>')
+   : tab==='supervisions'?admVisits(): tab==='cycles'?admCycles(): tab==='approvals'?admApprovals()
    : tab==='questions'?admQuestions()
    : tab==='sites'?admSites(): tab==='users'?admUsers(): tab==='cfg'?admCfg(): admAudit() }`;
+}
+
+/* ---------------------------------------------------------------------------
+   SUPER USERS — assigned, never enrolled.
+   The one thing an administrator can do that a super user cannot. Assigning
+   generates a random 6-digit code; the person activates the slot on their own
+   phone with it and chooses their own PIN. No PIN is ever stored anywhere but
+   on that phone, and nothing in the app carries a default. */
+function admSlots(){
+  const L=LANG==='fr';
+  const slots=DB.d.users.filter(u=>isSlot(u)).sort((a,b)=>a.id<b.id?-1:1);
+  const row=u=>{
+    const named=String(u.name||'').trim();
+    const isA=u.role==='ADMIN';
+    return `<div class="card tight">
+      <div class="spread">
+        <div style="min-width:0">
+          <b>${named?esc(u.name):(L?'— non attribué —':'— unassigned —')}</b>
+          <div class="xs muted">${esc(roleLabel(u.role))} · ${esc(u.id)}${u.phone?' · '+esc(u.phone):''}</div>
+        </div>
+        <span class="chip ${!named?'n':u.claimed?'g':'a'}">${
+          !named?(L?'libre':'free'):u.claimed?(L?'actif':'active'):(L?'à activer':'to activate')}</span>
+      </div>
+      ${isA?`<p class="xs muted" style="margin-top:8px">${L
+        ?'Un compte administrateur ne s\'attribue pas ici. Il se donne depuis l\'éditeur Apps Script : fonction <b>nouveauCodeAdmin</b>. C\'est ce qui fait que seul le propriétaire du classeur peut nommer un administrateur.'
+        :'An administrator account is not assigned here. It is given from the Apps Script editor: function <b>nouveauCodeAdmin</b>. That is what makes the workbook owner the only person who can name an administrator.'}</p>`
+      :`<div class="row" style="margin-top:9px">
+          <button class="btn sm" ${ONLINE?'':'disabled'} onclick="assignSlotModal('${u.id}')">${
+            named?(L?'⇄ Réattribuer':'⇄ Reassign'):(L?'＋ Attribuer':'＋ Assign')}</button>
+          ${named?`<button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="releaseSlotAsk('${u.id}')">⛔ ${
+            L?'Retirer':'Withdraw'}</button>`:''}
+        </div>`}
+    </div>`;
+  };
+  return `<div class="card">
+    <div class="spread"><h3>${L?'Comptes privilégiés':'Privileged accounts'}</h3>
+      <button class="btn sm" ${ONLINE?'':'disabled'} onclick="refreshSlots(true)">↻ ${L?'Actualiser':'Refresh'}</button></div>
+    <p class="small muted">${L
+      ?'Deux administrateurs et deux super utilisateurs, pas davantage. Un compte n\'est jamais créé par la personne elle-même : il lui est <b>attribué</b>, et elle l\'active sur son téléphone avec un code à 6 chiffres. Aucun code PIN n\'existe par défaut, nulle part.'
+      :'Two administrators and two super users, no more. An account is never created by the person: it is <b>assigned</b> to them, and they activate it on their phone with a 6-digit code. No PIN exists by default, anywhere.'}</p>
+    ${slots.map(row).join('')||`<p class="small muted">—</p>`}
+    <hr>
+    <p class="xs muted">${L
+      ?'Retirer un compte le rend libre immédiatement : le téléphone de la personne s\'en sépare tout seul à sa prochaine connexion, et son code PIN cesse de fonctionner. Ses décisions passées restent au journal.'
+      :'Withdrawing an account frees it immediately: the person\'s phone lets go of it by itself at its next connection and their PIN stops working. Their past decisions stay in the Journal.'}</p>
+  </div>`;
+}
+function assignSlotModal(slotId){
+  const L=LANG==='fr';
+  const u=DB.d.users.find(x=>x.id===slotId)||{};
+  const named=String(u.name||'').trim();
+  modal(named?(L?'Réattribuer ce compte':'Reassign this account')
+             :(L?'Attribuer ce compte':'Assign this account'), `
+    ${named?`<div class="banner b-warn">${L
+      ?'Ce compte est actuellement attribué à <b>'+esc(u.name)+'</b>. La réattribution retire l\'accès à cette personne immédiatement.'
+      :'This account is currently held by <b>'+esc(u.name)+'</b>. Reassigning removes their access immediately.'}</div>`:''}
+    <label class="f"><span>${L?'Nom et prénom':'Full name'} *</span>
+      <input type="text" id="as-name" value=""></label>
+    <label class="f"><span>${L?'Téléphone':'Phone'} *</span>
+      <input type="tel" id="as-phone" placeholder="+237 6.. .. .. .."></label>
+    <p class="xs muted">${L
+      ?'Ce nom et ce numéro s\'affichent sur tous les téléphones de la région : liste de connexion Administration, écran d\'attente de validation, et « contactez l\'administrateur ».'
+      :'This name and number appear on every phone in the region: the Administration sign-in list, the awaiting-approval screen, and the "contact the administrator" panels.'}</p>`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn" onclick="doAssignSlot('${slotId}')">${L?'Attribuer et générer le code':'Assign and generate the code'}</button>`);
+}
+async function doAssignSlot(slotId){
+  const L=LANG==='fr';
+  const name=(($('#as-name')||{}).value||'').trim();
+  const phone=(($('#as-phone')||{}).value||'').trim();
+  if(!name) return toast(L?'Le nom est obligatoire':'The name is required');
+  if(!phone) return toast(L?'Le téléphone est obligatoire':'The phone number is required');
+  if(!ONLINE) return toast(L?'L\'attribution a besoin du réseau':'Assigning needs a network');
+  const api=DB.d.config.api;
+  let j=null;
+  try{
+    const r=await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({token:apiToken(), kind:'assign', id:'AS-'+Date.now(),
+        payload:{slotId, name, phone, byId:(me()||{}).id}})});
+    j=await r.json();
+  }catch(e){}
+  if(!j || !j.ok) return toast((L?'Échec : ':'Failed: ')+((j&&j.error)||'—'), 4000);
+  audit('SLOT_ASSIGN','user', name+' → '+slotId);
+  await refreshSlots(false);
+  closeModal();
+  modal(L?'Compte attribué':'Account assigned', `
+    <p class="small">${L?'Lisez ce code à <b>':'Read this code to <b>'}${esc(name)}</b>${phone?' ('+esc(phone)+')':''}.</p>
+    <div class="codebox">${esc(j.code)}</div>
+    <p class="small">${L
+      ?'Elle ouvre l\'application ▸ <b>Administration</b> ▸ choisit son nom ▸ saisit ce code à la place du code PIN. L\'application lui demande aussitôt de choisir son propre code PIN.'
+      :'They open the app ▸ <b>Administration</b> ▸ choose their name ▸ type this code instead of a PIN. The app then asks them to choose their own PIN.'}</p>
+    <p class="xs muted">${L?'Usage unique. Valable 24 heures. Il faut du réseau au moment de l\'activation.'
+                           :'Single use. Valid 24 hours. A network is needed at the moment of activation.'}</p>`,
+    `<button class="btn" onclick="closeModal()">OK</button>`);
+}
+function releaseSlotAsk(slotId){
+  const L=LANG==='fr';
+  const u=DB.d.users.find(x=>x.id===slotId)||{};
+  modal(L?'Retirer ce compte':'Withdraw this account', `
+    <div class="banner b-warn">${L
+      ?'<b>'+esc(u.name||'')+'</b> perdra l\'accès à la console dès que son téléphone se connectera. Son code PIN cessera de fonctionner.'
+      :'<b>'+esc(u.name||'')+'</b> will lose access to the console as soon as their phone connects. Their PIN will stop working.'}</div>
+    <p class="xs muted">${L
+      ?'Le compte redevient libre et pourra être attribué à quelqu\'un d\'autre. Toutes ses décisions passées restent au journal, à son nom.'
+      :'The account becomes free and can be assigned to somebody else. All their past decisions stay in the Journal, under their name.'}</p>`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn dan" onclick="doReleaseSlot('${slotId}')">${L?'Retirer':'Withdraw'}</button>`);
+}
+async function doReleaseSlot(slotId){
+  const L=LANG==='fr';
+  const api=DB.d.config.api;
+  let j=null;
+  try{
+    const r=await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({token:apiToken(), kind:'release', id:'RL-'+Date.now(),
+        payload:{slotId, byId:(me()||{}).id}})});
+    j=await r.json();
+  }catch(e){}
+  if(!j || !j.ok) return toast((L?'Échec : ':'Failed: ')+((j&&j.error)||'—'), 4000);
+  audit('SLOT_RELEASE','user', slotId);
+  await refreshSlots(false); closeModal();
+  toast(L?'✓ Compte retiré':'✓ Account withdrawn', 3000);
 }
 
 /* Everything the region has submitted, in one place, with the decision on the row.
@@ -4674,7 +5170,7 @@ function setCycleDeadline(cid,v){ const c=DB.d.cycles.find(x=>x.id===cid);
 
 function admApprovals(){
   const L=LANG==='fr';
-  const all=DB.d.users.filter(u=>u.role!=='SUPER');
+  const all=DB.d.users.filter(u=>!isSlot(u));
   const pending=all.filter(u=>userStatus(u)===U_PENDING);
   const active=all.filter(u=>userStatus(u)===U_ACTIVE);
   const off=all.filter(u=>[U_SUSPENDED,U_REJECTED].includes(userStatus(u)));
@@ -5155,7 +5651,7 @@ function decideSiteDo(id, decision, note){
 }
 
 function admUsers(){
-  const weak=DB.d.users.filter(u=>u.role==='SUPER'&&DEFAULT_PINS.includes(u.pin));
+  const weak=[];   // there is no default PIN anywhere any more
   return `<div class="card"><h3>${LANG==='fr'?'Utilisateurs':'Users'}</h3>
     ${weak.length?`<div class="banner b-err">${LANG==='fr'
       ?`${weak.length} super utilisateur(s) utilisent encore un code PIN par défaut : ${esc(weak.map(u=>u.name).join(', '))}. Changez-le immédiatement.`
@@ -5173,14 +5669,13 @@ function admUsers(){
         <td class="xs">${u.idNumber?esc(u.idType)+' '+esc(u.idNumber)+(u.idFile?' <a href="'+u.idFile+'" target="_blank">↗</a>':''):'—'}</td>
         <td class="xs">${Array.isArray(u.districts)?esc(u.districts.join(', ')):'ALL'}</td>
         <td class="xs">${userStatus(u)}</td>
-        <td>${u.role==='SUPER'
-          ? `<input type="text" style="width:70px" value="${esc(u.pin||'')}" onchange="setPin('${u.id}',this.value)">`
+        <td>${isSlot(u)
+          ? `<span class="xs muted">${LANG==='fr'?'attribué':'assigned'}</span>`
           : `<button class="btn sec sm" onclick="resetPin('${u.id}')">🔑</button>`}</td></tr>`).join('')}
       </tbody></table></div>
     <p class="xs muted" style="margin-top:8px">${LANG==='fr'
-      ?'Deux super utilisateurs sont prévus. Changez leurs noms et leurs PIN dès la mise en service.'
-      :'Two super users are provided. Change their names and PINs before going live.'}</p>
-    <button class="btn sec sm" onclick="renameSuper()">${LANG==='fr'?'Renommer les super utilisateurs':'Rename super users'}</button>
+      ?'Les comptes privilégiés ne se modifient pas ici : ils sont attribués par un administrateur, onglet « Super utilisateurs ». Aucun code PIN n\'est stocké dans ce tableau.'
+      :'Privileged accounts are not edited here: they are assigned by an administrator, tab "Super users". No PIN is stored in this table.'}</p>
   </div>`;
 }
 function setRole(uid,r){ const u=DB.d.users.find(x=>x.id===uid); u.role=r; DB.save();
@@ -5189,7 +5684,7 @@ function setPin(uid,p){ const u=DB.d.users.find(x=>x.id===uid); u.pin=p; DB.save
 function toggleUser(uid){ const u=DB.d.users.find(x=>x.id===uid); u.active=u.active===false;
   DB.save(); pushUser(u); render(); }
 function renameSuper(){
-  const su=DB.d.users.filter(u=>u.role==='SUPER');
+  const su=DB.d.users.filter(u=>isSlot(u));
   const L=LANG==='fr';
   modal(L?'Super utilisateurs':'Super users',
     `<p class="small muted">${L
@@ -5203,7 +5698,7 @@ function renameSuper(){
 }
 function saveSuper(){
   const changed=[];
-  DB.d.users.filter(u=>u.role==='SUPER').forEach(u=>{
+  DB.d.users.filter(u=>isSlot(u)).forEach(u=>{
     const n=$('#su-'+u.id), p=$('#sp-'+u.id);
     const before=u.name+'|'+(u.phone||'');
     if(n && n.value.trim()) u.name=n.value.trim();
@@ -5238,6 +5733,13 @@ function admCfg(){
     <p class="xs muted">${LANG==='fr'
       ?'Collez le lien de partage. Une fois renseigné, un bouton s\'ajoute au guide de navigation (bouton ? en haut de l\'écran). Le document doit être partagé en « Tous les utilisateurs disposant du lien — Lecteur ».'
       :'Paste the share link. Once filled in, a button is added to the navigation guide (? button at the top). The document must be shared as "Anyone with the link — Viewer".'}</p>
+    <label class="f"><span>${LANG==='fr'?'Adresse du tableau de bord national (page publique, en ligne)'
+                                          :'National dashboard address (public page, online)'}</span>
+      <input type="text" id="cf-dash" value="${esc(c.dashUrl||'')}"
+        placeholder="${esc(DASH_URL||'https://…/dashboard.html')}"></label>
+    <p class="xs muted">${LANG==='fr'
+      ?'C\'est le lien qu\'ouvre la carte « Tableau de bord national » sur la page d\'accueil. La page est séparée de l\'application : elle n\'est jamais téléchargée sur un téléphone et n\'alourdit rien. Ce réglage ne vaut que pour cet appareil.'
+      :'This is the link opened by the "National dashboard" card on the welcome page. The page is separate from the app: it is never downloaded to a phone and adds no weight. This setting applies to this device only.'}</p>
     <hr>
     <h3 class="small">${LANG==='fr'?'Seuils de performance':'Performance bands'}</h3>
     <div class="grid g2">
@@ -5339,6 +5841,7 @@ function saveCfg(){
   const c=DB.d.config;
   c.api=$('#cf-api').value.trim();
   c.videoUrl=($('#cf-vid')?$('#cf-vid').value.trim():c.videoUrl)||'';
+  c.dashUrl=($('#cf-dash')?$('#cf-dash').value.trim():c.dashUrl)||'';
   c.bands.green=Number($('#cf-g').value)||100; c.bands.yellow=Number($('#cf-y').value)||90;
   c.dqa.tolPct=Number($('#cf-t').value)||5; c.dqa.exactBelow=Number($('#cf-e').value)||100;
   c.dqa.yellowPct=Number($('#cf-yl').value)||10;
@@ -5471,6 +5974,12 @@ async function pullData(full, deep){
      away must land on the surviving id, not create an orphan. */
   if(typeof applyMerges==='function') changed += applyMerges(j.merges);
 
+  /* Applied BEFORE the visits arrive: a supervision the supervisor set aside after a
+     double submission is gone from the server, so nothing would ever tell this phone
+     about it again. Without this it would sit here for ever, in this phone's scores and
+     nowhere else — the two would never agree. */
+  changed += applyVisitArchive(j.varchive);
+
   /* The Journal is the region's, not this console's. */
   if(Array.isArray(j.audit) && j.audit.length){
     const known=new Set(DB.d.audit.map(x=>x.id));
@@ -5559,6 +6068,24 @@ function repairLegacyAnswers(answers, v){
 }
 
 /* Manual button — says plainly what came back. */
+/* Let go of supervisions the server has archived. Everything attached to one goes with
+   it — answers, recommendations, the SWOT — because a recommendation whose supervision
+   no longer exists is an orphan the facility can never close. */
+function applyVisitArchive(list){
+  if(!Array.isArray(list) || !list.length) return 0;
+  let n=0;
+  list.forEach(x=>{
+    const id = x && x.id; if(!id) return;
+    if(!DB.d.visits.some(v=>v.id===id)) return;
+    DB.d.visits  = DB.d.visits.filter(v=>v.id!==id);
+    DB.d.actions = DB.d.actions.filter(a=>a.visitId!==id);
+    delete DB.d.answers[id];
+    n++;
+  });
+  if(n) DB.save();
+  return n;
+}
+
 async function pullDataNow(){
   const L=LANG==='fr';
   if(!ONLINE) return toast(T('offline'));
@@ -5674,10 +6201,13 @@ setInterval(()=>{
   pullRemote();
   if(DB.d.outbox.length) syncNow(true);
   const u=me();
-  if(u){ if(u.role==='SUPER') refreshRoster(false); else refreshMyState(false); }
+  if(u){ if(isSlot(u)) refreshRoster(false); else refreshMyState(false); }
   /* Nobody signed in: still ask the server about the accounts this phone holds, so a
      reactivation reaches a person who cannot currently get past the sign-in screen. */
-  else if(typeof refreshLocalAccounts==='function') refreshLocalAccounts(false);
+  else if(typeof refreshLocalAccounts==='function'){ refreshLocalAccounts(false); }
+  /* the privileged slots, whether or not anybody is signed in: this is what makes an
+     assignment appear, and a withdrawal disappear, without anyone doing anything */
+  if(ADMIN_TICK % 4 === 0 && typeof refreshSlots==='function') refreshSlots(false);
   /* the delta every 25 s; the questionnaire, cycles and registry every 8th pass */
   if(u) pullData(ADMIN_TICK % 8 === 0).then(r=>{ if(r && r.changed) render(); });
   if(ADMIN_TICK++ % 8 === 0) refreshAdmins(false);   // ~ every 3 minutes, all roles
@@ -5701,8 +6231,9 @@ maybeTour();
 window.addEventListener('load', ()=>{ if(ONLINE){ pullRemote(); syncNow(true); refreshAdmins(false);
   const u=me();
   if(!u && typeof refreshLocalAccounts==='function') refreshLocalAccounts(false);
+  if(typeof refreshSlots==='function') refreshSlots(false);
   if(u){
-    if(u.role==='SUPER') refreshRoster(false); else refreshMyState(false);
+    if(isSlot(u)) refreshRoster(false); else refreshMyState(false);
     /* first launch of the session: bring down everything, including anything
        submitted from another phone while this one was closed */
     pullData(true).then(r=>{ if(r && r.changed) render(); });
