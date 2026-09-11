@@ -596,6 +596,15 @@ tbody tr:hover{background:var(--brand-tint)}
 .pico.sup{background:var(--brand-tint);border-color:color-mix(in srgb,var(--brand) 20%,transparent)}
 .pico.adm{background:var(--warn-tint);border-color:var(--warn-line)}
 .pico.site{background:var(--ok-tint);border-color:var(--ok-line)}
+.spsw{display:inline-flex;gap:2px;background:var(--surface-2,rgba(255,255,255,.10));
+  border-radius:var(--r-full);padding:2px;margin-left:6px;flex:0 0 auto}
+.spsw button{border:0;background:transparent;color:inherit;opacity:.62;cursor:pointer;
+  font-size:.68rem;font-weight:700;letter-spacing:.01em;white-space:nowrap;
+  padding:5px 9px;border-radius:var(--r-full);min-height:30px;
+  transition:all var(--fast) var(--ease)}
+.spsw button.on{background:var(--surface);color:var(--brand);opacity:1;box-shadow:var(--sh-1)}
+.spsw button:active{transform:scale(.95)}
+@media(max-width:430px){ .spsw button{padding:5px 7px;font-size:.63rem} }
 .item.admpick{width:100%;cursor:pointer;border:1px solid var(--line-2);background:var(--surface);
   border-radius:var(--r-md,12px);padding:12px 14px;margin-bottom:8px;
   display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -693,7 +702,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.0.0';
+const APP_VERSION = '4.2.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 const DASH_URL = '';
@@ -873,6 +882,18 @@ function askReason(o){
        esc(o.confirmLabel||T('save'))}</button>`);
   setTimeout(()=>{ const t=$('#ask-t'); if(t) t.focus(); }, 60);
 }
+/* A yes/no that needs no typing. Same discipline as askReason(): never the
+   browser's confirm(), which an installed PWA can swallow without a sound. */
+let CONF_CB=null;
+function confirmModal(o){
+  CONF_CB = o.onOk || null;
+  modal(o.title, `<div class="banner ${o.tone||'b-warn'}">${o.body||''}</div>
+    ${o.extra||''}`,
+    `<button class="btn sec" onclick="closeModal()">${esc(o.cancelLabel||T('cancel'))}</button>
+     <button class="btn ${o.danger?'dan':''}" onclick="confOk()">${esc(o.okLabel||'OK')}</button>`);
+}
+function confOk(){ const cb=CONF_CB; CONF_CB=null; closeModal(); if(cb) cb(); }
+
 function askOk(required){
   const v=(($('#ask-t')||{}).value||'').trim();
   if(required && !v) return toast(LANG==='fr'?'Le motif est obligatoire':'The reason is mandatory');
@@ -1217,6 +1238,60 @@ function isSuper(){ const u=me(); return !!u && (u.role==='SUPER' || u.role==='A
 function isAdmin(){ const u=me(); return !!u && u.role==='ADMIN'; }
 function isSlot(u){ return !!u && (u.role==='SUPER' || u.role==='ADMIN'); }
 
+/* =====================================================================
+   ONE PERSON, TWO HATS
+
+   A person can genuinely be both: a supervisor covering districts, and the
+   focal person of their own facility. `role` stays exactly what it always
+   was — the account's PRIMARY role, and nothing already deployed changes
+   meaning. A second hat is one explicit flag plus the scope field that
+   already exists for it:
+
+     supervisor hat  →  districts[]      dual===true means BOTH are real
+     facility hat    →  sites[]
+
+   The flag is explicit and never inferred, because facility staff also
+   carry a district (derived from their facility) and guessing from that
+   would hand people a supervisor role they were never given.
+
+   A second hat is ASSIGNED, never self-declared: which districts somebody
+   supervises is a decision of the coordination team. The phone can ask;
+   only an approval can grant.
+   ===================================================================== */
+function isDual(u){ return !!(u && u.dual === true); }
+/* Does this account carry the hat at all — regardless of which space is open. */
+function hasSupHat(u){
+  if(!u || isSlot(u)) return false;
+  return u.role !== 'SITE' || isDual(u);
+}
+function hasSiteHat(u){
+  if(!u || isSlot(u)) return false;
+  return u.role === 'SITE' || isDual(u);
+}
+
+/* ---------- which space is open on THIS device -------------------------------
+   The space decides what is DISPLAYED. It never decides what the person is
+   allowed to have started: switching space in the middle of a supervision
+   must cost a tap, not a morning's work. */
+let SPACE = '';
+function spaceOf(u){
+  if(!u) return 'sup';
+  if(!isDual(u)) return u.role==='SITE' ? 'site' : 'sup';
+  if(SPACE==='site' || SPACE==='sup') return SPACE;
+  let saved=''; try{ saved=localStorage.getItem('ath_space')||''; }catch(e){}
+  if(saved==='site' || saved==='sup'){ SPACE=saved; return SPACE; }
+  SPACE = u.role==='SITE' ? 'site' : 'sup';
+  return SPACE;
+}
+function setSpace(sp){
+  const u=me(); if(!u || !isDual(u)) return;
+  if(sp!=='site' && sp!=='sup') return;
+  SPACE = sp;
+  try{ localStorage.setItem('ath_space', sp); }catch(e){}
+  /* land on the home screen OF THAT SPACE, never on a screen the other space owns */
+  if(location.hash !== '#/home') go('#/home'); else render();
+}
+
 /* ---------- who may CONDUCT a supervision -------------------------------------
    An administrator and a super user run the region: they open cycles, approve, return,
    reopen, manage accounts and read every score. They do NOT conduct supervisions.
@@ -1226,7 +1301,7 @@ function isSlot(u){ return !!u && (u.role==='SUPER' || u.role==='ADMIN'); }
 
    This is enforced at three levels, not one: the screens do not offer it, the routes
    refuse it, and the functions that write refuse it. Hiding a button is not a rule. */
-function canSupervise(){ const u=me(); return !!u && !isSlot(u) && u.role!=='SITE'; }
+function canSupervise(){ return hasSupHat(me()); }
 
 /* ---------- one supervision per site per cycle --------------------------------
    The rule in the field is one supervisor phone per site. When the server finds a
@@ -1335,6 +1410,7 @@ function shell(inner, navKey){
         ?(LANG==='fr'?'En ligne — les données partent vers le serveur':'Online — data is being sent to the server')
         :(LANG==='fr'?'Hors ligne — tout est enregistré sur l\'appareil':'Offline — everything is saved on this device')}"></div>
       <div class="brand"><b>${T('app')} · ${T('region')}</b><span>ATHECS</span></div>
+      ${spaceSwitch()}
       ${pend?`<span class="chip a" title="${LANG==='fr'?pend+' élément(s) en attente d\'envoi au serveur':pend+' item(s) waiting to be sent to the server'}">${pend} ⇅</span>`:''}
       ${u?`<button class="tb-btn" onclick="openTour(0)" title="${LANG==='fr'?'Guide de navigation — comment utiliser l\'application':'Navigation guide — how to use the app'}">?</button>`:''}
       <span class="seg">
@@ -1359,6 +1435,25 @@ function shell(inner, navKey){
     <span class="xs">Projet ATHECS — Attending Epidemic Control and Sustainability · v${APP_VERSION}</span>
   </div>`;
 }
+/* The switch between the two spaces. It exists ONLY on an account that carries
+   both hats — a supervisor who is not a focal person, and a focal person who is
+   not a supervisor, see exactly the screen they see today, to the pixel. */
+function spaceSwitch(){
+  const u=me(); if(!u || !isDual(u)) return '';
+  const L=LANG==='fr', sp=spaceOf(u);
+  /* The space you are already in is marked and INERT — a segmented control whose
+     active half still takes taps and does nothing reads as an unresponsive button. */
+  const seg=(k,icon,label,tip)=>`<button class="${sp===k?'on':''}" ${sp===k?'disabled aria-current="true"':''}
+      onclick="setSpace('${k}')" title="${esc(tip)}">${icon} ${esc(label)}</button>`;
+  return `<span class="spsw" role="group" aria-label="${L?'Espace de travail':'Workspace'}">
+    ${seg('sup','👥', L?'Superviseur':'Supervisor',
+      L?'Espace superviseur — conduire les supervisions de mes districts'
+       :'Supervisor space — run the supervisions in my districts')}
+    ${seg('site','🏥', L?'Ma FOSA':'My facility',
+      L?'Espace formation sanitaire — les résultats et les recommandations de ma formation sanitaire'
+       :'Facility space — my facility\'s results and recommendations')}
+  </span>`;
+}
 function setLang(l){ LANG=l; localStorage.setItem('ath_lang',l); render(); }
 function logout(){ DB.d.session=null; DB.save(); go('#/home'); render(); }
 
@@ -1378,7 +1473,12 @@ function logout(){ DB.d.session=null; DB.save(); go('#/home'); render(); }
    is displayed — only whether the ground moves under the person.
    ===================================================================== */
 let VIEW_KEY = '';
-function viewKey(){ return (location.hash||'#/home'); }
+function viewKey(){
+  /* the space is part of the view: moving between spaces is a real navigation and
+     must start at the top, not inherit the other space's scroll position */
+  const u=me();
+  return (location.hash||'#/home') + '|' + (u ? spaceOf(u) : '');
+}
 
 /* what the person was doing, captured the instant before the repaint */
 function keepPlace(){
@@ -1600,7 +1700,10 @@ function viewLoginRole(path){
      enrolled on this device" — which was untrue, and sent them round to enrol again.
      A suspended or refused account is now shown with its state, and choosing it opens
      the screen that explains why and names the administrator. */
-  const users = DB.d.users.filter(u=>u.role===want);
+  /* A dual account belongs in BOTH doors, under the same PIN: the door the person
+     chooses is simply the space the app opens in. */
+  const users = DB.d.users.filter(u=> !isSlot(u) &&
+    (want==='SITE' ? hasSiteHat(u) : hasSupHat(u)));
   const isS = path==='site';
   const stChip = u => { const st=userStatus(u);
     return st===U_ACTIVE ? '' :
@@ -1803,9 +1906,15 @@ async function doLogin(){
       : (L?'Code PIN incorrect':'Wrong PIN'));
   }
 
-  const path = isSlot(u)?'adm':u.role==='SITE'?'site':'sup';
+  const path = isSlot(u) ? 'adm'
+             : (isDual(u) && (LG_PATH==='site'||LG_PATH==='sup')) ? LG_PATH
+             : (u.role==='SITE' ? 'site' : 'sup');
   try{ localStorage.setItem('ath_path', path); }catch(e){}
   LG_PATH = path;
+  /* the door chosen IS the space opened — a dual account signing in at the facility
+     door lands in the facility space, whatever it used last time */
+  if(isDual(u) && path!=='adm'){ SPACE = path;
+    try{ localStorage.setItem('ath_space', path); }catch(e){} }
   DB.d.session=u.id; DB.save(); audit('LOGIN','user',u.name); go('#/home'); render();
   if(temp){
     u.pinResetCode=''; u.pinResetAt=null; u.pinHelp=null; DB.save();
@@ -2013,14 +2122,68 @@ function dupEnrolModal(dup){
       <div style="min-width:0"><b>${esc(x.name)}</b>
         <div class="s">${esc(x.fn||'')}${x.phone?' · '+esc(String(x.phone)):''}</div></div>
       <span class="chip ${userStatus(x)===U_ACTIVE?'g':'a'}">${userStatus(x)}</span></div>`).join('')}</div>
+    ${roleAskFromEnrol(dup)}
     <p class="small">${L
-      ?'Si c\'est vous, appuyez sur « Oui, c\'est mon compte » : l\'application le sélectionne et vous demande votre code PIN — celui que vous aviez choisi. Si vous l\'avez oublié, « Code PIN oublié ? » est juste en dessous.'
-      :'If this is you, press "Yes, this is my account": the app selects it and asks for your PIN — the one you chose. If you have forgotten it, "Forgotten PIN?" is right below.'}</p>
+      ?'Si c\'est vous, appuyez sur « Oui, c\'est mon compte » : l\'application le sélectionne et vous demande votre code PIN — celui que vous aviez choisi. Si vous l\'avez oublié, appuyez sur « Obtenir un code temporaire ».'
+      :'If this is you, press "Yes, this is my account": the app selects it and asks for your PIN — the one you chose. If you have forgotten it, press "Get a temporary code".'}</p>
     <p class="xs muted">${L
       ?'Créer un deuxième compte partagerait vos supervisions et vos recommandations entre deux comptes.'
       :'Creating a second account would split your supervisions and recommendations between two accounts.'}</p>`,
     `<button class="btn" onclick="useExisting('${dup[0].id}')">${L?'Oui, c\'est mon compte':'Yes, this is my account'}</button>
      <button class="btn sec sm" onclick="forceEnrol()">${L?'Non, c\'est quelqu\'un d\'autre':'No, this is somebody else'}</button>`);
+}
+/* ---------- the dead end, turned into the front door --------------------------
+   Somebody enrolled as facility staff who is genuinely also a supervisor used to
+   land here, press « Oui, c'est mon compte », and be sent straight back to the
+   facility space by a single line that read their one and only role. They could
+   never get out of it.
+
+   Now, when the account found is the SAME PERSON — proved by the telephone number
+   or the identity document, never by the name alone, because family names repeat
+   across a district — the app offers what they actually came for: to ask for the
+   other role on the account they already have. */
+function roleAskFromEnrol(dup){
+  const L=LANG==='fr';
+  const want = ENROL_ROLE==='SITE' ? 'SITE' : 'SUPERVISOR';
+  /* only a strong, personal match may lead to a role request */
+  const hit = dup.find(x => x._match && (x._match.sure || normPhone(x.phone)
+              && normPhone(x.phone)===normPhone((PENDING_ENROL||{}).phone)));
+  if(!hit) return `<div class="banner b-info xs" style="margin-top:8px">${L
+    ?'Si cette personne n\'est pas vous, appuyez sur « Non, c\'est quelqu\'un d\'autre » et dites pourquoi. Si c\'est vous mais que le numéro de téléphone diffère, appelez un super utilisateur plutôt que de créer un deuxième compte.'
+    :'If that person is not you, press "No, this is somebody else" and say why. If it is you but the telephone number is different, call a super user rather than creating a second account.'}</div>`;
+  if(isDual(hit) || (hit.role==='SITE') === (want==='SITE')) return '';
+  ROLE_ASK_ID = hit.id;
+  return `<div class="banner b-ok" style="margin-top:8px">
+    <b>${L?'Vous avez déjà un compte — et vous n\'en avez pas besoin d\'un deuxième.':'You already have an account — and you do not need a second one.'}</b><br>
+    ${L?'<b>'+esc(hit.name)+'</b> est enregistré comme <b>'+esc(roleLabelFor(hit.role))+
+       '</b>. Vous pouvez demander à être <b>aussi '+esc(roleLabelFor(want)).toLowerCase()+
+       '</b> sur ce même compte : un seul compte, un seul code PIN, deux espaces entre lesquels vous basculez en haut de l\'écran.'
+      :'<b>'+esc(hit.name)+'</b> is registered as <b>'+esc(roleLabelFor(hit.role))+
+       '</b>. You can ask to be <b>also a '+esc(roleLabelFor(want)).toLowerCase()+
+       '</b> on that same account: one account, one PIN, two spaces you switch between at the top of the screen.'}
+    <div style="margin-top:8px">
+      <button class="btn ok sm" onclick="askRoleFromEnrol()">＋ ${
+        L?'Demander ce rôle sur mon compte':'Ask for that role on my account'}</button></div>
+  </div>`;
+}
+let ROLE_ASK_ID='';
+function askRoleFromEnrol(){
+  const L=LANG==='fr';
+  const u=DB.d.users.find(x=>x.id===ROLE_ASK_ID);
+  PENDING_ENROL=null; closeModal();
+  if(!u) return render();
+  if(userStatus(u)!==U_ACTIVE){
+    return infoModal(L?'Votre compte n\'est pas encore validé':'Your account is not approved yet',
+      L?'Votre compte existe mais il attend encore la validation du niveau central. Une fois validé, ouvrez l\'accueil et appuyez sur « Ajouter un rôle à mon compte ».'
+       :'Your account exists but is still awaiting approval. Once it is approved, open the home screen and press "Add a role to my account".');
+  }
+  /* sign them in first — the request belongs to them, not to this screen */
+  setPath(u.role==='SITE'?'site':'sup');
+  setTimeout(()=>{
+    const pin=$('#lg-pin'); if(pin) pin.focus();
+    toast(L?'Saisissez votre code PIN — vous pourrez ensuite demander le rôle depuis l\'accueil.'
+           :'Enter your PIN — you can then ask for the role from the home screen.', 6000);
+  }, 260);
 }
 function cancelEnrol(){ PENDING_ENROL=null; closeModal(); render(); }
 /* This button used to close the dialog and redraw the same screen — it promised to take
@@ -2029,7 +2192,11 @@ function cancelEnrol(){ PENDING_ENROL=null; closeModal(); render(); }
 function useExisting(uid){
   PENDING_ENROL=null; closeModal();
   const u=DB.d.users.find(x=>x.id===uid);
-  if(u) setPath(u.role==='SITE'?'site':'sup'); else render();
+  /* land on the door that lists this account: for a dual account either door works,
+     so stay on the one the person chose rather than overriding their choice */
+  if(u) setPath(isDual(u) ? (LG_PATH==='site'||LG_PATH==='sup' ? LG_PATH : (u.role==='SITE'?'site':'sup'))
+                          : (u.role==='SITE'?'site':'sup'));
+  else render();
   setTimeout(()=>{
     const sel=$('#lg-user'); if(sel){ sel.value=uid; }
     const pin=$('#lg-pin'); if(pin){ pin.focus(); }
@@ -2038,8 +2205,43 @@ function useExisting(uid){
            :'Your account is selected — enter your PIN. Forgotten it? "Forgotten PIN?" is just below.', 5000);
   }, 260);
 }
-function forceEnrol(){ const u=PENDING_ENROL; PENDING_ENROL=null;
-  if(u){ audit('ENROL_DUP','user',u.name+' — créé malgré un doublon signalé'); saveEnrol(u); } }
+/* « Non, c'est quelqu'un d'autre » is the escape hatch for two real people who happen
+   to share a name. It must not become the fast lane around approval: once a second role
+   has to be granted, the impatient answer is to make a second account instead of waiting.
+   A matching identity document is decisive, so that is refused outright; a matching
+   telephone or email needs a written reason that the console will read. */
+function forceEnrol(){
+  const u=PENDING_ENROL; if(!u) return;
+  const L=LANG==='fr';
+  const dup=duplicatesOf(u);
+  const sure=dup.find(x=>x._match && x._match.sure);
+  if(sure){
+    return infoModal(L?'Impossible de créer un deuxième compte':'A second account cannot be created',
+      (L?'« '+sure.name+' » est enregistré avec LA MÊME PIÈCE D\'IDENTITÉ que celle que vous venez de saisir. Ce sont donc deux comptes pour une seule personne, et l\'application ne peut pas les créer.\n\nCE QU\'IL FAUT FAIRE :\n· Si c\'est votre compte, revenez en arrière et appuyez sur « Oui, c\'est mon compte ».\n· Si vous avez saisi le numéro de pièce par erreur, corrigez-le.\n· Si ce sont réellement deux personnes différentes, appelez un super utilisateur : lui seul peut trancher.'
+        :'"'+sure.name+'" is registered with THE SAME IDENTITY DOCUMENT as the one you have just typed. That means two accounts for one person, and the app cannot create them.\n\nWHAT TO DO:\n· If it is your account, go back and press "Yes, this is my account".\n· If you typed the document number by mistake, correct it.\n· If these really are two different people, call a super user: only they can decide.'));
+  }
+  const likely=dup.find(x=>x._match && x._match.likely);
+  if(likely){
+    return askReason({
+      title:L?'Deux comptes pour la même personne ?':'Two accounts for the same person?',
+      banner:(L?'« '+esc(likely.name)+' » a '+esc((likely._match.why||[]).join(' et '))+' que vous.'
+               :'"'+esc(likely.name)+'" has '+esc((likely._match.why||[]).join(' and '))+' as you.'),
+      label:L?'Pourquoi s\'agit-il d\'une autre personne ? (obligatoire)'
+             :'Why is this a different person? (mandatory)',
+      help:L?'Votre réponse est enregistrée et lue au niveau central. Si c\'est votre propre compte, revenez en arrière : vous n\'avez pas besoin d\'un deuxième.'
+            :'Your answer is recorded and read at central level. If it is your own account, go back: you do not need a second one.',
+      confirmLabel:L?'Créer quand même':'Create anyway', danger:true,
+      onOk: why=>{
+        PENDING_ENROL=null;
+        u.dupNote=why;
+        audit('ENROL_DUP','user',u.name+' — créé malgré un doublon signalé : '+why);
+        saveEnrol(u);
+      }});
+  }
+  PENDING_ENROL=null;
+  audit('ENROL_DUP','user',u.name+' — créé malgré un doublon signalé');
+  saveEnrol(u);
+}
 function saveEnrol(u){
   DB.d.users.push(u); DB.save(); audit('ENROL','user',u.name+' / '+(u.fn||''));
   queue('user', u);
@@ -2416,6 +2618,15 @@ function mergeUsers(keepId, dropId, reason){
   keep.districts = [...new Set([].concat(keep.districts||[], drop.districts||[]))];
   const sites = [...new Set([].concat(keep.sites||[], drop.sites||[]))].filter(id=>siteById(id));
   if(sites.length){ keep.sites=sites; keep.siteId=sites[0]; }
+  /* The people who double-enrolled are exactly this case: one account as facility staff,
+     another as a supervisor. Merging them without noticing would keep one role and lose
+     the other silently. Two different roles going in means a dual account coming out. */
+  const bothHats = (keep.role==='SITE') !== (drop.role==='SITE');
+  if(bothHats || isDual(keep) || isDual(drop)){
+    keep.dual = true;
+    if(!(keep.sites&&keep.sites.length))  keep.dual = false;   // nothing to wear the hat with
+    if(!(keep.districts&&keep.districts.length)) keep.dual = false;
+  }
   keep.updated = Date.now();
 
   /* re-point locally too, so this console is right before the next sync */
@@ -2513,11 +2724,23 @@ function viewGate(u){
    requests, messages and the local log — plus any facility invented during the tests.
    What stays: the 84 facilities, the 64 questions, the cycles, and the person's own
    account and PIN, unless central chose the version that clears accounts too. */
+/* Everything this phone generated during the test, and nothing else.
+   KEPT, always: the enrolments on this device and their PINs, the 84 facilities, the
+   questionnaire, the cycles, the server address and the link password. A person whose
+   phone is cleared must still be able to sign in straight afterwards. */
 function wipeLocalData(withUsers){
   const d=DB.d;
   d.visits=[]; d.answers={}; d.actions=[]; d.siteReq=[];
   d.messages=[]; d.threads=[]; d.audit=[]; d.outbox=[];
   d.sites=(d.sites||[]).filter(s=>String(s.status||'').toUpperCase()!=='PROVISIONAL');
+  /* a facility invented during the test may be somebody's assigned facility: let go of
+     the reference too, so nothing points at a site that no longer exists */
+  (d.users||[]).forEach(u=>{
+    if(Array.isArray(u.sites)){
+      u.sites=u.sites.filter(id=>d.sites.some(s=>s.id===id));
+      u.siteId=u.sites[0];
+    }
+  });
   if(withUsers){
     d.users=(d.users||[]).filter(u=>isSlot(u));
     d.session=null;
@@ -2566,9 +2789,21 @@ async function refreshMyState(loud){
     const st=normStatus(s.status);
     if(st) u.status = st;                 // an unreadable status leaves the local one alone
     u.active = s.active !== false;
+    /* ---- the second hat, and its removal --------------------------------------------
+       Scope used to be accepted only when it was NOT empty, so taking a role away never
+       reached the phone: central cleared the districts and the supervisor carried on
+       supervising from a list nobody could see any more. `dual` travels as a real
+       boolean, so when it goes to false the matching scope is cleared here too. */
+    const wasDual = isDual(u);
+    u.dual = s.dual === true;
+    u.req  = s.req || null;
     if(Array.isArray(s.districts) && s.districts.length) u.districts = s.districts;
+    else if(!u.dual && u.role==='SITE') { /* derived from the facility: leave it */ }
+    else if(wasDual && !u.dual && u.role==='SITE') u.districts = [];
     const sv=realSites(s.sites);
     if(sv.length){ u.sites = sv; u.siteId = sv[0]; }
+    else if(wasDual && !u.dual && u.role!=='SITE'){ u.sites = []; u.siteId = undefined; }
+    if(wasDual && !u.dual) roleRevokedNotice(u);
     u.decisionNote = s.decisionNote || '';
     u.pinHelp = s.pinHelp || null;          // cleared once central has issued a code
     DB.save();
@@ -2607,6 +2842,8 @@ async function refreshLocalAccounts(loud){
       if(applyReset(j)) return changed;
       if(!j || !j.ok || !j.user) continue;
       const before = userStatus(u), s = j.user;
+      if(s.dual === true || s.dual === false) u.dual = s.dual === true;
+      u.req = s.req || null;
       const st = normStatus(s.status);
       if(st) u.status = st;
       u.active = s.active !== false;
@@ -2811,10 +3048,12 @@ function adoptAccount(uid){
     districts:Array.isArray(s.districts)?s.districts:[],
     sites:realSites(s.sites), siteId:realSites(s.sites)[0],
     status:normStatus(s.status)||U_PENDING, active:s.active!==false,
+    dual:s.dual===true, req:s.req||null,
     decisionNote:s.decisionNote||'', enrolled:s.enrolled||Date.now(), pin:''});
   DB.save(); audit('ACCOUNT_ADOPTED','user', s.name+' récupéré sur ce téléphone');
   closeModal();
-  setPath(s.role==='SITE'?'site':'sup');
+  setPath(s.dual===true && (LG_PATH==='site'||LG_PATH==='sup') ? LG_PATH
+          : (s.role==='SITE'?'site':'sup'));
   setTimeout(()=>{
     const sel=$('#lg-user'); if(sel) sel.value=s.id;
     const pin=$('#lg-pin'); if(pin) pin.focus();
@@ -2868,6 +3107,8 @@ async function refreshRoster(loud){
         } else {
           const st2=normStatus(s.status); if(st2) local.status=st2;
           local.active=s.active!==false;
+          local.dual = s.dual===true;
+          local.req  = s.req || null;
           if(Array.isArray(s.districts)&&s.districts.length) local.districts=s.districts;
           local.fn=s.fn||local.fn; local.email=s.email||local.email;
           if(s.phone) local.phone=String(s.phone);   // Sheets can hand back a number
@@ -2884,7 +3125,9 @@ async function refreshRoster(loud){
       } else {
         DB.d.users.push({id:s.id, name:s.name, role:s.role||'SUPERVISOR', fn:s.fn,
           matricule:s.matricule, idType:s.idType, idLast:s.idLast,
-          phone:s.phone, email:s.email, districts:s.districts||[], status:normStatus(s.status)||U_PENDING,
+          phone:s.phone, email:s.email, districts:s.districts||[], sites:s.sites||[],
+          dual:s.dual===true, req:s.req||null,
+          status:normStatus(s.status)||U_PENDING,
           active:s.active!==false, enrolled:s.enrolled||Date.now(), remote:true});
         added++;
       }
@@ -2909,14 +3152,14 @@ function pushUser(u){
 
 function approveUser(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
-  if(u.role==='SITE'){
-    if(!(u.sites&&u.sites.length)) return toast(LANG==='fr'?'Attribuez une formation sanitaire avant de valider'
-                                                           :'Assign a facility before approving');
-  } else {
-    const dis=Array.isArray(u.districts)?u.districts:[];
-    if(!dis.length) return toast(LANG==='fr'?'Attribuez au moins un district avant de valider'
-                                            :'Assign at least one district before approving');
-  }
+  const L=LANG==='fr';
+  /* Every hat this account carries must have a real scope. An empty scope is not a
+     harmless blank: an empty facility list shows the person nothing, and an empty
+     district list used to show them the whole region. */
+  if(hasSiteHat(u) && !(u.sites&&u.sites.length))
+    return toast(L?'Attribuez une formation sanitaire avant de valider':'Assign a facility before approving');
+  if(hasSupHat(u) && !(Array.isArray(u.districts) && u.districts.length))
+    return toast(L?'Attribuez au moins un district avant de valider':'Assign at least one district before approving');
   const dis=Array.isArray(u.districts)?u.districts:[];
   u.status=U_ACTIVE; u.active=true; u.approvedBy=(me()||{}).name; u.approvedAt=Date.now(); u.decisionNote='';
   DB.save(); audit('USER_APPROVE','user',u.name+' · '+dis.join(', ')); pushUser(u);
@@ -3102,6 +3345,198 @@ async function refreshAdmins(loud){
   }catch(e){ if(loud) toast(LANG==='fr'?'Serveur injoignable':'Server unreachable'); }
 }
 
+/* =====================================================================
+   ONE PERSON, TWO HATS — ASKING FOR THE SECOND ONE
+
+   The person asks; the coordination team grants. A phone can put a line in
+   front of a super user and nothing more: the server's roleRequest() writes
+   into the request cells only, and cannot touch a role or a scope.
+
+   Two ways in, one request, one account:
+     · « Ajouter un rôle à mon compte » on the home screen — the front door;
+     · trying to enrol through the other door, which used to be a dead end.
+   ===================================================================== */
+function roleLabelFor(r){ const L=LANG==='fr';
+  return r==='SITE' ? (L?'Personnel du site':'Facility staff')
+                    : (L?'Superviseur':'Supervisor'); }
+
+/* What this person is missing, or '' when they already have both. */
+function missingHat(u){
+  if(!u || isSlot(u) || isDual(u)) return '';
+  return u.role==='SITE' ? 'SUPERVISOR' : 'SITE';
+}
+function reqPending(u){ return !!(u && u.req && String(u.req.status||'').toUpperCase()==='PENDING'); }
+function reqRefused(u){ return !!(u && u.req && String(u.req.status||'').toUpperCase()==='REFUSED'); }
+
+/* The line that sits under the identity card on the home screen. It is the whole
+   entry point: one button when there is nothing pending, the state of the request
+   when there is, and a way out of a refusal instead of a dead end. */
+function roleRequestCard(){
+  const u=me(); if(!u || isSlot(u)) return '';
+  if(userStatus(u)!==U_ACTIVE) return '';           // finish being one thing first
+  const L=LANG==='fr';
+
+  if(reqPending(u)){
+    const r=u.req;
+    return `<div class="banner b-info" style="margin-bottom:12px">
+      <b>${L?'Demande de rôle en attente':'Role request pending'}</b><br>
+      ${L?'Vous avez demandé le rôle de ':'You asked for the role of '}<b>${esc(roleLabelFor(r.role))}</b>
+      ${r.at?(L?', envoyée le ':' , sent on ')+fmtDT(r.at):''}.
+      ${L?'Un super utilisateur doit la valider — vous verrez le changement ici même.'
+         :'A super user has to approve it — you will see the change right here.'}
+      <div style="margin-top:8px">
+        <button class="btn sec sm" onclick="cancelRoleRequest()">${
+          L?'Annuler ma demande':'Cancel my request'}</button></div>
+    </div>`;
+  }
+  if(reqRefused(u)){
+    const r=u.req;
+    return `<div class="banner b-err" style="margin-bottom:12px">
+      <b>${L?'Demande de rôle refusée':'Role request refused'}</b><br>
+      ${r.note?esc(r.note):(L?'Aucun motif précisé.':'No reason given.')}
+      ${r.by?' — '+esc(r.by):''}
+      <div style="margin-top:8px">
+        <button class="btn sec sm" onclick="roleRequestModal()">${
+          L?'Faire une nouvelle demande':'Ask again'}</button>
+        <button class="btn sec sm" onclick="clearRoleRequest()">${L?'Fermer':'Dismiss'}</button></div>
+    </div>`;
+  }
+  const want=missingHat(u); if(!want) return '';
+  return `<div style="margin:-4px 0 12px">
+    <button class="btn sec blk sm" onclick="roleRequestModal()">＋ ${
+      L?'Ajouter un rôle à mon compte':'Add a role to my account'}</button>
+    <p class="xs muted" style="margin:6px 2px 0">${L
+      ?'Vous êtes aussi '+(want==='SITE'?'point focal d\'une formation sanitaire':'superviseur')+
+       ' ? Demandez-le ici — un seul compte, deux espaces.'
+      :'Are you also '+(want==='SITE'?'a facility focal person':'a supervisor')+
+       '? Ask for it here — one account, two spaces.'}</p>
+  </div>`;
+}
+
+let RREQ_SITES=[];
+function roleRequestModal(){
+  const u=me(); if(!u) return;
+  const want=missingHat(u); if(!want) return;
+  const L=LANG==='fr';
+  RREQ_SITES=[];
+  const head = `<div class="banner b-info">${L
+    ?'Vous gardez <b>un seul compte</b>. Un second rôle est <b>attribué par la coordination</b> : il ne s\'ajoute pas tout seul. Vous garderez le même code PIN.'
+    :'You keep <b>one account</b>. A second role is <b>assigned by the coordination team</b>: it is not added by itself. Your PIN does not change.'}</div>`;
+
+  if(want==='SUPERVISOR'){
+    const dis=[...new Set(DB.d.sites.map(s=>s.district))].sort();
+    modal(L?'Demander le rôle de superviseur':'Ask for the supervisor role', head + `
+      <label class="f"><span>${L?'Districts que vous couvrirez':'Districts you will cover'}</span>
+        <select id="rr-dis" multiple size="9">${dis.map(d=>`<option>${esc(d)}</option>`).join('')}</select></label>
+      <p class="xs muted">${L?'Sur téléphone : touchez plusieurs lignes pour en sélectionner plusieurs.'
+                             :'On a phone: tap several rows to select more than one.'}</p>
+      <label class="f"><span>${L?'Votre fonction comme superviseur':'Your function as a supervisor'}</span>
+        <select id="rr-fn">${FUNCTIONS.map(x=>`<option${x==='Mentor / Superviseur'?' selected':''}>${esc(x)}</option>`).join('')}</select></label>
+      <p class="xs muted">${L
+        ?'Rappel : vous ne pourrez pas superviser la formation sanitaire dont vous êtes point focal.'
+        :'Note: you will not be able to supervise the facility you are focal person for.'}</p>`,
+      `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+       <button class="btn" onclick="sendRoleRequest('SUPERVISOR')">${L?'Envoyer la demande':'Send the request'}</button>`);
+    return;
+  }
+  const dis=[...new Set(DB.d.sites.map(s=>s.district))].sort();
+  modal(L?'Demander le rôle de personnel du site':'Ask for the facility staff role', head + `
+    <label class="f"><span>1 · ${T('district')}</span>
+      <select id="rr-sdis" onchange="rrCascade(0)"><option value="">${T('select')}</option>
+        ${dis.map(d=>`<option>${esc(d)}</option>`).join('')}</select></label>
+    <label class="f"><span>2 · ${T('area')}</span>
+      <select id="rr-sarea" onchange="rrCascade(1)"><option value="">${T('select')}</option></select></label>
+    <label class="f"><span>3 · ${T('facility')}</span>
+      <select id="rr-site"><option value="">${T('select')}</option></select></label>
+    <button class="btn sec sm" onclick="rrAddSite()">＋ ${L?'Ajouter cette formation sanitaire':'Add this facility'}</button>
+    <div id="rr-list" class="list" style="margin-top:8px"></div>
+    <label class="f"><span>${L?'Votre fonction dans cette formation sanitaire':'Your function in that facility'}</span>
+      <select id="rr-fn">${FUNCTIONS.map(x=>`<option>${esc(x)}</option>`).join('')}</select></label>`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn" onclick="sendRoleRequest('SITE')">${L?'Envoyer la demande':'Send the request'}</button>`);
+}
+function rrCascade(level){
+  const d=($('#rr-sdis')||{}).value||'', a=$('#rr-sarea'), f=$('#rr-site');
+  if(!level){
+    const areas=[...new Set(DB.d.sites.filter(s=>s.district===d&&s.status!=='CLOSED').map(s=>s.area))].sort();
+    a.innerHTML='<option value="">'+T('select')+'</option>'+areas.map(x=>`<option>${esc(x)}</option>`).join('');
+    f.innerHTML='<option value="">'+T('select')+'</option>'; return;
+  }
+  const facs=DB.d.sites.filter(s=>s.district===d && s.area===a.value && s.status!=='CLOSED');
+  f.innerHTML='<option value="">'+T('select')+'</option>'+
+    facs.map(x=>`<option value="${x.id}">${esc(x.facility)}</option>`).join('');
+}
+function rrAddSite(){
+  const L=LANG==='fr', id=($('#rr-site')||{}).value||'';
+  if(!id) return toast(L?'Choisissez une formation sanitaire':'Choose a facility');
+  if(RREQ_SITES.includes(id)) return toast(L?'Déjà ajoutée':'Already added');
+  RREQ_SITES.push(id); rrRenderList(); toast(L?'✓ Ajoutée':'✓ Added',1200);
+}
+function rrRemoveSite(i){ RREQ_SITES.splice(i,1); rrRenderList(); }
+function rrRenderList(){
+  const box=$('#rr-list'); if(!box) return;
+  const L=LANG==='fr';
+  box.innerHTML = RREQ_SITES.length ? RREQ_SITES.map((id,i)=>{
+    const s=siteById(id)||{};
+    return `<div class="item"><div style="min-width:0"><b>${esc(s.facility||id)}</b>
+      <div class="s">${esc(s.district||'')} › ${esc(s.area||'')}</div></div>
+      <button class="btn sec sm" onclick="rrRemoveSite(${i})">✕</button></div>`;
+  }).join('') : `<p class="small muted">${L?'Aucune formation sanitaire ajoutée.':'No facility added.'}</p>`;
+}
+async function sendRoleRequest(want){
+  const u=me(), L=LANG==='fr'; if(!u) return;
+  const fn=(($('#rr-fn')||{}).value||'').trim();
+  let scope=[];
+  if(want==='SUPERVISOR'){
+    scope=Array.from(($('#rr-dis')||{selectedOptions:[]}).selectedOptions).map(o=>o.value);
+    if(!scope.length) return toast(L?'Choisissez au moins un district':'Choose at least one district');
+  } else {
+    scope=RREQ_SITES.slice();
+    if(!scope.length) return toast(L?'Ajoutez au moins une formation sanitaire':'Add at least one facility');
+  }
+  u.req={role:want, scope, fn, at:Date.now(), status:'PENDING', note:'', by:''};
+  DB.save();
+  audit('ROLE_REQUEST','user', u.name+' → '+roleLabelFor(want)+' ('+scope.join(', ')+')');
+  queue('roleReq', {id:u.id, want, scope, fn});
+  closeModal();
+  modal(L?'Demande envoyée':'Request sent', `
+    <div class="banner b-ok">${L
+      ?'Votre demande part au niveau central dès que vous avez du réseau. Vous n\'avez rien d\'autre à faire.'
+      :'Your request leaves for central level as soon as you have signal. There is nothing else to do.'}</div>
+    <p class="small">${L
+      ?'Vous gardez votre compte et votre code PIN. Quand la demande est validée, un sélecteur apparaît en haut de l\'écran pour passer d\'un espace à l\'autre.'
+      :'You keep your account and your PIN. Once it is approved, a switch appears at the top of the screen to move between the two spaces.'}</p>`,
+    `<button class="btn" onclick="closeModal();render()">OK</button>`);
+  render();
+}
+function cancelRoleRequest(){
+  const u=me(), L=LANG==='fr'; if(!u || !reqPending(u)) return;
+  confirmModal({
+    title:L?'Annuler la demande':'Cancel the request',
+    body:L?'La demande sera retirée. Vous pourrez en faire une autre à tout moment.'
+          :'The request will be withdrawn. You can make another at any time.',
+    okLabel:L?'Annuler la demande':'Withdraw', danger:true,
+    onOk:()=>{
+      u.req=null; DB.save();
+      audit('ROLE_REQUEST_CANCEL','user', u.name);
+      queue('roleReq', {id:u.id, want:'', scope:[], fn:'', cancel:true});
+      toast(L?'Demande retirée':'Request withdrawn'); render();
+    }});
+}
+function clearRoleRequest(){ const u=me(); if(u){ u.req=null; DB.save(); render(); } }
+
+/* The moment a hat is taken away, say so — a screen that quietly loses half its
+   buttons is the kind of thing people report as "the app broke". */
+function roleRevokedNotice(u){
+  const L=LANG==='fr';
+  try{ SPACE=''; localStorage.removeItem('ath_space'); }catch(e){}
+  infoModal(L?'Un rôle a été retiré de votre compte':'A role was removed from your account',
+    L?'Le niveau central a retiré l\'un de vos deux rôles. Votre compte reste actif : vous continuez à travailler comme '
+      +roleLabelFor(u.role)+'.\n\nSi c\'est une erreur, appelez un super utilisateur.'
+     :'Central level has removed one of your two roles. Your account stays active: you carry on working as '
+      +roleLabelFor(u.role)+'.\n\nIf this is a mistake, call a super user.');
+}
+
 /* ===================== HOME ===================== */
 function myVisits(){
   const u=me();
@@ -3133,6 +3568,7 @@ function viewHome(){
     <div class="small" style="opacity:.9;margin-top:6px">${T('period')} : <b>${c?esc(cyclePeriodLabel(c)):'—'}</b></div>
   </div>
   ${conflictBanner()}
+  ${typeof roleRequestCard==='function' ? roleRequestCard() : ''}
 
   <div class="grid g3 always" style="margin-bottom:12px">
     <div class="stat"><b>${mySites.length}</b><span>${
@@ -3217,6 +3653,11 @@ function viewNewVisit(){
   let sites=DB.d.sites.filter(s=>s.status!=='CLOSED');
   if(!isSuper() && Array.isArray(u.districts) && !NV.showAll)
     sites = sites.filter(s=>u.districts.includes(s.district));
+  /* Nobody grades their own facility. A dual account is the focal person of the
+     facilities in u.sites — those are removed from the list here, and refused again
+     in startVisit() if the person reaches them another way. */
+  const mineOwn = ownFacilityIds();
+  if(mineOwn.length) sites = sites.filter(s=>!mineOwn.includes(s.id));
   const dis=[...new Set(sites.map(s=>s.district))].sort();
   const areas=NV.district?[...new Set(sites.filter(s=>s.district===NV.district).map(s=>s.area))].sort():[];
   const facs=NV.area?sites.filter(s=>s.district===NV.district&&s.area===NV.area):[];
@@ -3258,15 +3699,41 @@ function viewNewVisit(){
       ?'Vous travaillez hors de votre affectation. Motif enregistré : ':'You are working outside your assignment. Reason recorded: '}
       <b>${esc(NV.whyAll||'—')}</b></div>`:''}`:''}
 
+    ${ownFacilityIds().length?`<div class="banner b-info xs">${LANG==='fr'
+      ?'<b>'+ownFacilityNames()+'</b> n\'apparaît pas dans cette liste : vous en êtes le point focal, et une supervision ne peut pas être conduite par la personne qui en répond. Demandez à la coordination d\'y affecter un autre superviseur.'
+      :'<b>'+ownFacilityNames()+'</b> is not in this list: you are its focal person, and a supervision cannot be run by the person answering for it. Ask the coordination team to assign another supervisor to it.'}</div>`:''}
+
     <hr>
     <button class="btn blk" ${NV.siteId?'':'disabled'} onclick="startVisit()">${T('next')} →</button>
     <button class="btn sec blk sm" style="margin-top:8px" onclick="go('#/sitereq/new')">${T('notFound')} — ${T('addSite')}</button>
   </div>`;
 }
+/* ---------- nobody grades their own facility ---------------------------------
+   The rule only bites on a dual account: a pure supervisor has no facility of their
+   own, a pure focal person cannot supervise at all. It is enforced in three places —
+   the list, the function, and the search — because hiding a button is not a rule. */
+function ownFacilityIds(){
+  const u=me();
+  if(!u || isSlot(u) || !isDual(u)) return [];
+  return Array.isArray(u.sites) ? u.sites.slice() : (u.siteId?[u.siteId]:[]);
+}
+function ownFacilityNames(){
+  return ownFacilityIds().map(id=>(siteById(id)||{}).facility||id).join(', ');
+}
+function ownFacilityRefusal(siteId){
+  const L=LANG==='fr', s=siteById(siteId)||{facility:'—'};
+  audit('OWN_FACILITY_BLOCKED','visit', (me()||{}).name+' → '+(s.facility||siteId));
+  infoModal(L?'Vous ne pouvez pas superviser votre propre formation sanitaire'
+             :'You cannot supervise your own facility',
+    (L?'Vous êtes point focal de « '+(s.facility||'—')+' ».\n\nUne supervision ne peut pas être conduite par la personne qui répond de la formation sanitaire évaluée : le résultat ne pourrait pas être défendu lors d\'une vérification.\n\nCE QU\'IL FAUT FAIRE :\nDemandez à la coordination régionale d\'affecter un autre superviseur à cette formation sanitaire. Vous pouvez superviser toutes les autres de vos districts normalement.'
+       :'You are the focal person for "'+(s.facility||'—')+'".\n\nA supervision cannot be run by the person who answers for the facility being assessed: the result could not be defended during a verification.\n\nWHAT TO DO:\nAsk the regional coordination team to assign another supervisor to this facility. You can supervise every other facility in your districts as usual.'));
+}
+
 function nvSearch(q){
   const box=$('#nv-results'); if(!q||q.length<2){ box.innerHTML=''; return; }
   const s=q.toLowerCase();
-  const hits=DB.d.sites.filter(x=>x.status!=='CLOSED' &&
+  const own=ownFacilityIds();
+  const hits=DB.d.sites.filter(x=>x.status!=='CLOSED' && !own.includes(x.id) &&
     (x.facility.toLowerCase().includes(s)||x.area.toLowerCase().includes(s)||x.district.toLowerCase().includes(s))).slice(0,12);
   box.innerHTML = hits.map(h=>`<div class="item" onclick="pickSite('${h.id}')">
     <div><b>${esc(h.facility)}</b><div class="s">${esc(h.district)} › ${esc(h.area)}</div></div>
@@ -3281,6 +3748,7 @@ async function startVisit(){
     :'An administrator or a super user does not conduct supervisions.', 5000);
   const c=activeCycle();
   if(!c) return toast(L?'Aucun cycle ouvert':'No open cycle');
+  if(ownFacilityIds().includes(NV.siteId)) return ownFacilityRefusal(NV.siteId);
   const dup=DB.d.visits.find(v=>v.siteId===NV.siteId && v.cycleId===c.id && v.status!=='DRAFT');
   if(dup) return infoModal(L?'Supervision déjà soumise':'Visit already submitted',
     L?'Une supervision a déjà été soumise pour cette formation sanitaire sur ce cycle. Demandez sa réouverture à un super utilisateur.'
@@ -3323,6 +3791,7 @@ async function siteAlreadyTaken(cycleId, siteId){
 }
 function startVisitAnyway(){
   if(!canSupervise()) return;
+  if(ownFacilityIds().includes(NV.siteId)) return ownFacilityRefusal(NV.siteId);
   const c=activeCycle(); if(!c) return;
   const v={id:DB.id('V'), siteId:NV.siteId, cycleId:c.id, uid:DB.d.session,
     supervisor:(me()||{}).name, comentors:'', type:'Mentorat intégré', date:today(),
@@ -3370,7 +3839,8 @@ function viewVisit(vid, tab, arg){
   </div>
 
   <div class="secnav" id="tabnav">
-    ${tabs.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="go('#/visit/${vid}/${t[0]}')">${t[1]}</button>`).join('')}
+    ${tabs.map(t=>`<button class="${tab===t[0]?'on':''}" ${
+      tab===t[0]?'disabled aria-current="page"':''} onclick="go('#/visit/${vid}/${t[0]}')">${t[1]}</button>`).join('')}
     <button title="${LANG==='fr'?'Fermer et revenir à l\'accueil — le brouillon reste enregistré':'Close and go back home — the draft stays saved'}"
       onclick="exitVisit('${vid}')">✕ ${LANG==='fr'?'Fermer':'Close'}</button>
   </div>
@@ -3408,7 +3878,8 @@ function visitQuestions(v, sc, locked){
     <div class="secnav" id="secnav">${secs.map((s,i)=>{
       const pp=pooled(all.filter(q=>q.sec===s), A);
       const dot = pp.answered===0?'#D8E1EC':(pp.band==='g'?'#1E7A3C':pp.band==='a'?'#E0A100':'#B3261E');
-      return `<button class="${i===VSEC?'on':''}" data-i="${i}" onclick="gotoSec(${i})">${esc(s)}
+      return `<button class="${i===VSEC?'on':''}" data-i="${i}" ${
+        i===VSEC?'disabled aria-current="true"':''} onclick="gotoSec(${i})">${esc(s)}
         <span class="d" data-sec="${esc(s)}" style="background:${dot}"></span></button>`;}).join('')}
     </div>
     <button class="arw" ${VSEC===secs.length-1?'disabled':''} title="${LANG==='fr'?'Section suivante':'Next section'}"
@@ -4012,6 +4483,8 @@ function exportVisit(vid){
       a.na?'NA':(a.den??(a.v===undefined?'':1)), r.pct===null?'':r.pct.toFixed(1),
       bandLabel(r.band), a.comment||a.naReason||'']); });
   downloadCSV(rows, 'supervision_'+s.facility.replace(/\W+/g,'_')+'_'+c.name.replace(/\W+/g,'')+'.csv');
+  toast((LANG==='fr'?'✓ Export CSV créé — cherchez le fichier dans vos téléchargements'
+                    :'✓ CSV export created — look in your downloads'), 4500);
 }
 function downloadCSV(rows, name){
   const csv='﻿'+rows.map(r=>r.map(c=>'"'+String(c==null?'':c).replace(/"/g,'""')+'"').join(';')).join('\n');
@@ -4343,13 +4816,26 @@ function viewReport(vid){
 
   <div class="noprint" style="margin-top:12px">
     <div class="row">
-      <button class="btn" style="flex:1" onclick="window.print()">⎙ ${L?'Imprimer / Enregistrer en PDF':'Print / Save as PDF'}</button>
+      <button class="btn" style="flex:1" onclick="printReport()">⎙ ${L?'Imprimer / Enregistrer en PDF':'Print / Save as PDF'}</button>
       <button class="btn sec" onclick="exportVisit('${vid}')">⇩ CSV</button>
     </div>
     <p class="xs muted" style="margin-top:8px">${L
       ?'L\'impression fonctionne sans réseau. Sur téléphone, choisissez « Enregistrer au format PDF » dans la boîte d\'impression pour partager le rapport.'
       :'Printing works with no network. On a phone, choose "Save as PDF" in the print dialog to share the report.'}</p>
   </div>`;
+}
+
+
+/* On a phone the print dialog is the operating system's, and it can take a second to
+   appear or be refused outright. Saying what is happening stops the person tapping
+   again and again at a button that looks dead. */
+function printReport(){
+  const L=LANG==='fr';
+  toast(L?'Ouverture de l\'impression — choisissez « Enregistrer en PDF » dans la fenêtre du téléphone.'
+         :'Opening print — choose "Save as PDF" in your phone\'s dialog.', 4000);
+  setTimeout(()=>{ try{ window.print(); }catch(e){
+    toast(L?'Votre téléphone a refusé l\'impression. Utilisez le menu du navigateur ▸ Imprimer.'
+           :'Your phone refused to print. Use the browser menu ▸ Print.', 5000); } }, 250);
 }
 
 /* =====================================================================
@@ -4360,7 +4846,9 @@ function viewReport(vid){
    Entirely offline once their device has synced at least once.
    ===================================================================== */
 
-function isSite(){ const u=me(); return !!u && u.role==='SITE'; }
+/* "Am I looking at the facility space right now?" — not "is my role SITE".
+   A dual account is in the facility space only while that space is open. */
+function isSite(){ const u=me(); return !!u && spaceOf(u)==='site'; }
 function mySiteIds(){
   const u=me(); if(!u) return [];
   return Array.isArray(u.sites) ? u.sites : (u.siteId ? [u.siteId] : []);
@@ -4407,6 +4895,8 @@ function viewSiteHome(){
     ${last?`<div class="small" style="opacity:.92;margin-top:7px">
       ${L?'Dernière supervision':'Last supervision'} : <b>${esc(last.date||'')}</b> · ${pc((last.scores||visitScores(last)).overall.pct)}</div>`:''}
   </div>
+
+  ${typeof roleRequestCard==='function' ? roleRequestCard() : ''}
 
   ${multi?`<div class="card">
     <h3>${L?'Mes formations sanitaires':'My facilities'}</h3>
@@ -4529,6 +5019,8 @@ function viewVisits(){
     <button class="btn sec blk sm" onclick="exportAll()">⇩ ${LANG==='fr'?'Exporter toutes les données (CSV)':'Export all data (CSV)'}</button>
   </div>`;
 }
+/* A download is invisible on a phone: nothing opens, nothing moves, and the person
+   taps again. Say what left, or say there was nothing to send. */
 function exportAll(){
   const rows=[['VisiteID','Date','Statut','District','Aire','Formation sanitaire','Cycle','Periode',
                'Superviseur','Score global %','Clinique %','S&E DQA %','Recos','Recos non resolues']];
@@ -4542,7 +5034,13 @@ function exportAll(){
       sc.mne.pct===null?'':sc.mne.pct.toFixed(1),
       acts.length, acts.filter(a=>a.status!=='RESOLVED').length]);
   });
+  const L=LANG==='fr';
+  if(rows.length<2) return toast(L
+    ?'Rien à exporter : aucune supervision sur cet appareil pour l\'instant.'
+    :'Nothing to export: no supervision on this device yet.', 4000);
   downloadCSV(rows,'ATHECS_supervisions_'+today()+'.csv');
+  toast((L?'✓ ':'✓ ')+(rows.length-1)+(L?' supervision(s) exportée(s) — cherchez le fichier dans vos téléchargements'
+                                        :' supervision(s) exported — look in your downloads'), 4500);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -4553,9 +5051,16 @@ let DASH={cycle:'', district:'', site:''};
    supervisor is never shown another district's figures. */
 function viewDash(){ return isSuper() ? viewDashRegional() : viewDashMine(); }
 
+/* An EMPTY scope means NOTHING, never everything.
+   This used to return null for an empty list, and every caller reads null as
+   "no filter" — so a supervisor whose districts had been emptied silently saw
+   every district in the West. Only a super user sees the whole region, and that
+   is said here explicitly instead of falling out of a missing value. */
 function myDistricts(){
   const u=me();
-  return (Array.isArray(u.districts) && u.districts.length) ? u.districts : null;
+  if(!u) return [];
+  if(isSlot(u)) return null;                    // the console: the whole region, on purpose
+  return Array.isArray(u.districts) ? u.districts : [];
 }
 /* every submitted supervision inside this person's districts, for the chosen cycle */
 function scopedVisits(cid){
@@ -5108,7 +5613,8 @@ function viewAdmin(tab){
     ['audit',L?'Journal':'Audit log']]
     .concat(isAdmin()? [['slots', L?'Super utilisateurs':'Super users']] : []);
   return `<div class="card tight"><h2 style="margin:0">${T('admin')}</h2></div>
-  <div class="secnav">${tabs.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="go('#/admin/${t[0]}')">${t[1]}</button>`).join('')}</div>
+  <div class="secnav" id="tabnav">${tabs.map(t=>`<button class="${tab===t[0]?'on':''}" ${
+    tab===t[0]?'disabled aria-current="page"':''} onclick="go('#/admin/${t[0]}')">${t[1]}</button>`).join('')}</div>
   ${ tab==='slots'? (isAdmin()?admSlots():'<div class="banner b-err">Réservé à l\'administrateur.</div>')
    : tab==='supervisions'?admVisits(): tab==='cycles'?admCycles(): tab==='approvals'?admApprovals()
    : tab==='questions'?admQuestions()
@@ -5385,14 +5891,22 @@ function admApprovals(){
 
   /* what the applicant supplied — read only. Central just decides. */
   const row=(k,v)=>v?`<tr><td class="k">${esc(k)}</td><td>${v}</td></tr>`:'';
-  const scope=u=>{
-    if(u.role==='SITE'){
-      const st=(u.sites||[]).map(id=>{ const x=siteById(id);
-        return `<span class="chip n">${x?esc(x.district)+' › '+esc(x.facility):esc(id)}</span>`; }).join(' ');
-      return st || `<span class="chip r">${L?'aucune formation sanitaire':'no facility'}</span>`; }
+  /* A dual account has TWO scopes and both must be visible: showing only one is how
+     somebody ends up approved into a space that holds nothing. */
+  const siteChips=u=>{
+    const st=(u.sites||[]).map(id=>{ const x=siteById(id);
+      return `<span class="chip n">${x?esc(x.district)+' › '+esc(x.facility):esc(id)}</span>`; }).join(' ');
+    return st || `<span class="chip r">${L?'aucune formation sanitaire':'no facility'}</span>`;
+  };
+  const disChips=u=>{
     const d=(u.districts||[]);
     return d.length? d.map(x=>`<span class="chip n">${esc(x)}</span>`).join(' ')
                    : `<span class="chip r">${L?'aucun district':'no district'}</span>`;
+  };
+  const scope=u=>{
+    if(isDual(u)) return `<div><span class="xs muted">👥 ${L?'Supervise':'Supervises'} :</span> ${disChips(u)}</div>
+      <div style="margin-top:4px"><span class="xs muted">🏥 ${L?'Point focal':'Focal point'} :</span> ${siteChips(u)}</div>`;
+    return u.role==='SITE' ? siteChips(u) : disChips(u);
   };
 
   /* The full ID number never leaves the private workbook. On a device that took the
@@ -5414,6 +5928,7 @@ function admApprovals(){
     </div>
     <div class="tw"><table><tbody>
       ${row(u.role==='SITE'?T('facility'):T('district'), scope(u))}
+      ${isDual(u)?row(L?'Deux rôles':'Two roles', `<span class="chip g">${L?'Superviseur + Personnel du site':'Supervisor + Facility staff'}</span>`):''}
       ${row(L?'Téléphone':'Phone', esc(u.phone||''))}
       ${row('Email', esc(u.email||''))}
       ${row(L?'Pièce d\'identité':'ID document', idLine(u,L))}
@@ -5445,12 +5960,22 @@ function admApprovals(){
       :'Temporary code outstanding, valid until '+tempEnds(u)+'.'}
       ${u.pinResetCode?`<a href="#" onclick="event.preventDefault();showTempPin('${u.id}')">${
         L?'revoir le code':'show the code again'}</a>`:''}</div>`:''}
+    ${roleReqBanner(u)}
     <div class="row" style="margin-top:9px">
-      <button class="btn sec sm" onclick="editScope('${u.id}')">⇄ ${
-        u.role==='SITE'?(L?'Formations sanitaires':'Facilities'):(L?'Muter':'Transfer')}</button>
+      ${hasSupHat(u)?`<button class="btn sec sm" onclick="editScope('${u.id}','SUPERVISOR')">⇄ ${
+        L?'Districts':'Districts'}</button>`:''}
+      ${hasSiteHat(u)?`<button class="btn sec sm" onclick="editScope('${u.id}','SITE')">🏥 ${
+        L?'Formations sanitaires':'Facilities'}</button>`:''}
       <button class="btn ${u.pinHelp?'':'sec'} sm" onclick="resetPin('${u.id}')">🔑 ${
         u.pinHelp?(L?'Donner un code':'Give a code'):(L?'PIN oublié':'Forgotten PIN')}</button>
       <button class="btn dan sm" onclick="suspendUser('${u.id}')">⛔ ${L?'Désactiver':'Deactivate'}</button>
+    </div>
+    <div class="row" style="margin-top:7px">
+      ${!isDual(u) && !reqPending(u) ? `<button class="btn sec sm" onclick="addRoleModal('${u.id}')">＋ ${
+        L?'Ajouter le rôle '+(u.role==='SITE'?'superviseur':'personnel du site')
+         :'Add the '+(u.role==='SITE'?'supervisor':'facility staff')+' role'}</button>`:''}
+      ${isDual(u) ? `<button class="btn sec sm" onclick="revokeRoleAsk('${u.id}')">− ${
+        L?'Retirer le second rôle':'Remove the second role'}</button>`:''}
     </div>
   </div>`;
 
@@ -5540,10 +6065,15 @@ function confirmCloseDuplicate(uid, keptName){
 }
 
 /* change districts (supervisor) or facility (site staff) — only when needed */
-function editScope(uid){
+function editScope(uid, hat){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
   const L=LANG==='fr';
-  if(u.role==='SITE'){
+  /* WHICH scope is being edited is now explicit. It used to be deduced from the role,
+     which on a dual account could only ever reach one of the two — and worse, saving the
+     facilities rewrote the districts from them, wiping the supervisor's assignment. */
+  const which = (hat==='SITE'||hat==='SUPERVISOR') ? hat : (u.role==='SITE'?'SITE':'SUPERVISOR');
+  EDIT_HAT = which;
+  if(which==='SITE'){
     /* One person may follow several facilities, in several districts. */
     const byDis={};
     DB.d.sites.filter(s=>s.status!=='CLOSED').forEach(s=>{ (byDis[s.district]=byDis[s.district]||[]).push(s); });
@@ -5592,15 +6122,19 @@ function filterScopeSites(q){
     g.hidden = !Array.from(g.querySelectorAll('option')).some(o=>!o.hidden);
   });
 }
+let EDIT_HAT='';
 function saveScope(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
-  if(u.role==='SITE'){
+  if(EDIT_HAT==='SITE'){
     const ids=Array.from(($('#sc-site')||{selectedOptions:[]}).selectedOptions).map(o=>o.value);
     if(!ids.length) return toast(LANG==='fr'?'Choisissez au moins une formation sanitaire'
                                             :'Choose at least one facility');
     const before=(u.sites||[]).map(i=>(siteById(i)||{}).facility||i).join(', ');
     u.sites=ids; u.siteId=ids[0];
-    u.districts=[...new Set(ids.map(i=>(siteById(i)||{}).district).filter(Boolean))];
+    /* For a facility-only account the districts are derived from the facilities, as they
+       always were. For a DUAL account they are the supervisor's own assignment and must
+       never be overwritten by an edit to the facilities. */
+    if(!isDual(u)) u.districts=[...new Set(ids.map(i=>(siteById(i)||{}).district).filter(Boolean))];
     audit('USER_SITE','user',`${u.name} : ${before||'—'} → ${ids.map(i=>(siteById(i)||{}).facility||i).join(', ')}`);
   } else {
     const next=Array.from($('#sc-dis').selectedOptions).map(o=>o.value);
@@ -5609,7 +6143,12 @@ function saveScope(uid){
     audit('USER_TRANSFER','user',`${u.name} : ${(u.districts||[]).join(', ')} → ${next.join(', ')}${why?' ('+why+')':''}`);
     u.districts=next; if(why) u.transferNote=why;
   }
-  DB.save(); pushUser(u); closeModal();
+  DB.save();
+  /* a scope change is a privileged act now: it travels as a grant, not as a user push */
+  if(isDual(u)) queue('roleGrant', {id:u.id, byId:(me()||{}).id, want:EDIT_HAT,
+                                    scope: EDIT_HAT==='SITE' ? (u.sites||[]) : (u.districts||[])});
+  else pushUser(u);
+  closeModal();
   toast(LANG==='fr'?'✓ Affectation enregistrée':'✓ Assignment saved'); render();
 }
 
@@ -6001,8 +6540,8 @@ function wipeTestsHere(){
       <div class="stat"><b>${DB.d.outbox.length}</b><span>${L?'EN ATTENTE':'PENDING'}</span></div>
     </div>
     <p class="small">${L
-      ?'Les comptes, les 84 formations sanitaires, les 64 questions et les cycles ne sont pas touchés. Les autres téléphones ne sont pas touchés.'
-      :'Accounts, the 84 facilities, the 64 questions and the cycles are untouched. Other phones are untouched.'}</p>
+      ?'<b>Vos comptes ne sont pas touchés</b> : vous pourrez vous reconnecter tout de suite, avec le même code PIN. Les 84 formations sanitaires, les questions et les cycles restent également en place. Les autres téléphones ne sont pas touchés, et rien n\'est effacé sur le serveur.'
+      :'<b>Your accounts are untouched</b>: you can sign straight back in with the same PIN. The 84 facilities, the questions and the cycles also stay. Other phones are untouched, and nothing is erased on the server.'}</p>
     <label class="f"><span>${L?'Tapez EFFACER pour confirmer':'Type ERASE to confirm'}</span>
       <input type="text" id="wt-c" autocomplete="off"></label>`,
     `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
@@ -6012,9 +6551,14 @@ function confirmWipeTests(){
   const L=LANG==='fr';
   const v=(($('#wt-c')||{}).value||'').trim().toUpperCase();
   if(v!=='EFFACER' && v!=='ERASE') return toast(L?'Tapez EFFACER pour confirmer':'Type ERASE to confirm');
+  const kept=(DB.d.users||[]).length;
   wipeLocalData(false);
   audit('RESET_LOCAL','device',L?'Données de test effacées sur cet appareil':'Test data cleared on this device');
-  closeModal(); toast(L?'✓ Données de test effacées':'✓ Test data cleared'); go('#/home'); render();
+  closeModal();
+  infoModal(L?'Appareil remis à zéro':'Device cleared',
+    (L?'Les supervisions, les plans d\'action, les messages et le journal de CET appareil sont effacés.\n\nCE QUI RESTE :\n· '+kept+' compte(s) enrôlé(s) sur ce téléphone, avec leur code PIN\n· les 84 formations sanitaires, les questions et les cycles\n· l\'adresse du serveur et le mot de passe de liaison\n\nLes autres téléphones et le classeur ne sont pas touchés.'
+      :'The supervisions, action plans, messages and journal on THIS device are cleared.\n\nWHAT REMAINS:\n· '+kept+' account(s) enrolled on this phone, with their PIN\n· the 84 facilities, the questions and the cycles\n· the server address and the link password\n\nOther phones and the workbook are untouched.'));
+  go('#/home'); render();
 }
 function saveCfg(){
   { const t=$('#cf-tok'); if(t) DB.d.config.token=(t.value||'').trim(); }
@@ -6031,6 +6575,8 @@ function backupJSON(){
   const b=new Blob([JSON.stringify(DB.d)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(b);
   a.download='ATHECS_backup_'+today()+'.json'; a.click();
+  toast(LANG==='fr'?'✓ Sauvegarde créée — cherchez le fichier dans vos téléchargements'
+                   :'✓ Backup created — look in your downloads', 4500);
 }
 function wipe(){
   const L=LANG==='fr';
@@ -6070,6 +6616,148 @@ function admAudit(){
       <tbody>${a.map(x=>`<tr><td class="xs">${fmtDT(x.ts)}</td><td class="xs">${esc(x.user)}</td>
         <td class="xs">${esc(x.action)}</td><td class="xs">${esc(String(x.detail).slice(0,140))}</td></tr>`).join('')}
       </tbody></table></div></div>`;
+}
+
+/* =====================================================================
+   ONE PERSON, TWO HATS — THE CONSOLE SIDE
+
+   A request from a phone arrives in the same place as the enrolments and is
+   handled with the same two buttons. A super user can also add a role to
+   anybody outright, which is how somebody already stuck is fixed without
+   them touching their phone.
+   ===================================================================== */
+function roleReqBanner(u){
+  if(!reqPending(u)) return '';
+  const L=LANG==='fr', r=u.req;
+  const what = r.role==='SITE'
+    ? (r.scope||[]).map(id=>{const s=siteById(id); return s?s.district+' › '+s.facility:id;}).join(', ')
+    : (r.scope||[]).join(', ');
+  return `<div class="banner b-info" style="margin-top:8px">
+    <b>＋ ${L?'Demande de rôle':'Role request'}</b> — ${esc(roleLabelFor(r.role))}<br>
+    <span class="xs">${L?'Portée demandée':'Scope asked for'} : <b>${esc(what||'—')}</b>
+      ${r.fn?' · '+esc(r.fn):''}${r.at?' · '+fmtDT(r.at):''}</span>
+    <div class="row" style="margin-top:8px">
+      <button class="btn ok sm" onclick="grantRole('${u.id}')">✓ ${L?'Accorder':'Grant'}</button>
+      <button class="btn sec sm" onclick="addRoleModal('${u.id}',true)">✎ ${L?'Modifier la portée':'Change the scope'}</button>
+      <button class="btn dan sm" onclick="refuseRole('${u.id}')">✕ ${L?'Refuser':'Refuse'}</button>
+    </div></div>`;
+}
+/* Grant exactly what was asked for. */
+function grantRole(uid, scopeOverride, wantOverride){
+  const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
+  const L=LANG==='fr';
+  const want  = wantOverride || (u.req&&u.req.role) || missingHat(u);
+  const scope = scopeOverride || ((u.req&&u.req.scope)||[]);
+  if(!want) return toast(L?'Ce compte a déjà les deux rôles':'This account already has both roles');
+  if(!scope.length) return toast(want==='SITE'
+    ? (L?'Choisissez au moins une formation sanitaire':'Choose at least one facility')
+    : (L?'Choisissez au moins un district':'Choose at least one district'));
+  u.dual=true;
+  if(want==='SITE'){ u.sites=scope.slice(); u.siteId=scope[0]; }
+  else u.districts=scope.slice();
+  u.req=null; u.updated=Date.now(); DB.save();
+  audit('ROLE_GRANT','user', u.name+' → '+roleLabelFor(want)+' ('+scope.join(', ')+')');
+  queue('roleGrant', {id:u.id, byId:(me()||{}).id, want, scope});
+  closeModal();
+  toast(L?'✓ '+u.name+' a maintenant les deux rôles':'✓ '+u.name+' now has both roles', 4000);
+  render();
+}
+function refuseRole(uid){
+  const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
+  const L=LANG==='fr';
+  askReason({
+    title:(L?'Refuser la demande de ':'Refuse the request from ')+u.name,
+    label:L?'Motif du refus (obligatoire)':'Reason for refusal (mandatory)',
+    help:L?'Le motif s\'affiche sur le téléphone de la personne. Dites-lui quoi faire ensuite.'
+          :'The reason is shown on the person\'s phone. Tell them what to do next.',
+    confirmLabel:L?'Refuser':'Refuse', danger:true,
+    onOk: why=>{
+      u.req={role:(u.req&&u.req.role)||'', scope:[], fn:'', at:Date.now(),
+             status:'REFUSED', note:why, by:(me()||{}).name||''};
+      DB.save(); audit('ROLE_REFUSE','user', u.name+' — '+why);
+      queue('roleGrant', {id:u.id, byId:(me()||{}).id, refuse:true, note:why});
+      toast(L?'Demande refusée':'Request refused'); render();
+    }});
+}
+/* Add a role to somebody outright, or correct the scope of a request before granting. */
+let ADDR_SITES=[];
+function addRoleModal(uid, fromReq){
+  const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
+  const L=LANG==='fr';
+  const want = fromReq && u.req && u.req.role ? u.req.role : missingHat(u);
+  if(!want) return toast(L?'Ce compte a déjà les deux rôles':'This account already has both roles');
+  ADDR_SITES = (fromReq && u.req && want==='SITE') ? (u.req.scope||[]).slice() : [];
+  const head=`<div class="banner b-warn">${L
+    ?'Un seul compte, deux espaces. <b>'+esc(u.name)+'</b> gardera son code PIN et toutes ses supervisions.'
+    :'One account, two spaces. <b>'+esc(u.name)+'</b> keeps their PIN and all their supervisions.'}</div>`;
+
+  if(want==='SUPERVISOR'){
+    const dis=[...new Set(DB.d.sites.map(s=>s.district))].sort();
+    const pre=(fromReq && u.req) ? (u.req.scope||[]) : [];
+    modal((L?'Ajouter le rôle superviseur — ':'Add the supervisor role — ')+u.name, head+`
+      <label class="f"><span>${L?'Districts couverts':'Districts covered'}</span>
+        <select id="ar-dis" multiple size="10">${dis.map(d=>
+          `<option ${pre.includes(d)?'selected':''}>${esc(d)}</option>`).join('')}</select></label>
+      <p class="xs muted">${L
+        ?'La personne ne pourra pas superviser la formation sanitaire dont elle est point focal — l\'application le lui dira clairement.'
+        :'They will not be able to supervise the facility they are focal person for — the app tells them so plainly.'}</p>`,
+      `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+       <button class="btn ok" onclick="doAddRole('${u.id}','SUPERVISOR')">${L?'Accorder':'Grant'}</button>`);
+    return;
+  }
+  const byDis={};
+  DB.d.sites.filter(s=>s.status!=='CLOSED').forEach(s=>{ (byDis[s.district]=byDis[s.district]||[]).push(s); });
+  modal((L?'Ajouter le rôle personnel du site — ':'Add the facility staff role — ')+u.name, head+`
+    <label class="f"><span>${L?'Filtrer':'Filter'}</span>
+      <input type="text" id="ar-find" placeholder="${L?'nom de la formation ou du district…':'facility or district name…'}"
+        oninput="filterAddSites(this.value)"></label>
+    <label class="f"><span>${T('facility')}</span>
+      <select id="ar-site" multiple size="12">
+        ${Object.keys(byDis).sort().map(d=>`<optgroup label="${esc(d)}">${
+          byDis[d].sort((a,b)=>(a.area+a.facility).localeCompare(b.area+b.facility)).map(x=>
+            `<option value="${x.id}" data-f="${esc((d+' '+x.area+' '+x.facility).toLowerCase())}" ${
+              ADDR_SITES.includes(x.id)?'selected':''}>${esc(x.area)} › ${esc(x.facility)}</option>`).join('')
+        }</optgroup>`).join('')}
+      </select></label>`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn ok" onclick="doAddRole('${u.id}','SITE')">${L?'Accorder':'Grant'}</button>`);
+}
+function filterAddSites(q){
+  const sel=$('#ar-site'); if(!sel) return;
+  const t=(q||'').trim().toLowerCase();
+  Array.from(sel.querySelectorAll('option')).forEach(o=>{ o.hidden = !!t && !(o.dataset.f||'').includes(t); });
+  Array.from(sel.querySelectorAll('optgroup')).forEach(g=>{
+    g.hidden = !Array.from(g.querySelectorAll('option')).some(o=>!o.hidden); });
+}
+function doAddRole(uid, want){
+  const scope = want==='SITE'
+    ? Array.from(($('#ar-site')||{selectedOptions:[]}).selectedOptions).map(o=>o.value)
+    : Array.from(($('#ar-dis')||{selectedOptions:[]}).selectedOptions).map(o=>o.value);
+  grantRole(uid, scope, want);
+}
+function revokeRoleAsk(uid){
+  const u=DB.d.users.find(x=>x.id===uid); if(!u || !isDual(u)) return;
+  const L=LANG==='fr';
+  const drop = u.role==='SITE' ? 'SUPERVISOR' : 'SITE';
+  confirmModal({
+    title:(L?'Retirer le second rôle — ':'Remove the second role — ')+u.name,
+    tone:'b-warn',
+    body:(L?'<b>'+esc(u.name)+'</b> gardera son rôle de <b>'+esc(roleLabelFor(u.role))+
+           '</b> et son compte restera actif. Le rôle de <b>'+esc(roleLabelFor(drop))+
+           '</b> lui sera retiré, et son téléphone le saura à sa prochaine connexion réseau.'
+          :'<b>'+esc(u.name)+'</b> keeps their <b>'+esc(roleLabelFor(u.role))+
+           '</b> role and the account stays active. The <b>'+esc(roleLabelFor(drop))+
+           '</b> role is removed, and their phone learns it at its next network connection.'),
+    okLabel:L?'Retirer ce rôle':'Remove that role', danger:true,
+    onOk:()=>{
+      u.dual=false;
+      if(drop==='SITE'){ u.sites=[]; u.siteId=undefined; }
+      else u.districts=[];
+      u.req=null; u.updated=Date.now(); DB.save();
+      audit('ROLE_REVOKE','user', u.name+' — '+roleLabelFor(drop));
+      queue('roleRevoke', {id:u.id, byId:(me()||{}).id, drop});
+      toast(L?'✓ Rôle retiré':'✓ Role removed'); render();
+    }});
 }
 
 /* ===================== SYNC (Google Sheets via Apps Script) ===================== */
