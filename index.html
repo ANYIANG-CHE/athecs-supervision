@@ -702,7 +702,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.2.0';
+const APP_VERSION = '4.3.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 const DASH_URL = '';
@@ -789,7 +789,7 @@ window.addEventListener('error', function(ev){
 });
 
 const SEED_SITES = [["Bafang", "Bafang-Chefferie", "CSI Famkeu"], ["Bafang", "Manila", "Hôpital Ad lucem Banka-Bafang"], ["Bafang", "Mouankeu", "HD Bafang"], ["Bafang", "Ndokovi", "CSI Ndokovi"], ["Baham", "Baham", "CSI Demgo"], ["Baham", "Bahiala Cheffou", "CSI Bahiala"], ["Baham", "Bangou-Carrefour", "CMA Bangou Carefour"], ["Baham", "Bangou-Ville", "CMA Bangou"], ["Baham", "Bapa Bametchetcha", "CSI de Bapa"], ["Baham", "Batie", "CMA Batie"], ["Bamendjou", "Bamendjou", "HD Bamendjou"], ["Bandja", "Bandja-Ville", "HD Bandja"], ["Bandja", "Fotouni", "CMA de Foutouni Ex CSI"], ["Bandjoun", "Dja", "HD Bandjoun"], ["Bandjoun", "Mbouo", "Hopital EEC Mbouo"], ["Bandjoun", "Pete", "Hopital Ad Lucem"], ["Bandjoun", "Semto", "CMC Mission Catholique de Semto"], ["Bandjoun", "Yom", "CMA Poumougne"], ["Bangangte", "Bamena", "CSI Bamena"], ["Bangangte", "Bangangte", "HD Bangangté"], ["Bangangte", "Bangoua", "Hôpital EEC Bangoua"], ["Bangangte", "Bazou", "CMA Bazou"], ["Bangangte", "Tonga", "CMA Tonga"], ["Bangourain", "Bangourain", "HD Bangourain"], ["Bangourain", "Kouhouat", "CSI Kouhouat"], ["Bangourain", "Koumengba", "CSI Koumengba"], ["Batcham", "Batcham Chefferie", "CSI Batcham Chefferie"], ["Batcham", "Batcham Fiela", "CSI Bameffo"], ["Batcham", "Batcham Ville", "HD Batcham"], ["Dschang", "Baleveng", "CMA Nkong Ni"], ["Dschang", "Doumbouo", "CSI Doumbouo"], ["Dschang", "Fiala Foreke", "Hopital Regional Annexe de Dschang (Ex HD)"], ["Dschang", "Fometa", "CSI Fometa"], ["Dschang", "Ndoh-Djutsitsa", "CMA Ndoh-Djuttitsa"], ["Dschang", "Siteu", "Hopital St Vincent de Paul"], ["Foumban", "Foumban Nord", "CS Medicalise Kueka"], ["Foumban", "Foumban Ouest", "CMA Koukouet-Maloum"], ["Foumban", "Foumban Sud", "HRa Foumban (Ex HD)"], ["Foumban", "Koupa Kagnam", "CMA Koupa-Kagnam (Ex CSI)"], ["Foumban", "Koupa Matapit", "CMA de Koupa Matapit"], ["Foumban", "Mambain", "CMA Mambain"], ["Foumban", "Mataket", "CMA Mataket"], ["Foumban", "Njisse", "Hopital Protestant Njisse"], ["Foumbot", "Baigom 1", "CSI Kwen Baïgom"], ["Foumbot", "Fosset", "CSI Fosset"], ["Foumbot", "Foumbot 1", "HD Foumbot"], ["Foumbot", "Foumbot 3", "CSI Nkoundoubain"], ["Foumbot", "Foumbot 4", "CSI Mbantou"], ["Foumbot", "Maka 2", "CSI Maka 2"], ["Foumbot", "Momo", "CSI Momo"], ["Galim", "Galim", "HD Galim"], ["Kekem", "Kekem", "HD Kekem"], ["Kouoptamo", "Chanas", "CSI Chanas"], ["Kouoptamo", "Kouoptamo", "HD Kouoptamo"], ["Kouoptamo", "Njintapon", "CSI de Njitapon"], ["Malantouen", "Magba", "CMA Magba"], ["Malantouen", "Malantouen", "HD Malantouen"], ["Malantouen", "Matta Barrage", "CSI Matta - barrage"], ["Malantouen", "Ngounso", "CS BBHC Ngounso"], ["Massangam", "Massangam", "HD Massangam"], ["Mbouda", "Bafounda", "CSI Bamendjo"], ["Mbouda", "Mbouda Nord", "HD Mbouda"], ["Mbouda", "Mbouda Sud", "CMA Lepi"], ["Mbouda", "Mbouda-Ouest", "Hôpital Ad Lucem Mbouda"], ["Mbouda", "Toumaka", "CMA Babadjou"], ["Mifi", "Badiembou", "CM de la Police"], ["Mifi", "Badiembou", "CSI Badiembou"], ["Mifi", "Batoukop", "CSI Batoukop"], ["Mifi", "Djeleng", "CMA Djeleng"], ["Mifi", "Famla 1", "Bafoussam Baptist Hospital - CBC Bamendzi"], ["Mifi", "Famla 1", "HD MIFI FAMLA"], ["Mifi", "Kamkop", "CS Prossaba"], ["Mifi", "King Place", "PHC ACHA Annexe TAMDJA"], ["Mifi", "Kongso Bamougoum", "CMA Kongso"], ["Mifi", "Kouogouo", "CS Sacré Coeur"], ["Mifi", "Lafe Baleng", "CMA Lafe-Baleng"], ["Mifi", "Tocket", "CS la Paix"], ["Mifi", "Tyo", "HR Bafoussam"], ["Penka Michel", "Balessing", "CMA Balessing"], ["Penka Michel", "Bamendou 2", "CSI Bamendou 2"], ["Penka Michel", "Bamendou-Chefferie", "CSI Bamendou Chefferie"], ["Penka Michel", "Baneghang", "CSI Bassossia"], ["Penka Michel", "Centre urbain", "CSI Penka Michel"], ["Santchou", "Santchou", "HD Santchou"]];
-const SEED_QUESTIONS = [{"n": 1, "code": "Q01", "sec": "Coordination et documentation générale", "q": "Le site propose-t-il une copie des directives de traitement/prévention du VIH ?", "type": "BINARY", "dom": "CLIN"}, {"n": 2, "code": "Q02", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'un tableau de suivi quotidien des performances mis à jour (à vérifier sur Google Sheets) ? (daily performance)", "type": "BINARY", "dom": "CLIN", "fu": "Ce tableau est-il à jour ?"}, {"n": 3, "code": "Q03", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'un tableau de suivi mensuel de la maladie avancée (à vérifier sur Google Sheets) ?", "type": "BINARY", "dom": "CLIN", "fu": "Ce tableau est-il à jour ?"}, {"n": 4, "code": "Q04", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'une liste de contacts ICT mise à jour (vérifier sur Google Sheets) ?", "type": "BINARY", "dom": "CLIN"}, {"n": 5, "code": "Q05", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'un plan de travail pour le mois en cours ?", "type": "BINARY", "dom": "CLIN"}, {"n": 6, "code": "Q06", "sec": "HTS", "q": "Le personnel du site a-t-il été formé à l'algorithme a 3 tests  ?", "type": "BINARY", "dom": "CLIN"}, {"n": 7, "code": "Q07", "sec": "HTS", "q": "Les APS du site ont-t-ils été formé à l'algorithme a 3 tests  ?", "type": "BINARY", "dom": "CLIN"}, {"n": 8, "code": "Q08", "sec": "HTS", "q": "Le site possède-t-il des copies de l'algorithme de dépistage du VIH ?", "type": "BINARY", "dom": "CLIN"}, {"n": 9, "code": "Q09", "sec": "HTS", "q": "Le site possède-t-il des SOPs sur le dépistage du VIH ?", "type": "BINARY", "dom": "CLIN"}, {"n": 10, "code": "Q10", "sec": "HTS", "q": "Le site a-t-il proposé des services ICT à toutes les PVVIH nouvellement enrôlées sur la période {{PERIODE}} ?", "type": "RATIO", "dom": "CLIN", "num": "# Les nouveaux PVVIH enrollés  qui ont bénéficié d'une  ICT", "den": "# Nouveaux  PVVIH enrollés sur TARV"}, {"n": 11, "code": "Q11", "sec": "HTS", "q": "Le site a-t-il proposé des ICT à toutes les personnes vivant avec le VIH présentant une charge virale élevée sur la période {{PERIODE}} ? Voir les données relatives aux patients avec charge virale élevée.", "type": "RATIO", "dom": "CLIN", "num": "# Personnes vivant avec le VIH avec Charge virale elevé ayant bénéficié d'une offre de ICT", "den": "# Personnes vivant avec le VIH avec Charge virale elevé"}, {"n": 12, "code": "Q12", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site a-t-il mis les PVVIH nouvellement diagnostiquées sous TARV sur la période {{PERIODE}} ?", "type": "RATIO", "dom": "CLIN", "num": "# nouvellement diagnostiqué sous ART", "den": "# nouvellement diagnostiqué"}, {"n": 13, "code": "Q13", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Les personnes absentes sur la période {{PERIODE}} ont-elles été suivies par l'APS ? Les registres de suivi de l'APS sont-ils à jour ?", "type": "RATIO", "dom": "CLIN", "num": "Nombre d'APS avec tracking logbook à jour", "den": "Nombre d'APS avec tracking logbook"}, {"n": 14, "code": "Q14", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le google sheet RTC a-t-il été rempli ? Le google sheet RTC est-il à jour ?", "type": "BINARY", "dom": "CLIN", "fu": "Le Google Sheet RTC est-il à jour ?"}, {"n": 15, "code": "Q15", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site propose-t-il des DSD/services communautaires pour les PVVIH (distribution de traitements antirétroviraux, prélèvement d'échantillons de charge virale) ?", "type": "BINARY", "dom": "CLIN"}, {"n": 16, "code": "Q16", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site effectue-t-il un dépistage TB des PVVIH et documente-t-il les cas présumptif de tuberculose (Registre des cas présumptifs) ?", "type": "BINARY", "dom": "CLIN", "fu": "Le registre des cas présomptifs est-il à jour ?"}, {"n": 17, "code": "Q17", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Quel pourcentage des cas présumés de tuberculose ont fait l'objet d'un prélèvement d'échantillons envoyés au laboratoire ?", "type": "RATIO", "dom": "CLIN", "num": "# Cas présumés de tuberculose avec prélèvement crachats", "den": "# Cas présumptifs de tuberculose"}, {"n": 18, "code": "Q18", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Quel est le délai d'obtention des résultats des 3 derniers examens d'expectorations pour la tuberculose documentés ?", "type": "THRESHOLD", "dom": "CLIN"}, {"n": 19, "code": "Q19", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Quel pourcentage de patients atteints de tuberculose (anciens et nouveaux) avait un statut VIH documenté (pour UPEC/CDT) ?", "type": "RATIO", "dom": "CLIN", "num": "Nombre de cas de tuberculose avec statut VIH documenté", "den": "nombre de cas de tuberculose"}, {"n": 20, "code": "Q20", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site dispose-t-il d'un registre AHD ? Ce registre est-il à jour ?", "type": "BINARY", "dom": "CLIN", "fu": "Ce registre AHD est-il à jour ?"}, {"n": 21, "code": "Q21", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site présente-t-il un registre de charge virale élevée ? Ce registre est-il à jour ?", "type": "BINARY", "dom": "CLIN", "fu": "Ce registre de charge virale élevée est-il à jour ?"}, {"n": 22, "code": "Q22", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site offre-t-il des EAC aux PVVIH conformément aux recommandations (3 à 6 EAC, évaluation de l'observance avant le rappel) ? Quel pourcentage de PVVIH  ont bénéficié de ces services conformément aux directives ?", "type": "RATIO", "dom": "CLIN", "num": "# PVVIH avec charge virale élevée ayant bénéficié des EAC conformément aux directives", "den": "# PVVIH avec charge virale élevée"}, {"n": 23, "code": "Q23", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site bascule-t-il les personnes vivant avec le VIH qui échouent sur la 1ere  ligne vers la  2eme ligne ?", "type": "RATIO", "dom": "CLIN", "num": "#PLHIV échec de la 1ere ligne à la 2eme  ligne", "den": "Les personnes vivant avec le VIH échouent en 1ere ligne"}, {"n": 24, "code": "Q24", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Ce site propose-t-il des tests de résistance aux personnes vivant avec le VIH en échec de traitement antirétroviral de 2eme ligne ?", "type": "RATIO", "dom": "CLIN", "num": "#PVVIH en échec de deuxième line  chez qui le tests de résistance proposés", "den": "# Personnes vivant avec le VIH en échec sur la 2eme ligne"}, {"n": 25, "code": "Q25", "sec": "PTME/EID", "q": "Le site dispose-t-il de données documentant le statut VIH de tous les  femmes enceintes?", "type": "RATIO", "dom": "CLIN", "num": "# femmes enceintes avec status VIH documentées", "den": "nombre de femmes enceintes"}, {"n": 26, "code": "Q26", "sec": "PTME/EID", "q": "Le site dispose-t-il de données documentant le statut syphilis de tous les  femmes enceintes?", "type": "RATIO", "dom": "CLIN", "num": "# femmes enceintes ayant un statut syphilis documenté", "den": "nombre de femmes enceintes"}, {"n": 27, "code": "Q27", "sec": "PTME/EID", "q": "Le site offre-t-il les TARV et documentés pour toutes les Femmes enceintes séropositives ?", "type": "RATIO", "dom": "CLIN", "num": "# Femmes enceintes séropositives sous traitement antirétroviral documenté", "den": "nombre de femmes enceintes séropositives"}, {"n": 28, "code": "Q28", "sec": "PTME/EID", "q": "Le site dispose-t-il d'informations documentées de traitement de la syphilis pour tous les femmes enceintes testés positifs ?", "type": "RATIO", "dom": "CLIN", "num": "# Les femmes enceintes chez qui la syphilis a été diagnostiquémis sous traitement", "den": "# Femmes enceintes diagnostiquées positives à la syphilis"}, {"n": 29, "code": "Q29", "sec": "PTME/EID", "q": "Le site collecte-t-il des échantillons pour le diagnostic précoce du VIH chez tous les nourrissons exposés au VIH ? Période : {{PERIODE}}.", "type": "SAMPLED", "dom": "CLIN", "num": "Nombre de nourrissons exposés au VIH pour lesquels un prélèvement PCR adapté à l'âge a été documenté parmi 10 nourrissons sélectionnés au hasard", "defDen": 10}, {"n": 30, "code": "Q30", "sec": "PTME/EID", "q": "Existe -t-il un documentation des résultats menté des résultats du dépistage précoce du VIH chez les personnes soignant les personnes ayant effectué le prélèvement d'échantillons dans le cadre de tous les établissements de santé ?", "type": "RATIO", "dom": "CLIN", "num": "# Nourrissons exposés au VIH, parmi les échantillons prélevés, avec résultat documenté", "den": "# Nourrissons exposés au VIH avec échantillon prélevé"}, {"n": 31, "code": "Q31", "sec": "PTME/EID", "q": "Le site initie-t-il le cotrimoxazole (CTX) avant l'âge de huit semaines pour tous les nourrissons exposés au VIH (HEI) ?", "type": "RATIO", "dom": "CLIN", "num": "# Les nourrissons exposés au VIH (HEI) commencent le cotrimoxazole (CTX) entre 6 et 8 semaines", "den": "# Nourrissons exposés au VIH (HEI) âgés de 6 à 8 semaines"}, {"n": 32, "code": "Q32", "sec": "PTME/EID", "q": "Les sites effectuent-ils un suivi jusqu'à la fin de l'allaitement maternel et disposent-ils d'un résultat final documenté concernant le VIH à l'âge de 24 mois pour tous les nourrissons exposés au VIH (HEI) ? Période : {{PERIODE}}.", "type": "RATIO", "dom": "CLIN", "num": "Le nombre de nourrissons exposés au VIH  suivi jusqu'à la fin de l'allaitement et un résultat final documenté avant l'âge de 24 mois", "den": "Nourrissons exposés au VIH (HEI) âgés de 24 mois."}, {"n": 33, "code": "Q33", "sec": "PTME/EID", "q": "Existe -t-il un outil de dosage des ARV pédiatriques  qui répertorie les ARV des schémas posologiques recommandés a disponibles pour le prescripteur d'ARV ?", "type": "BINARY", "dom": "CLIN"}, {"n": 34, "code": "Q34", "sec": "PTME/EID", "q": "Ce site implemente-t-il le Surge Pediatric? (verifier les scan form)", "type": "BINARY", "dom": "CLIN"}, {"n": 35, "code": "Q35", "sec": "DQA", "q": "Le nombre de personnes testées pour le VIH en {{MOIS}} — DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "# Personnes testées pour le VIH en {{MOIS}} dans DAMA", "den": "# Personnes testées pour le VIH en {{MOIS}} dans le Registre", "dqa": 1, "perMonth": true}, {"n": 36, "code": "Q36", "sec": "DQA", "q": "Le nombre de personnes testées positives au VIH en {{MOIS}} — DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "# Personnes testées positives au VIH en {{MOIS}} dans DAMA", "den": "# Personnes testées positives au VIH en {{MOIS}} dans le Registre", "dqa": 1, "perMonth": true}, {"n": 37, "code": "Q37", "sec": "DQA", "q": "Le nombre de nouvelles PVVIH ayant débuté un traitement antirétroviral en {{MOIS}} — DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "# Nouvelles PVVIH ayant débuté un TARV en {{MOIS}} dans DAMA", "den": "# Nouvelles PVVIH ayant débuté un TARV en {{MOIS}} dans le Registre", "dqa": 1, "perMonth": true}, {"n": 38, "code": "Q38", "sec": "DQA", "q": "Le nombre de PVVIH sous traitement antirétroviral en {{MOIS}} — DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "# PVVIH sous TARV en {{MOIS}} dans DAMA", "den": "# PVVIH sous TARV en {{MOIS}} dans le Registre", "dqa": 1, "perMonth": true}, {"n": 39, "code": "Q44", "sec": "TPT/CQI/RTC", "q": "le site dispose t il de la liste lineaire des patients eligibles au TPT attendus durant le mois", "type": "BINARY", "dom": "CLIN"}, {"n": 40, "code": "Q45", "sec": "TPT/CQI/RTC", "q": "Le site dispose-t-il d'un project CQI bien defini?", "type": "BINARY", "dom": "CLIN"}, {"n": 41, "code": "Q46", "sec": "TPT/CQI/RTC", "q": "le site dispose t il de la liste lineaire des patients absents du mois dernier et des mois antérieurs", "type": "BINARY", "dom": "CLIN"}, {"n": 42, "code": "Q47", "sec": "IPC", "q": "Existe-t-il un plan de control de Tuberculose spécifique à la formation sanitaire ? Identifiant des tousseurs, instructions sur comment tousser, et priorisation des soins pour tout tousseur", "type": "BINARY", "dom": "CLIN"}, {"n": 43, "code": "Q48", "sec": "IPC", "q": "Le site dispose-t-il d'un point focal CPI réunissant TOUS les points suivants ?", "type": "COMPOSITE", "dom": "CLIN", "items": ["Le PF pour la CPI a du temps et des ressources dédiés aux activités CPI", "Le PF pour la CPI a reçu une formation spécifique CPI au moins une fois par an", "Le PF pour la CPI tient le registre de screening des infections, suivi des résultats, vaccinations et expositions"]}, {"n": 44, "code": "Q49", "sec": "IPC", "q": "Tous les matériels suivant pour collectes des échantillons sont t-ils disponible ? gants à usage unique, matériels pour lavage des mains, boite de sécurité", "type": "COMPOSITE", "dom": "CLIN", "items": ["Gants à usage unique", "Matériels pour lavage des mains", "Boîte de sécurité"]}, {"n": 45, "code": "Q50", "sec": "IPC", "q": "Le site dispose-t-il de TOUS les équipements de protection individuelle suivants ?", "type": "COMPOSITE", "dom": "CLIN", "items": ["Gants", "Blouses / robes", "Masque facial médical", "Lunettes ou visière plastique", "Masques N95 ou respirateur équivalent"]}, {"n": 46, "code": "Q51", "sec": "IPC", "q": "Est-ce que TOUS les éléments suivants sont disponibles dans la FOSA ? les gants ; blouses ; eau et savon ; boite de sécurité ; poubelles.", "type": "COMPOSITE", "dom": "CLIN", "items": ["Gants", "Blouses", "Eau et savon", "Boîte de sécurité", "Poubelles"]}, {"n": 47, "code": "Q52", "sec": "IPC", "q": "Les déchets infectieux sont-ils séparés des déchets généraux et gardés séparément dans des poubelles avec couvercle et étiquetées ?", "type": "BINARY", "dom": "CLIN"}, {"n": 48, "code": "Q53", "sec": "MNT", "q": "Le site dispose t il d’un pèse personne ?", "type": "BINARY", "dom": "CLIN"}, {"n": 49, "code": "Q54", "sec": "MNT", "q": "Le site dispose t’il d’un Tensiomètre", "type": "BINARY", "dom": "CLIN"}, {"n": 50, "code": "Q55", "sec": "MNT", "q": "Le poids est-il pris et documenté dans le dossier, dans le TARV et dans le DAMA (regarder 10 dossiers adulte, 10 dossier femmes enceintes, 10 dossiers enfants)", "type": "SAMPLED", "dom": "CLIN", "num": "# Dossiers où le poids est documenté (dossier, TARV et DAMA)", "defDen": 30}, {"n": 51, "code": "Q56", "sec": "MNT", "q": "La taille est-elle prise et documentée dans le dossier, dans le TARV et dans le DAMA ( regarder 10 dossiers adulte, 10 dossier femmes enceintes, 10 dossiers enfants)", "type": "SAMPLED", "dom": "CLIN", "num": "# Dossiers où la taille est documentée (dossier, TARV et DAMA)", "defDen": 30}, {"n": 52, "code": "Q57", "sec": "MNT", "q": "La tension arterielle est-elle prise et documenté dans le dossier, dans le TARV et dans le DAMA (regarder 10 dossiers adulte, 10 dossier femmes enceintes,)", "type": "SAMPLED", "dom": "CLIN", "num": "# Dossiers où la tension artérielle est documentée (dossier, TARV et DAMA)", "defDen": 30}, {"n": 53, "code": "Q58", "sec": "FECH", "q": "% enfant (nfants biologiques et enfants exposés) sur line list des APS collecte' (Vérifier le line listing par APS)", "type": "RATIO", "dom": "CLIN", "num": "# Enfants (biologiques et exposés) dont l'échantillon a été collecté", "den": "# Enfants sur la line list des APS"}, {"n": 54, "code": "Q59", "sec": "Prévention TB", "q": "% PVVIH mis sous TPT (Vérifier le line listing des patients non mis sur TPT par APS)", "type": "RATIO", "dom": "CLIN", "num": "# PVVIH éligibles initiées au TPT", "den": "# PVVIH éligibles au TPT sur la line list"}, {"n": 55, "code": "Q43", "sec": "Dispensation communautaire", "q": "Ce site dispose-t-il d'un organisme a base communautaire affilié offrant la distribution d'ARV (PODIC) ?", "type": "BINARY", "dom": "CLIN"}, {"n": 56, "code": "Q60", "sec": "Dispensation communautaire", "q": "Se rassurer que le nom de l’OBC apparait pou tous les patients dispensés en communauté dans le DAMA", "type": "RATIO", "dom": "CLIN", "num": "# Patients dispensés en communauté avec le nom de l'OBC renseigné dans DAMA", "den": "# Clients OBC"}, {"n": 57, "code": "Q61", "sec": "pALD", "q": "% d’enfants infectés eligible et initiés au pALD", "type": "RATIO", "dom": "CLIN", "num": "# Enfants infectés éligibles et initiés au pALD", "den": "# Enfants infectés éligibles au pALD"}, {"n": 58, "code": "Q62", "sec": "pALD", "q": "% d'enfants de moins de 10 ans avec poids documente' dans DAMA. Nombre de dossiers d'enfants de moins de 10 ans à jour du poids en conformité avec le Dama", "type": "RATIO", "dom": "CLIN", "num": "# Enfants de moins de 10 ans avec poids documenté dans DAMA", "den": "# Enfants de moins de 10 ans"}, {"n": 59, "code": "Q65", "sec": "Handshake Model", "q": "Affichage de l'algortithme des connus positifs et du Handshake Model dans l'UPEC", "type": "BINARY", "dom": "CLIN"}, {"n": 60, "code": "Q68", "sec": "Recency Test", "q": "Nombre de nouveau Positifs  ayant été testés au recency", "type": "RATIO", "dom": "CLIN", "num": "# Nouveaux positifs testés au recency", "den": "# Nouveaux positifs"}];
+const SEED_QUESTIONS = [{"n": 1, "code": "Q01", "sec": "Coordination et documentation générale", "q": "Le site propose-t-il une copie des directives de traitement/prévention du VIH ?", "type": "BINARY", "dom": "CLIN", "order": 10}, {"n": 2, "code": "Q02", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'un tableau de suivi quotidien des performances mis à jour (à vérifier sur Google Sheets) ? (daily performance)", "type": "BINARY", "dom": "CLIN", "fu": "Ce tableau est-il à jour ?", "order": 20}, {"n": 3, "code": "Q03", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'un tableau de suivi mensuel de la maladie avancée (à vérifier sur Google Sheets) ?", "type": "BINARY", "dom": "CLIN", "fu": "Ce tableau est-il à jour ?", "order": 30}, {"n": 4, "code": "Q04", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'une liste de contacts ICT mise à jour (vérifier sur Google Sheets) ?", "type": "BINARY", "dom": "CLIN", "order": 40}, {"n": 5, "code": "Q05", "sec": "Coordination et documentation générale", "q": "Le site dispose-t-il d'un plan de travail pour le mois en cours ?", "type": "BINARY", "dom": "CLIN", "order": 50}, {"n": 6, "code": "Q06", "sec": "HTS", "q": "Le personnel du site a-t-il été formé à l'algorithme a 3 tests  ?", "type": "BINARY", "dom": "CLIN", "order": 60}, {"n": 7, "code": "Q07", "sec": "HTS", "q": "Les APS du site ont-t-ils été formé à l'algorithme a 3 tests  ?", "type": "BINARY", "dom": "CLIN", "order": 70}, {"n": 8, "code": "Q08", "sec": "HTS", "q": "Le site possède-t-il des copies de l'algorithme de dépistage du VIH ?", "type": "BINARY", "dom": "CLIN", "order": 80}, {"n": 9, "code": "Q09", "sec": "HTS", "q": "Le site possède-t-il des SOPs sur le dépistage du VIH ?", "type": "BINARY", "dom": "CLIN", "order": 90}, {"n": 10, "code": "Q10", "sec": "HTS", "q": "Le site a-t-il proposé des services ICT à toutes les PVVIH nouvellement enrôlées en {{MOIS}} ?", "type": "RATIO", "dom": "CLIN", "num": "# Nouvelles PVVIH enrôlées ayant bénéficié d'une ICT en {{MOIS}}", "den": "# Nouvelles PVVIH enrôlées sur TARV en {{MOIS}}", "perMonth": true, "order": 100}, {"n": 11, "code": "Q11", "sec": "HTS", "q": "Le site a-t-il proposé une ICT à toutes les personnes vivant avec le VIH présentant une charge virale élevée en {{MOIS}} ?", "type": "RATIO", "dom": "CLIN", "num": "# PVVIH avec charge virale élevée ayant bénéficié d'une offre d'ICT en {{MOIS}}", "den": "# PVVIH avec charge virale élevée en {{MOIS}}", "perMonth": true, "sub": "Voir les données relatives aux patients avec charge virale élevée.", "order": 110}, {"n": 12, "code": "Q12", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site a-t-il mis le PVVIH nouvellement diagnostiqué sous ART en {{MOIS}} ?", "type": "RATIO", "dom": "CLIN", "num": "# Nouvellement diagnostiqués mis sous ART en {{MOIS}}", "den": "# Nouvellement diagnostiqués en {{MOIS}}", "perMonth": true, "order": 120}, {"n": 13, "code": "Q13", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Les personnes absentes en {{MOIS}} ont-elles été suivies par l'APS ?", "type": "RATIO", "dom": "CLIN", "num": "# Personnes absentes en {{MOIS}} effectivement retrouvées et suivies", "den": "# Personnes absentes en {{MOIS}}", "perMonth": true, "sub": "Vérifier le registre de suivi (tracking logbook) de chaque APS.", "order": 130}, {"n": 14, "code": "Q14", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le google sheet RTC a-t-il été rempli ? Le google sheet RTC est-il à jour ?", "type": "BINARY", "dom": "CLIN", "fu": "Le Google Sheet RTC est-il à jour ?", "order": 140}, {"n": 15, "code": "Q15", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site propose-t-il des DSD/services communautaires pour les PVVIH (distribution de traitements antirétroviraux, prélèvement d'échantillons de charge virale) ?", "type": "BINARY", "dom": "CLIN", "order": 150}, {"n": 16, "code": "Q16", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site effectue-t-il un dépistage TB des PVVIH et documente-t-il les cas présumptifs de tuberculose (Registre des cas présumptifs) ?", "type": "BINARY", "dom": "CLIN", "fu": "Le registre des cas présomptifs est-il à jour ?", "order": 160}, {"n": 17, "code": "Q17", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Quel pourcentage des cas présumés de tuberculose ont fait l'objet d'un prélèvement d'échantillons envoyés au laboratoire ?", "type": "RATIO", "dom": "CLIN", "num": "# Cas présumés de tuberculose avec prélèvement crachats", "den": "# Cas présumptifs de tuberculose", "order": 170}, {"n": 18, "code": "Q18", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Quel est le délai d'obtention des résultats des 3 derniers examens d'expectorations pour la tuberculose documentés ?", "type": "COMPOSITE", "dom": "CLIN", "sub": "Moins de 30 jours = conforme. 30 jours ou plus = non conforme. Les trois examens doivent être conformes pour que le point soit accordé.", "items": ["Dernier examen — résultat reçu en moins de 30 jours", "Avant-dernier examen — résultat reçu en moins de 30 jours", "3e examen — résultat reçu en moins de 30 jours"], "order": 180}, {"n": 19, "code": "Q19", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Quel pourcentage de patients atteints de tuberculose (anciens et nouveaux) avait un statut VIH documenté (pour UPEC/CDT) ?", "type": "RATIO", "dom": "CLIN", "num": "Nombre de cas de tuberculose avec statut VIH documenté", "den": "nombre de cas de tuberculose", "order": 190}, {"n": 20, "code": "Q20", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site dispose-t-il d'un registre AHD (Maladie Avancée) ? Ce registre est-il à jour ?", "type": "BINARY", "dom": "CLIN", "fu": "Ce registre AHD est-il à jour ?", "order": 200}, {"n": 21, "code": "Q21", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site présente-t-il un registre de charge virale élevée ? Ce registre est-il à jour ?", "type": "BINARY", "dom": "CLIN", "fu": "Ce registre de charge virale élevée est-il à jour ?", "order": 210}, {"n": 22, "code": "Q22", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site offre-t-il des EAC aux PVVIH conformément aux recommandations (3 à 6 EAC, évaluation de l'observance avant le rappel) ? Quel pourcentage de PVVIH  ont bénéficié de ces services conformément aux directives ?", "type": "RATIO", "dom": "CLIN", "num": "# PVVIH avec CVE ayant bénéficié des EAC conformément aux directives", "den": "# PVVIH avec CVE", "sub": "Conformément aux directives : 3 à 6 EAC, observance évaluée avant le rappel.", "order": 220}, {"n": 23, "code": "Q23", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Le site bascule-t-il les personnes vivant avec le VIH qui échouent sur la 1ere  ligne vers la  2eme ligne ?", "type": "RATIO", "dom": "CLIN", "num": "#PLHIV échec de la 1ere ligne à la 2eme  ligne", "den": "Les personnes vivant avec le VIH échouent en 1ere ligne", "order": 230}, {"n": 24, "code": "Q24", "sec": "Soins, traitement, TB / Maladie avancée", "q": "Ce site propose-t-il des tests de résistance aux personnes vivant avec le VIH en échec de traitement antirétroviral de 2eme ligne ?", "type": "RATIO", "dom": "CLIN", "num": "#PVVIH en échec de deuxième line  chez qui le tests de résistance proposés", "den": "# Personnes vivant avec le VIH en échec sur la 2eme ligne", "order": 240}, {"n": 46, "code": "Q46", "sec": "Soins, traitement, TB / Maladie avancée", "q": "le site dispose t il de la liste lineaire des patients absents du mois dernier et des mois antérieurs", "type": "BINARY", "dom": "CLIN", "order": 250}, {"n": 25, "code": "Q25", "sec": "PTME/EID", "q": "Le site dispose-t-il de données documentant le statut VIH de tous les  femmes enceintes?", "type": "RATIO", "dom": "CLIN", "num": "# femmes enceintes avec status VIH documentées", "den": "nombre de femmes enceintes", "order": 260}, {"n": 26, "code": "Q26", "sec": "PTME/EID", "q": "Le site dispose-t-il de données documentant le statut syphilis de tous les  femmes enceintes?", "type": "RATIO", "dom": "CLIN", "num": "# femmes enceintes ayant un statut syphilis documenté", "den": "nombre de femmes enceintes", "order": 270}, {"n": 27, "code": "Q27", "sec": "PTME/EID", "q": "Le site offre-t-il les TARV et documentés pour toutes les Femmes enceintes séropositives ?", "type": "RATIO", "dom": "CLIN", "num": "# Femmes enceintes séropositives sous traitement antirétroviral documenté", "den": "nombre de femmes enceintes séropositives", "order": 280}, {"n": 28, "code": "Q28", "sec": "PTME/EID", "q": "Le site dispose-t-il d'informations documentées de traitement de la syphilis pour tous les femmes enceintes testés positives ?", "type": "RATIO", "dom": "CLIN", "num": "# Les femmes enceintes chez qui la syphilis a été diagnostiquémis sous traitement", "den": "# Femmes enceintes diagnostiquées positives à la syphilis", "order": 290}, {"n": 29, "code": "Q29", "sec": "PTME/EID", "q": "Le site collecte-t-il des échantillons pour le diagnostic précoce du VIH chez tous les nourrissons exposés au VIH ?", "type": "RATIO", "dom": "CLIN", "num": "# Nourrissons exposés au VIH dont l'échantillon PCR a été prélevé", "gate": true, "sub": "Période : du {{FY_DEBUT}} à la fin du cycle évalué.", "den": "# Nourrissons exposés au VIH sur la période", "order": 300}, {"n": 30, "code": "Q30", "sec": "PTME/EID", "q": "Existe-t-il une documentation des résultats du dépistage précoce du VIH de tous les nourrissons exposés au VIH ?", "type": "RATIO", "dom": "CLIN", "num": "# Échantillons dont le résultat est reçu et documenté dans la formation sanitaire", "denFrom": "Q29", "sub": "Le dénominateur est repris automatiquement de la question 29 : les échantillons prélevés.", "den": "# Échantillons prélevés (question 29)", "order": 310}, {"n": 31, "code": "Q31", "sec": "PTME/EID", "q": "Le site initie-t-il le cotrimoxazole (CTX) avant l'âge de huit semaines pour tous les nourrissons exposés au VIH (HEI) ?", "type": "RATIO", "dom": "CLIN", "num": "# Les nourrissons exposés au VIH (HEI) commencent le cotrimoxazole (CTX) entre 6 et 8 semaines", "den": "# Nourrissons exposés au VIH (HEI) âgés de 6 à 8 semaines", "order": 320}, {"n": 32, "code": "Q32", "sec": "PTME/EID", "q": "Les sites effectuent-ils un suivi jusqu'à la fin de l'allaitement maternel et disposent-ils d'un résultat final documenté concernant le VIH à l'âge de 24 mois pour tous les nourrissons exposés au VIH (HEI) (T1-2 de FY24) ?", "type": "RATIO", "dom": "CLIN", "num": "Le nombre de nourrissons exposés au VIH  suivi jusqu'à la fin de l'allaitement et un résultat final documenté avant l'âge de 24 mois", "den": "Nourrissons exposés au VIH (HEI) âgés de 24 mois.", "order": 330}, {"n": 33, "code": "Q33", "sec": "PTME/EID", "q": "Existe -t-il un outil de dosage des ARV pédiatriques  qui répertorie les ARV des schémas posologiques recommandés a disponibles pour le prescripteur d'ARV ?", "type": "BINARY", "dom": "CLIN", "order": 340}, {"n": 34, "code": "Q34", "sec": "PTME/EID", "q": "Ce site implemente-t-il le Surge Pediatric ? (vérifier les scan forms)", "type": "RATIO", "dom": "CLIN", "gate": true, "dqa": 1, "sub": "Contrôle de concordance entre le registre d'assurance qualité et les scan forms. Période : du {{FY_DEBUT}} à la fin du cycle évalué.", "num": "# Cas positifs et PCR positifs retrouvés dans le registre d'assurance qualité", "den": "# Positifs de moins de 15 ans et PCR positifs documentés sur les scan forms", "order": 350}, {"n": 35, "code": "Q35", "sec": "DQA", "q": "Le nombre de personnes testées pour le VIH en {{MOIS}} — DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "# Testés pour le VIH en {{MOIS}} dans DAMA", "den": "# Testés pour le VIH en {{MOIS}} dans le Registre", "dqa": 1, "perMonth": true, "order": 360}, {"n": 36, "code": "Q36", "sec": "DQA", "q": "Le nombre de personnes testées positives pour le VIH en {{MOIS}} — DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "# Testés positifs pour le VIH en {{MOIS}} dans DAMA", "den": "# Testés positifs pour le VIH en {{MOIS}} dans le Registre", "dqa": 1, "perMonth": true, "order": 370}, {"n": 37, "code": "Q37", "sec": "DQA", "q": "Le nombre de nouvelles PVVIH ayant débuté un traitement antirétroviral en {{MOIS}} — DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "# Nouvelles PVVIH sous TARV en {{MOIS}} dans DAMA", "den": "# Nouvelles PVVIH sous TARV en {{MOIS}} dans le Registre", "dqa": 1, "perMonth": true, "order": 380}, {"n": 38, "code": "Q38", "sec": "DQA", "q": "Le nombre de personnes vivant avec le VIH sous traitement antirétroviral en {{MOIS}} — DAMA = Registre", "type": "RATIO", "dom": "MNE", "num": "# PVVIH sous TARV en {{MOIS}} dans DAMA", "den": "# PVVIH sous TARV en {{MOIS}} dans le Registre", "dqa": 1, "perMonth": true, "order": 390}, {"n": 43, "code": "Q43", "sec": "DQA", "q": "Ce site dispose-t-il d'un organisme a base communautaire affilié offrant la distribution d'ARV (PODIC) ?", "type": "BINARY", "dom": "CLIN", "order": 400}, {"n": 44, "code": "Q44", "sec": "Prévention TB", "q": "le site dispose t il de la liste lineaire des patients eligibles au TPT attendus durant le mois", "type": "BINARY", "dom": "CLIN", "order": 410}, {"n": 59, "code": "Q59", "sec": "Prévention TB", "q": "% de PVVIH mises sous TPT", "type": "RATIO", "dom": "CLIN", "num": "# Éligibles initiés au TPT", "sub": "Vérifier le line listing des patients non mis sous TPT par APS.", "den": "# Éligibles au TPT sur la line list", "order": 420}, {"n": 45, "code": "Q45", "sec": "CQI", "q": "Le site dispose-t-il d'un project CQI bien defini?", "type": "BINARY", "dom": "CLIN", "order": 430}, {"n": 47, "code": "Q47", "sec": "IPC", "q": "Existe-t-il un plan de contrôle de la tuberculose spécifique à la formation sanitaire ?", "type": "COMPOSITE", "dom": "CLIN", "items": ["Les tousseurs sont identifiés à l'entrée", "Les instructions sur la manière de tousser sont affichées", "Les soins sont priorisés pour tout tousseur identifié"], "order": 440}, {"n": 48, "code": "Q48", "sec": "IPC", "q": "Y a-t-il une personne point focal pour la CPI dans le site, avec tous les points suivants ?", "type": "COMPOSITE", "dom": "CLIN", "items": ["Le PF CPI dispose de temps et de ressources dédiés aux activités CPI", "Le PF CPI a reçu une formation spécifique CPI au moins une fois dans l'année", "Le PF CPI tient le registre du screening des infections", "Le PF CPI tient le suivi des résultats", "Le PF CPI tient le registre des vaccinations", "Le PF CPI tient le registre des expositions"], "order": 450}, {"n": 49, "code": "Q49", "sec": "IPC", "q": "Tous les matériels suivant pour collectes des échantillons sont t-ils disponible ? gants à usage unique, matériels pour lavage des mains, boite de sécurité", "type": "COMPOSITE", "dom": "CLIN", "items": ["Gants à usage unique", "Matériels pour le lavage des mains", "Boîte de sécurité"], "order": 460}, {"n": 50, "code": "Q50", "sec": "IPC", "q": "Est-ce que le site a TOUS les équipements suivants nécessaire pour EPP ? Sélection TOUS applicable : 1) Gants 2) Robes 3) Masque facial médical 4) Lunettes ou masque en plastique 5) Les Masque N95 ou respiratoire équivalent", "type": "COMPOSITE", "dom": "CLIN", "items": ["Gants", "Blouses (robes)", "Masque facial médical", "Lunettes ou écran facial", "Masques N95 ou respirateur équivalent"], "order": 470}, {"n": 51, "code": "Q51", "sec": "IPC", "q": "Est-ce que TOUS les éléments suivants sont disponibles dans la FOSA ? les gants ; blouses ; eau et savon ; boite de sécurité ; poubelles.", "type": "COMPOSITE", "dom": "CLIN", "items": ["Gants", "Blouses", "Eau et savon", "Boîte de sécurité", "Poubelles"], "order": 480}, {"n": 52, "code": "Q52", "sec": "IPC", "q": "Les déchets infectieux sont-ils correctement gérés ?", "type": "COMPOSITE", "dom": "CLIN", "items": ["Les déchets infectieux sont séparés des déchets généraux", "Ils sont gardés dans des poubelles à couvercle", "Les poubelles sont étiquetées"], "order": 490}, {"n": 53, "code": "Q53", "sec": "MNT", "q": "Le site dispose t il d’un pèse personne ?", "type": "BINARY", "dom": "CLIN", "order": 500}, {"n": 54, "code": "Q54", "sec": "MNT", "q": "Le site dispose t’il d’un Tensiomètre", "type": "BINARY", "dom": "CLIN", "order": 510}, {"n": 55, "code": "Q55", "sec": "MNT", "q": "Le poids est-il pris et documenté dans le dossier, dans le TARV et dans le DAMA ?", "type": "SAMPLED", "dom": "CLIN", "num": "# Dossiers, parmi les 10, où le poids est documenté dans le dossier, le TARV ET le DAMA", "defDen": 10, "sampleGroup": "MNT10", "sub": "Échantillon systématique de 10 dossiers, tiré une seule fois pour les questions 55, 56 et 57. Le premier dossier actif est le point de départ.", "order": 520}, {"n": 56, "code": "Q56", "sec": "MNT", "q": "La taille est-elle prise et documentée dans le dossier, dans le TARV et dans le DAMA ?", "type": "SAMPLED", "dom": "CLIN", "num": "# Dossiers, parmi les 10, où la taille est documentée dans le dossier, le TARV ET le DAMA", "defDen": 10, "sampleGroup": "MNT10", "sub": "Échantillon systématique de 10 dossiers, tiré une seule fois pour les questions 55, 56 et 57. Le premier dossier actif est le point de départ.", "order": 530}, {"n": 57, "code": "Q57", "sec": "MNT", "q": "La tension artérielle est-elle prise et documentée dans le dossier, dans le TARV et dans le DAMA ?", "type": "SAMPLED", "dom": "CLIN", "num": "# Dossiers, parmi les 10, où la tension artérielle est documentée dans le dossier, le TARV ET le DAMA", "defDen": 10, "sampleGroup": "MNT10", "noChild": true, "sub": "Échantillon systématique de 10 dossiers, tiré une seule fois pour les questions 55, 56 et 57. Le premier dossier actif est le point de départ. Un enfant tiré dans l'échantillon est remplacé pour cette question uniquement.", "order": 540}, {"n": 58, "code": "Q58", "sec": "FECH", "q": "% d'enfants (enfants biologiques et enfants exposés) sur la line list des APS effectivement collectés", "type": "RATIO", "dom": "CLIN", "num": "# Enfants collectés", "sub": "Vérifier le line listing par APS.", "den": "# Enfants sur la line list des APS", "order": 550}, {"n": 60, "code": "Q60", "sec": "Dispensation communautaire", "q": "Le nom de l'OBC apparaît-il dans DAMA pour tous les patients dispensés en communauté ?", "type": "RATIO", "dom": "CLIN", "num": "# Patients dispensés en communauté dont le nom de l'OBC apparaît dans DAMA", "dqa": 1, "sub": "Contrôle de concordance entre la liste des clients de l'OBC et DAMA.", "den": "# Clients dispensés par l'OBC", "order": 560}, {"n": 61, "code": "Q61", "sec": "pALD", "q": "% d'enfants infectés éligibles et initiés au pALD", "type": "RATIO", "dom": "CLIN", "num": "# Enfants infectés éligibles et initiés au pALD", "den": "# Enfants infectés éligibles au pALD", "order": 570}, {"n": 62, "code": "Q62", "sec": "pALD", "q": "% d'enfants de moins de 10 ans avec poids documenté dans DAMA", "type": "RATIO", "dom": "CLIN", "num": "# Enfants de moins de 10 ans avec poids documenté dans DAMA", "sub": "Nombre de dossiers d'enfants de moins de 10 ans à jour du poids, en conformité avec DAMA.", "den": "# Enfants de moins de 10 ans", "order": 580}, {"n": 65, "code": "Q65", "sec": "Handshake Model", "q": "Affichage de l'algortithme des connus positifs et du Handshake Model dans l'UPEC", "type": "BINARY", "dom": "CLIN", "order": 590}, {"n": 68, "code": "Q68", "sec": "Recency Test", "q": "Nombre de nouveaux positifs ayant été testés au recency", "type": "RATIO", "dom": "CLIN", "num": "# Nouveaux positifs testés au recency", "den": "# Nouveaux positifs", "order": 600}];
 
 /* ===================== i18n ===================== */
 const I18N = {
@@ -865,6 +865,21 @@ function roleLabel(k){
            ADMIN:      L?'Administrateur':'Administrator',
            SITE:       L?'Personnel du site':'Facility staff',
            VIEWER:     L?'Lecteur':'Viewer'})[k] || k;
+}
+/* ---- WHAT A PERSON IS, NOT WHAT THEIR PRINCIPAL ROLE IS ----------------------------
+   roleLabel() prints one role, because `role` holds one role. On an account carrying
+   two hats it printed the principal one and stopped, so somebody who had been granted
+   the supervisor hat still read "Personnel du site" on the sign-in card, on the home
+   screen and in the console — the privileges worked, and nothing anywhere said so.
+   Every place that names a person's role calls this instead. */
+function rolesLabel(u){
+  if(!u) return '';
+  if(isSlot(u) || !isDual(u)) return roleLabel(u.role);
+  const L=LANG==='fr';
+  /* principal first, so the account still reads as what it primarily is */
+  return u.role==='SITE'
+    ? (L?'Personnel du site + Superviseur':'Facility staff + Supervisor')
+    : (L?'Superviseur + Personnel du site':'Supervisor + Facility staff');
 }
 
 /* A reason we can log, asked inside the app rather than through the browser's own
@@ -947,6 +962,7 @@ const DB = {
         id:q.code, order:i+1, weight:1, active:true, version:1
       }));
     }
+    migrateQuestionnaire(d);
     if(!d.cycles || !d.cycles.length){
       d.cycles = [ mkCycle('FY26 Q4', 2026, 4, true) ];
     }
@@ -1043,8 +1059,13 @@ function resolvePeriod(text, cyc, mIdx){
   t = t.replace(new RegExp('en\\s+('+MONTH_RE+')\\s*20\\d\\d','gi'), 'en '+m1);
   t = t.replace(/\bFY2[3-9]-?2?\d?\b/g, 'FY'+(cyc.fy%100));
 
-  /* THEN the explicit tokens the questionnaire actually uses. */
+  /* THEN the explicit tokens the questionnaire actually uses.
+     {{FY_DEBUT}} is the first day of the PREVIOUS fiscal year — the opening of the
+     window the paediatric and EID questions look back over. The fiscal year starts on
+     1 October, so FY26 opens on 1 October 2025 and the window opens a year earlier. */
+  const fyPrevStart = (LANG==='fr' ? '1er octobre ' : '1 October ') + (2000 + (cyc.fy||0) - 2);
   return t.replace(/\{\{PERIODE\}\}/g, lbl)
+          .replace(/\{\{FY_DEBUT\}\}/g, fyPrevStart)
           .replace(/\{\{MOIS_1\}\}/g, m1)
           .replace(/\{\{MOIS_2\}\}/g, m2)
           .replace(/\{\{MOIS\}\}/g,   mk);
@@ -1091,15 +1112,53 @@ function dqaExplain(N,D,diff,pct,b,cfg){
     : `DAMA = ${N} · Register = ${D}\nGap = ${N-D} (${pct.toFixed(1)} %)\n${rule}\nBeyond ±${cfg.yellowPct}% the score is red.\nResult: ${b==='g'?'GREEN (1 point)':b==='a'?'YELLOW (0.5 point)':'RED (0 point)'}`);
 }
 
+/* The denominator of a ratio, wherever it comes from.
+   Q30 counts the results received against the samples TAKEN — a figure the supervisor
+   has already entered one question earlier, on Q29. Asking for it twice invites two
+   different answers to the same question, so it is carried across instead of retyped. */
+function denOf(q, a, all){
+  /* The carried figure is written into the answer as soon as the source question is
+     answered, so the stored value is the one that was pushed to the server and the one
+     an export shows. It is read first, and the source is only a fallback — for a copy
+     that arrived from another phone before the carry ever ran. */
+  if(a.den!==undefined && a.den!==null && a.den!=='') return Number(a.den);
+  if(q.denFrom && all){
+    const src = all[q.denFrom];
+    if(src && !src.na && src.num!==undefined && src.num!==null && src.num!=='') return Number(src.num);
+    return null;
+  }
+  if(q.defDen) return Number(q.defDen);
+  return null;
+}
+const UNANSWERED = ()=>({n:null,d:null,pct:null,band:'n',na:false,answered:false});
+
 /* Score one answer → {n, d, pct, band, na, explain} */
-function scoreAnswer(q, a){
-  if(!a) return {n:null,d:null,pct:null,band:'n',na:false,answered:false};
+function scoreAnswer(q, a, all){
+  if(!a) return UNANSWERED();
   if(a.na) return {n:0,d:0,pct:null,band:'n',na:true,answered:true,
                    explain:(LANG==='fr'?'Marqué N/A — exclu du numérateur et du dénominateur.':'Marked N/A — excluded from both numerator and denominator.')};
   const L = LANG==='fr';
+
+  /* ---- A GATE QUESTION ------------------------------------------------------------
+     Oui/Non first, and only then the figures. « Non » closes the question at zero and
+     the figures are never asked for, because there is nothing to count. « Oui » opens
+     the numerator and the denominator, and the score is theirs — not the Oui's. */
+  if(q.gate){
+    if(a.v===undefined || a.v===null) return UNANSWERED();
+    if(a.v===false) return {n:0,d:1,pct:0,band:'r',na:false,answered:true,gate:false,
+      explain:(L?'Réponse : Non.\nLe service n\'est pas rendu : il n\'y a rien à dénombrer.\nScore = 0 ÷ 1 = 0 %'
+                :'Answer: No.\nThe service is not provided, so there is nothing to count.\nScore = 0 ÷ 1 = 0 %')};
+  }
+
+  /* ---- CONCORDANCE ----------------------------------------------------------------
+     Two independent counts of the same thing, which ought to be equal. A percentage
+     cannot express this: DAMA reporting MORE than the register is exactly as wrong as
+     reporting less, and a ratio would hide over-reporting completely. So the gap is
+     scored, not the ratio. Used by the DQA chapter, and by the two clinical questions
+     that reconcile one tool against another (34 and 60). */
   if(q.dqa){
-    const r = dqaScore(a.num, a.den);
-    if(!r) return {n:null,d:null,pct:null,band:'n',na:false,answered:false};
+    const r = dqaScore(a.num, denOf(q, a, all));
+    if(!r) return UNANSWERED();
     return {n:r.points,d:1,pct:r.points*100,band:r.band,na:false,answered:true,explain:r.explain,dqa:r};
   }
   if(q.type==='BINARY'){
@@ -1120,20 +1179,31 @@ function scoreAnswer(q, a){
   }
   if(q.type==='COMPOSITE'){
     const items = q.items||[];
+    /* ---- A LIST WITH NOTHING IN IT IS NOT A PASS ----------------------------------
+       [].every(Boolean) is true — vacuously, because there is nothing to fail. That one
+       line of arithmetic gave questions 48 to 51 a full green the instant the screen
+       opened, with no way for a supervisor to answer them, for the whole of the first
+       week in the field. A question with no items to tick is BROKEN, not answered: it
+       scores nothing, it counts nowhere, and it says so on screen. */
+    if(!items.length) return {n:null,d:null,pct:null,band:'n',na:false,answered:false,broken:true,
+      explain:(L?'Cette question attend une liste de vérification et sa liste est vide : elle ne peut pas être notée.\nSignalez-la à la coordination régionale — Console ▸ Questionnaire.'
+                :'This question expects a checklist and its list is empty: it cannot be scored.\nReport it to the regional coordination — Console ▸ Questionnaire.')};
     const ticks = a.items||[];
-    if(ticks.length!==items.length || ticks.some(x=>x===undefined||x===null))
-      return {n:null,d:null,pct:null,band:'n',na:false,answered:false};
-    const all = ticks.every(Boolean);
-    const pts = all?1:0;
+    if(ticks.length!==items.length || ticks.some(x=>x===undefined||x===null)) return UNANSWERED();
+    const every = ticks.every(Boolean);
+    const pts = every?1:0;
     const nb = ticks.filter(Boolean).length;
-    return {n:pts,d:1,pct:pts*100,band:pts?'g':'r',na:false,answered:true,
-      explain:(L?`${nb} élément(s) sur ${items.length} disponibles.\nLe point n'est accordé que si TOUS les éléments sont présents.\nScore = ${pts} ÷ 1 = ${pts*100} %`
-                :`${nb} of ${items.length} elements present.\nThe point is awarded only when ALL elements are present.\nScore = ${pts} ÷ 1 = ${pts*100} %`)};
+    /* All but one is still zero — but it is shown in amber, so that a site which missed
+       a single item reads differently from one that had nothing at all. */
+    const bd = every ? 'g' : (nb === items.length-1 ? 'a' : 'r');
+    return {n:pts,d:1,pct:pts*100,band:bd,na:false,answered:true,
+      explain:(L?`${nb} élément(s) sur ${items.length} disponibles.\nLe point n'est accordé que si TOUS les éléments sont présents.\nIl en manque un seul : la question s'affiche en jaune, mais elle vaut tout de même 0.\nScore = ${pts} ÷ 1 = ${pts*100} %`
+                :`${nb} of ${items.length} elements present.\nThe point is awarded only when ALL elements are present.\nOne missing shows amber, but it still scores 0.\nScore = ${pts} ÷ 1 = ${pts*100} %`)};
   }
   // RATIO / SAMPLED
-  if(a.num===undefined||a.num===null||a.num===''||a.den===undefined||a.den===null||a.den==='')
-    return {n:null,d:null,pct:null,band:'n',na:false,answered:false};
-  const N = Number(a.num), D = Number(a.den);
+  const D0 = denOf(q, a, all);
+  if(a.num===undefined||a.num===null||a.num===''||D0===null||isNaN(D0)) return UNANSWERED();
+  const N = Number(a.num), D = D0;
   if(D===0) return {n:0,d:0,pct:null,band:'n',na:true,answered:true,
     explain:(L?'Dénominateur nul sur la période — la question est automatiquement exclue (N/A).':'Denominator is zero for the period — automatically excluded (N/A).')};
   const pct = (N/D)*100;
@@ -1147,13 +1217,16 @@ function pooled(qs, answers){
   let sn=0, sd=0, nAns=0, nNA=0, nTot=0, zeros=[];
   qs.forEach(q=>{
     nTot++;
-    const r = scoreAnswer(q, answers[q.id]);
+    const r = scoreAnswer(q, answers[q.id], answers);
     if(!r.answered) return;
     nAns++;
     if(r.na){ nNA++; return; }
     sn += r.n * (q.weight||1);
     sd += r.d * (q.weight||1);
-    if(r.band==='r') zeros.push(q);
+    /* The debriefing line list is "what earned nothing", not "what is red". A checklist
+       missing a single item shows amber to mark how close it came — but it scored zero,
+       and the site has to hear about it. */
+    if(r.band==='r' || (r.d>0 && r.n===0)) zeros.push(q);
   });
   const pct = sd>0 ? (sn/sd)*100 : null;
   /* answered = questions the supervisor has dealt with, N/A included.
@@ -1193,7 +1266,7 @@ function activeQuestions(cyc){
       baseId:     q.id,
       month:      mo || null,
       monthLabel: mo ? monthName(mo.m, mo.y) : '',
-      q:   r(q.q),   num: r(q.num), den: r(q.den), fu: r(q.fu),
+      q:   r(q.q),   num: r(q.num), den: r(q.den), fu: r(q.fu), sub: r(q.sub),
       items: q.items ? q.items.map(r) : q.items
     }));
   };
@@ -1376,6 +1449,119 @@ function closeModal(){ $('#modal-root').innerHTML=''; }
 function infoModal(title, text){
   modal(title, '<div style="white-space:pre-wrap;font-size:.88rem;line-height:1.55">'+esc(text)+'</div>',
     '<button class="btn" onclick="closeModal()">OK</button>');
+}
+
+/* =====================================================================
+   THE 14 SEPTEMBER 2026 QUESTIONNAIRE CORRECTION — AND NO ORPHANS
+
+   Sixty definitions replace sixty-four. Four of them (39 to 42) were July
+   and August duplicates of 35 to 38, and the month now comes from the
+   cycle. Nineteen others changed shape: a period became twelve monthly
+   blocks, a denominator moved, a Oui/Non became a checklist, a sample of
+   thirty became a systematic ten.
+
+   An answer given against the OLD shape of a question is not automatically
+   an answer to the new one, and leaving it in place would be worse than
+   losing it: a figure entered for "April and May" sitting under a question
+   that now says "September" is a wrong answer that looks like a right one.
+
+   So every stored answer is dealt with explicitly. There are three
+   outcomes and no fourth:
+
+     MOVED   the question is the same question, in a different place.
+             Q39 to Q42 were the August half of the DQA block; their
+             figures land in the August month of Q35 to Q38, to the digit.
+     KEPT    only the wording or the label changed. The answer still means
+             what it meant.
+     CLEARED the question changed shape. The answer cannot be carried
+             honestly, so it goes, and the supervisor is told which ones
+             and why.
+
+   Questions 48 to 51 are a fourth case that is really the third: their
+   green was never an answer. It was an empty checklist scoring itself.
+   Those are deleted without ceremony and without being counted as work
+   lost, because no work was ever done.
+   ===================================================================== */
+const QCORR_VERSION = '2026-09-14';
+
+/* old id → new id, for answers that survive intact. The month suffix matches
+   activeQuestions(): 'M' + year + 2-digit month. */
+const QCORR_MOVE = {
+  Q39:'Q35', Q40:'Q36', Q41:'Q37', Q42:'Q38'   /* + the August month key, added below */
+};
+/* shape changed — the old answer cannot mean the same thing */
+const QCORR_CLEAR = ['Q10','Q11','Q12','Q13','Q18','Q29','Q30','Q34',
+                     'Q35','Q36','Q37','Q38',
+                     'Q47','Q52','Q55','Q56','Q57'];
+/* never an answer in the first place: the empty-checklist bug */
+const QCORR_PHANTOM = ['Q48','Q49','Q50','Q51'];
+
+function migrateQuestionnaire(d){
+  if(!d.questions || !d.questions.length) return;
+  if(d.config && d.config.qcorr === QCORR_VERSION) return;
+
+  /* 1 · the definitions themselves, replaced wholesale from the build */
+  const seeded = {};
+  SEED_QUESTIONS.forEach((q,i)=>{ seeded[q.code] = Object.assign({}, q, {
+    id:q.code, order:i+1, weight:1, active:true, version:2 }); });
+  const gone = d.questions.filter(q=>!seeded[q.id]).map(q=>q.id);
+  d.questions = SEED_QUESTIONS.map((q,i)=>Object.assign({}, seeded[q.code]));
+
+  /* 2 · every answer on every supervision */
+  const report = {moved:0, kept:0, cleared:0, phantom:0, visits:{}};
+  const augKey = (()=>{
+    /* the August of the cycle these answers were given under — the DQA rows 39-42
+       were, by construction, the second month of the FY26 Q4 cycle */
+    const c=(d.cycles||[]).find(x=>x.active) || (d.cycles||[])[0];
+    const ms=c?cycleMonths(c):[];
+    const aug=ms.find(m=>m.m===7) || ms[1] || ms[0];
+    return aug ? ('M'+aug.y+String(aug.m+1).padStart(2,'0')) : '';
+  })();
+
+  Object.keys(d.answers||{}).forEach(vid=>{
+    const A=d.answers[vid]; if(!A) return;
+    const r={moved:[], cleared:[], phantom:0};
+    Object.keys(A).forEach(key=>{
+      /* an id may already carry a month suffix: Q35M202607 */
+      const base = key.replace(/M\d{6}$/,'');
+      const suffix = key.slice(base.length);
+
+      if(QCORR_PHANTOM.includes(base)){
+        /* the empty-checklist green: delete, do not report as work lost */
+        delete A[key]; r.phantom++; report.phantom++; return;
+      }
+      if(QCORR_MOVE[base] && !suffix){
+        const dest = QCORR_MOVE[base] + augKey;
+        if(!A[dest]) A[dest] = A[key];
+        delete A[key];
+        r.moved.push(base); report.moved++; return;
+      }
+      if(QCORR_CLEAR.includes(base)){
+        const answered = A[key] && (A[key].v!==undefined || A[key].na ||
+          (A[key].num!==undefined && A[key].num!=='') || A[key].items || A[key].days);
+        delete A[key];
+        if(answered){ r.cleared.push(base); report.cleared++; }
+        return;
+      }
+      /* an id that no longer exists at all, and is not one we planned for */
+      if(!seeded[base]){ delete A[key]; if(!gone.includes(base)) gone.push(base); return; }
+      report.kept++;
+    });
+    if(r.moved.length || r.cleared.length || r.phantom) report.visits[vid]=r;
+  });
+
+  /* 3 · what each supervisor must be shown, once, on the supervision itself */
+  (d.visits||[]).forEach(v=>{
+    const r=report.visits[v.id]; if(!r) return;
+    v.corrected = {version:QCORR_VERSION,
+      moved:r.moved.length, cleared:[...new Set(r.cleared)], phantom:r.phantom, seen:false};
+  });
+
+  d.config = d.config || {};
+  d.config.qcorr = QCORR_VERSION;
+  d.config.qcorrReport = {at:Date.now(), moved:report.moved, kept:report.kept,
+                          cleared:report.cleared, phantom:report.phantom,
+                          removedDefinitions:gone};
 }
 
 /* ===================== router / shell ===================== */
@@ -1803,7 +1989,7 @@ function viewLoginAdmin(){
       <div class="list" style="margin:6px 0 12px">${slots.map(u=>`
         <button class="item admpick ${u.id===cur?'on':''}" onclick="pickAdmSlot('${u.id}')">
           <div style="min-width:0;text-align:left"><b>${esc(u.name)}</b>
-            <div class="xs muted">${esc(roleLabel(u.role))}${
+            <div class="xs muted">${esc(rolesLabel(u))}${
               u.claimed ? '' : (L?' · à activer':' · to activate')}</div></div>
           <span class="chip ${u.id===cur?'g':'n'}">${u.id===cur?'✓':'○'}</span>
         </button>`).join('')}</div>
@@ -3537,15 +3723,54 @@ function roleRevokedNotice(u){
       +roleLabelFor(u.role)+'.\n\nIf this is a mistake, call a super user.');
 }
 
-/* ===================== HOME ===================== */
+/* =====================================================================
+   WHO SEES A SUPERVISION, AND WHO HOLDS THE PEN
+
+   Two or more supervisors are assigned to the same district, and only one
+   of them conducts a given facility in a given cycle. The other ones used
+   to see NOTHING — the record arrived on their phone with every sync and
+   was then filtered out of every list, so a colleague's work was invisible
+   even though it was sitting in the same database.
+
+   Now: everybody assigned to the district SEES it, read only, with the
+   holder's name on it. Exactly one person can type into it. And the pen can
+   move — because a supervisor travels, falls ill, or loses a handset, and
+   that must not force a whole team to start the facility again.
+   ===================================================================== */
+function visitVisible(v, u){
+  if(!v || !u) return false;
+  if(isSuper()) return true;                 // the console sees the region
+  if(v.uid === u.id) return true;            // my own work, always
+  if(!hasSupHat(u)) return false;            // facility staff read their site elsewhere
+  const ds = Array.isArray(u.districts) ? u.districts : [];
+  const s  = siteById(v.siteId) || {};
+  return ds.includes(s.district);            // assigned to the district it belongs to
+}
+/* The pen: exactly one holder, and it is the only person who may type. */
+function holdsPen(v){ const u=me(); return !!(u && v && v.uid===u.id && !isSlot(u)); }
+function penHolderName(v){
+  if(!v) return '';
+  const u=DB.d.users.find(x=>x.id===v.uid);
+  return (u && u.name) || v.supervisor || '';
+}
+/* Locked for THIS person: submitted, or approved, or not theirs, or a console account. */
+function visitLocked(v){
+  if(!v) return true;
+  return v.status==='SUBMITTED' || v.status==='APPROVED' || !canSupervise() || !holdsPen(v);
+}
 function myVisits(){
-  const u=me();
-  return DB.d.visits.filter(v=> isSuper() ? true : v.uid===u.id)
+  const u=me(); if(!u) return [];
+  return DB.d.visits.filter(v=> visitVisible(v,u))
                     .sort((a,b)=>(b.updated||0)-(a.updated||0));
 }
+/* The ones this person may actually work on — what the home counters should say. */
+function myOwnVisits(){ const u=me(); if(!u) return [];
+  return myVisits().filter(v=>v.uid===u.id); }
 function viewHome(){
   const u=me(), c=activeCycle(), L=LANG==='fr';
-  const mine=myVisits(); const drafts=mine.filter(v=>v.status==='DRAFT');
+  const mine=myOwnVisits(); const drafts=mine.filter(v=>v.status==='DRAFT');
+  /* Somebody else's work, in my districts: visible, never mine to open for editing. */
+  const theirs=myVisits().filter(v=>v.uid!==u.id && !isSuper());
   const sub=DB.d.visits.filter(v=>v.status==='SUBMITTED');
   /* Counters must describe THIS person's work. A supervisor covering two districts was
      being shown the region's 84 facilities and every overdue recommendation in the West —
@@ -3560,7 +3785,7 @@ function viewHome(){
   <div class="card" style="background:linear-gradient(135deg,#0B3C71,#1B6EC2);color:#fff;border:0">
     <div class="spread">
       <div><h2 style="color:#fff;margin:0">${esc(u.name)}</h2>
-        <span class="small" style="opacity:.85">${esc(roleLabel(u.role))} · ${
+        <span class="small" style="opacity:.85">${esc(rolesLabel(u))} · ${
           Array.isArray(u.districts)&&u.districts.length?esc(u.districts.join(', '))
             :(L?'Tous les districts':'All districts')}</span></div>
       <span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${esc(c?c.name:'—')}</span>
@@ -3589,6 +3814,12 @@ function viewHome(){
   ${drafts.length?`<div class="card"><h3>${T('draft')} (${drafts.length})</h3><div class="list">
     ${drafts.map(v=>visitRow(v)).join('')}</div></div>`:''}
 
+  ${theirs.length?`<div class="card"><h3>${L?'Dans mes districts':'In my districts'} (${theirs.length})</h3>
+    <p class="xs muted">${L
+      ?'Le travail de vos collègues, en lecture seule. Un seul téléphone tient la plume sur une formation sanitaire ; ouvrez la supervision pour voir qui, et pour demander le transfert si cette personne est empêchée.'
+      :'Your colleagues\' work, read only. One phone holds the pen on a facility; open the supervision to see who, and to ask for the transfer if that person is unavailable.'}</p>
+    <div class="list">${theirs.slice(0,12).map(v=>visitRow(v)).join('')}</div></div>`:''}
+
   ${isSuper()&&sub.length?`<div class="card"><h3>${L?'À approuver':'To approve'} <span class="badge">${sub.length}</span></h3>
     <p class="xs muted">${L?'Chaque ligne ouvre directement l\'onglet « Revue et soumission », où se trouvent les boutons Approuver et Retourner.'
                            :'Each row opens the "Review and submit" tab directly, where the Approve and Return buttons are.'}</p>
@@ -3602,9 +3833,12 @@ function visitRow(v, tab){
   const s=siteById(v.siteId)||{facility:'?',district:'?'};
   const sc = v.scores ? v.scores.overall : visitScores(v).overall;
   const b = sc.pct===null?'n':band(sc.pct);
+  const u=me();
+  const notMine = u && !isSlot(u) && v.uid!==u.id;
   return `<div class="item" onclick="go('#/visit/${v.id}${tab?'/'+tab:''}')">
     <div style="min-width:0"><b>${esc(s.facility)}</b>
-      <div class="s">${esc(s.district)} · ${esc(v.date||'')} · ${statusChip(v.status)}</div></div>
+      <div class="s">${esc(s.district)} · ${esc(v.date||'')} · ${statusChip(v.status)}${
+        notMine?` · 🔒 ${esc(penHolderName(v)||(LANG==='fr'?'un autre superviseur':'another supervisor'))}`:''}</div></div>
     <span class="row" style="gap:6px;flex-wrap:nowrap">
       ${reportReady(v)?`<button class="btn sec sm" title="${LANG==='fr'?'Rapport de supervision':'Supervision report'}"
         onclick="event.stopPropagation();go('#/report/${v.id}')">📄</button>`:''}
@@ -3812,7 +4046,7 @@ function viewVisit(vid, tab, arg){
   if(!VISIT_TABS.includes(tab)) tab='q';   // an unknown tab is the questionnaire, on purpose
   const s=siteById(v.siteId)||{}; const c=DB.d.cycles.find(x=>x.id===v.cycleId)||activeCycle();
   const sc=visitScores(v);
-  const locked = v.status==='SUBMITTED'||v.status==='APPROVED'||!canSupervise();
+  const locked = visitLocked(v);
   const tabs=[['q',LANG==='fr'?'Questionnaire':'Questionnaire'],['swot',T('swot')],
               ['plan',T('actionPlan')],['fu',T('followup')],['rev',T('review')],
               ['rep',LANG==='fr'?'📄 Rapport':'📄 Report']];
@@ -3868,7 +4102,7 @@ function visitQuestions(v, sc, locked){
   const c=cycleOf(v);
   const A=DB.d.answers[v.id]||{};
   const p=pooled(qs,A);
-  const done=all.filter(q=>scoreAnswer(q,A[q.id]).answered).length;
+  const done=all.filter(q=>scoreAnswer(q,A[q.id],A).answered).length;
   const tot=all.length;
   return `
   <div id="secanchor"></div>
@@ -3889,11 +4123,14 @@ function visitQuestions(v, sc, locked){
     &nbsp;·&nbsp; ${done}/${tot} ${LANG==='fr'?'questions répondues':'questions answered'}</div>
   <div class="bar" style="margin-bottom:10px"><i style="width:${(done/tot*100).toFixed(1)}%"></i></div>
 
+  ${penBanner(v)}
+  ${correctedBanner(v)}
+
   <div class="card tight spread">
     <span class="small"><b>${esc(cur)}</b> — ${qs.length} question${qs.length>1?'s':''}</span>
     <span class="chip ${p.band}" id="sec-score" data-sec="${esc(cur)}">${pc(p.pct)}</span>
   </div>
-  ${qs.map(q=>qBox(v,q,A[q.id],locked,c)).join('')}
+  ${qs.map(q=>qBox(v,q,A[q.id],!mayEditQ(v,q),c)).join('')}
 
   <div class="bottombar">
     <button class="btn sec" ${VSEC===0?'disabled':''} onclick="gotoSec(${VSEC-1})">‹ ${LANG==='fr'?'Précédent':'Previous'}</button>
@@ -3908,53 +4145,103 @@ function gotoSec(i){
   if(VSEC!==before) window._toSection=true;
   window._keepScroll=0; render();
 }
+/* The numerator / denominator pair, shared by a plain ratio, a sample and the part of a
+   gate question that opens after « Oui ». A denominator carried from another question is
+   shown, not asked for: it is already answered, and a second box invites a second answer. */
+function ndBlock(v,q,a,dis){
+  const nl=q.num||T('numerator'), dl=q.den||T('denominator');
+  const L=LANG==='fr';
+  const carried = !!q.denFrom;
+  const dv = a.den ?? (q.defDen??'');
+  return `<div class="nd">
+    <label><span>${esc(nl)}</span><input type="number" min="0" value="${a.num??''}" ${dis}
+      oninput="liveA('${v.id}','${q.id}',{num:this.value})" onblur="guardND('${v.id}','${q.id}','num',this)"></label>
+    <label><span>${esc(dl)}</span><input type="number" min="0" value="${dv}" ${carried?'disabled':dis}
+      ${carried?'':`oninput="liveA('${v.id}','${q.id}',{den:this.value})" onblur="guardND('${v.id}','${q.id}','den',this)"`}></label></div>
+    ${carried?`<p class="xs muted" style="margin:4px 0 0">${L
+      ?`Repris automatiquement de la question ${(qById(q.denFrom,v)||{}).n||q.denFrom} — saisissez-le là-bas s'il est à corriger.`
+      :`Carried from question ${(qById(q.denFrom,v)||{}).n||q.denFrom} — change it there if it is wrong.`}</p>`:''}
+    ${(q.defDen && !q.sampleGroup)?`<p class="xs muted" style="margin:4px 0 0">${L
+      ?`Échantillon prescrit : ${q.defDen} dossiers. Toute modification exige un motif.`
+      :`Prescribed sample: ${q.defDen} records. Any change requires a reason.`}</p>`:''}`;
+}
+
 function qBox(v,q,a,locked,c){
   a=a||{};
-  const r=scoreAnswer(q,a);
-  const txt=q.q;
+  const A=DB.d.answers[v.id]||{};
+  const r=scoreAnswer(q,a,A);
+  const txt=q.q, L=LANG==='fr';
   const dis=locked?'disabled':'';
+  const naBtn=`<button class="btn sec sm ${a.na?'sel-x':''}" ${dis} style="margin-top:6px" onclick="markNA('${v.id}','${q.id}')">${T('na')}</button>`;
   let body='';
-  if(q.type==='BINARY'){
+
+  /* ---- a broken checklist stops here, loudly ------------------------------------- */
+  if(r.broken){
+    body=`<div class="banner b-err" style="margin-top:8px">${L
+      ?'<b>Question incomplète.</b> Elle attend une liste de vérification et sa liste est vide : elle ne peut pas être notée et elle ne compte dans aucun score. Signalez-la à la coordination régionale.'
+      :'<b>Incomplete question.</b> It expects a checklist and its list is empty: it cannot be scored and it counts towards nothing. Report it to the regional coordination.'}</div>`;
+  }
+  else if(q.type==='BINARY'){
     body=`<div class="yn">
       <button class="${a.v===true?'sel-y':''}" ${dis} onclick="setA('${v.id}','${q.id}',{v:true})">${T('yes')}</button>
       <button class="${a.v===false?'sel-n':''}" ${dis} onclick="setA('${v.id}','${q.id}',{v:false,fu:null})">${T('no')}</button>
       <button class="${a.na?'sel-x':''}" ${dis} onclick="markNA('${v.id}','${q.id}')">${T('na')}</button></div>`;
+    /* A "yes, and then…" question opens its own panel. The answer is summarised here,
+       so nothing that decides the score is hidden behind a button. */
     if(q.fu && a.v===true){
-      body+=`<div style="margin-top:8px;padding-left:12px;border-left:3px solid var(--blue)">
+      const done = a.fu===true||a.fu===false;
+      body+=`<div class="subq">
         <div class="small"><b>↳</b> ${esc(q.fu)}</div>
-        <div class="yn">
-          <button class="${a.fu===true?'sel-y':''}" ${dis} onclick="setA('${v.id}','${q.id}',{fu:true})">${T('yes')}</button>
-          <button class="${a.fu===false?'sel-n':''}" ${dis} onclick="setA('${v.id}','${q.id}',{fu:false})">${T('no')}</button>
-        </div></div>`;
+        <button class="btn ${done?'sec':''} sm" ${dis} onclick="fuModal('${v.id}','${q.id}')">${
+          done ? (L?'Modifier la réponse':'Change the answer') : (L?'Répondre':'Answer')}</button>
+        <span class="small ${a.fu===true?'okv':'kov'}" style="margin-left:8px">${
+          done ? (a.fu ? '✔ '+T('yes') : '✘ '+T('no')) : (L?'— en attente':'— pending')}</span>
+      </div>`;
     }
-  } else if(q.type==='THRESHOLD'){
-    body=`<label class="f" style="margin:8px 0 0"><span>${LANG==='fr'?'Délai observé (jours)':'Observed delay (days)'}</span>
-      <input type="number" min="0" value="${a.days??''}" ${dis}
-        oninput="liveA('${v.id}','${q.id}',{days:this.value})"></label>
-      <button class="btn sec sm ${a.na?'sel-x':''}" ${dis} style="margin-top:6px" onclick="markNA('${v.id}','${q.id}')">${T('na')}</button>`;
-  } else if(q.type==='COMPOSITE'){
-    body=(q.items||[]).map((it,i)=>`<label class="chk"><input type="checkbox" ${dis}
-      ${(a.items||[])[i]?'checked':''} onchange="setItem('${v.id}','${q.id}',${i},this.checked,${q.items.length})">
-      <span>${esc(it)}</span></label>`).join('')+
-      `<button class="btn sec sm" ${dis} style="margin-top:6px" onclick="markNA('${v.id}','${q.id}')">${T('na')}</button>`;
-  } else {
-    const nl=q.num||T('numerator'), dl=q.den||T('denominator');
-    body=`<div class="nd">
-      <label><span>${esc(nl)}</span><input type="number" min="0" value="${a.num??''}" ${dis}
-        oninput="liveA('${v.id}','${q.id}',{num:this.value})" onblur="guardND('${v.id}','${q.id}','num',this)"></label>
-      <label><span>${esc(dl)}</span><input type="number" min="0" value="${a.den ?? (q.defDen??'')}" ${dis}
-        oninput="liveA('${v.id}','${q.id}',{den:this.value})" onblur="guardND('${v.id}','${q.id}','den',this)"></label></div>
-      ${q.defDen?`<p class="xs muted" style="margin:4px 0 0">${LANG==='fr'
-        ?`Échantillon prescrit : ${q.defDen} dossiers. Toute modification exige un motif.`
-        :`Prescribed sample: ${q.defDen} records. Any change requires a reason.`}</p>`:''}
-      <button class="btn sec sm ${a.na?'sel-x':''}" ${dis} style="margin-top:6px" onclick="markNA('${v.id}','${q.id}')">${T('na')}</button>`;
   }
+  else if(q.type==='THRESHOLD'){
+    body=`<label class="f" style="margin:8px 0 0"><span>${L?'Délai observé (jours)':'Observed delay (days)'}</span>
+      <input type="number" min="0" value="${a.days??''}" ${dis}
+        oninput="liveA('${v.id}','${q.id}',{days:this.value})"></label>`+naBtn;
+  }
+  else if(q.type==='COMPOSITE'){
+    const items=q.items||[], ticks=a.items||[];
+    const nb=ticks.filter(Boolean).length;
+    const started=ticks.length===items.length && !ticks.some(x=>x===undefined||x===null);
+    body=`<div class="chkline">
+      <button class="btn ${started?'sec':''} sm" ${dis} onclick="itemsModal('${v.id}','${q.id}')">
+        ☑ ${L?`Vérifier les ${items.length} éléments`:`Check the ${items.length} items`}</button>
+      <span class="small" style="margin-left:8px">${started
+        ? `<b>${nb}/${items.length}</b> ${L?'présent(s)':'present'}`
+        : (L?'— aucun élément vérifié':'— nothing checked yet')}</span></div>
+      ${started && nb<items.length ? `<p class="xs kov" style="margin:4px 0 0">${L
+        ?'Manquant : ':'Missing: '}${esc(items.filter((_,i)=>!ticks[i]).join(' · '))}</p>`:''}`+naBtn;
+  }
+  else if(q.gate){
+    /* Oui/Non first. « Non » closes the question — the figures are never asked for. */
+    body=`<div class="yn">
+      <button class="${a.v===true?'sel-y':''}" ${dis} onclick="setA('${v.id}','${q.id}',{v:true})">${T('yes')}</button>
+      <button class="${a.v===false?'sel-n':''}" ${dis} onclick="setA('${v.id}','${q.id}',{v:false})">${T('no')}</button>
+      <button class="${a.na?'sel-x':''}" ${dis} onclick="markNA('${v.id}','${q.id}')">${T('na')}</button></div>`;
+    if(a.v===true) body+=`<div class="subq">${ndBlock(v,q,a,dis)}</div>`;
+    else if(a.v===false) body+=`<p class="xs muted" style="margin:6px 0 0">${L
+      ?'Réponse « Non » : il n\'y a rien à dénombrer. La question vaut 0.'
+      :'Answered "No": there is nothing to count. The question scores 0.'}</p>`;
+  }
+  else {
+    body=ndBlock(v,q,a,dis);
+    if(q.sampleGroup) body += sampleLine(v,q,dis);
+    body += naBtn;
+  }
+
+  const chip = q.dqa ? `<span class="chip n">${q.dom==='MNE'?'DQA':(L?'Concordance':'Concordance')}</span>` : '';
   return `<div class="qbox ${qFill(r)}" id="qb-${q.id}">
     <div class="qhead">
       <span class="qnum">${q.n}</span>
-      <div class="qtxt">${esc(txt)}${q.dqa?' <span class="chip n">DQA</span>':''}${
-        q.monthLabel?` <span class="chip a">${esc(q.monthLabel)}</span>`:''}</div>
-      <button class="iBtn" title="${LANG==='fr'?'Aide : que vérifier, où le vérifier':'Help: what to check and where'}"
+      <div class="qtxt">${esc(txt)} ${chip}${
+        q.monthLabel?` <span class="chip a">${esc(q.monthLabel)}</span>`:''}
+        ${q.sub?`<div class="xs muted" style="margin-top:3px;font-weight:400">${esc(q.sub)}</div>`:''}</div>
+      <button class="iBtn" title="${L?'Aide : que vérifier, où le vérifier':'Help: what to check and where'}"
         onclick="qHelp('${q.id}','${v.id}')">?</button>
     </div>
     ${body}
@@ -3996,10 +4283,313 @@ function qCommentHTML(q,a,r,vid,dis){
 }
 
 /* --- targeted updates: never rebuild a box the user is typing in --- */
+/* =====================================================================
+   "THE QUESTIONNAIRE HAS BEEN CORRECTED"
+
+   A supervisor who left a facility on Friday with everything answered must
+   not open the app on Monday, find four questions blank, and have to work
+   out for themselves what happened. The supervision says, on its own face,
+   what was moved, what was kept and what has to be answered again — and
+   sends them straight to it.
+   ===================================================================== */
+function correctedBanner(v){
+  const c = v && v.corrected; if(!c) return '';
+  const L=LANG==='fr';
+  const nq = (c.cleared||[]).length;
+  return `<div class="card tight">
+    <div class="banner b-warn">
+      <b>${L?'Questionnaire corrigé':'The questionnaire has been corrected'}</b><br>
+      ${L?'Des corrections validées par la coordination régionale sont arrivées sur ce téléphone.'
+         :'Corrections approved by the regional coordination have reached this phone.'}
+      <ul style="margin:8px 0 0;padding-left:18px">
+        ${c.moved?`<li>${L?`<b>${c.moved}</b> réponse(s) déplacée(s) vers le bon mois — <b>rien à refaire</b>.`
+                          :`<b>${c.moved}</b> answer(s) moved to the right month — <b>nothing to redo</b>.`}</li>`:''}
+        ${c.phantom?`<li>${L?`<b>${c.phantom}</b> question(s) du chapitre CPI se répondaient toutes seules : ce n'était pas une réponse, c'était une anomalie. Elles sont à remplir.`
+                             :`<b>${c.phantom}</b> IPC question(s) were answering themselves: that was never an answer, it was a fault. They are to be filled in.`}</li>`:''}
+        ${nq?`<li>${L?`<b>${nq}</b> question(s) ont changé de forme : leur ancienne réponse ne voudrait plus dire la même chose, elle a donc été effacée.`
+                     :`<b>${nq}</b> question(s) changed shape: the old answer would no longer mean the same thing, so it was cleared.`}</li>`:''}
+      </ul>
+      ${nq?`<div class="xs" style="margin-top:8px">${L?'À revoir :':'To review:'} ${
+        esc((c.cleared||[]).map(id=>{ const q=(DB.d.questions||[]).find(x=>x.id===id); return 'Q'+((q&&q.n)||id); }).join(' · '))}</div>`:''}
+      <div class="row" style="margin-top:10px">
+        ${nq?`<button class="btn sm" onclick="gotoCorrected('${v.id}')">${
+          L?'Rouvrir et compléter':'Reopen and complete'}</button>`:''}
+        <button class="btn sec sm" onclick="dismissCorrected('${v.id}')">${L?'J\'ai lu':'Understood'}</button>
+      </div>
+    </div></div>`;
+}
+function gotoCorrected(vid){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
+  const first=((v.corrected||{}).cleared||[])[0];
+  const q=(DB.d.questions||[]).find(x=>x.id===first);
+  if(q) jumpTo(vid, q.sec); else go('#/visit/'+vid+'/q');
+}
+function dismissCorrected(vid){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
+  v.corrected=null; DB.save(); render();
+}
+
+/* =====================================================================
+   THE PEN — HANDING A SUPERVISION OVER
+
+   Two routes, and both need the network, because a transfer that only one
+   phone knows about is not a transfer.
+
+     · the holder hands it over — they are going on leave, or handing the
+       facility to a colleague already on site;
+     · a colleague asks for it — and a super user or an administrator grants
+       it. This is the route that works when the holder is unreachable,
+       which is the case that matters.
+
+   What a transfer CANNOT do is invent work that never left the phone. It
+   moves what was last synced. That limit is stated on the screen rather
+   than discovered in a facility with a supervisor waiting.
+   ===================================================================== */
+function penBanner(v){
+  const u=me(); if(!u || isSlot(u) || !v) return '';
+  const L=LANG==='fr';
+  if(holdsPen(v)){
+    if(v.status!=='DRAFT') return '';
+    const req=(v.penReq && v.penReq.status==='PENDING') ? v.penReq : null;
+    return `<div class="card tight">
+      <div class="spread"><div><b>${L?'Vous tenez la plume':'You hold the pen'}</b>
+        <div class="xs muted">${L?'Vous êtes seul à pouvoir remplir cette supervision.'
+                                 :'You are the only person who can fill this supervision in.'}</div></div>
+        <button class="btn sec sm" onclick="penHandModal('${v.id}')">⇄ ${L?'Transférer':'Transfer'}</button></div>
+      ${req?`<div class="banner b-warn" style="margin-top:8px">${L
+        ?`<b>${esc(req.byName||'Un superviseur')}</b> demande les droits d'édition${req.why?' : '+esc(req.why):''}.`
+        :`<b>${esc(req.byName||'A supervisor')}</b> is asking for the editing rights${req.why?': '+esc(req.why):''}.`}
+        <div class="row" style="margin-top:6px">
+          <button class="btn sm" onclick="penHand('${v.id}','${esc(req.byId)}','${L?'demande acceptée':'request accepted'}')">${
+            L?'Accepter et transférer':'Accept and transfer'}</button>
+        </div></div>`:''}
+    </div>`;
+  }
+  const who=penHolderName(v)||(L?'un autre superviseur':'another supervisor');
+  const req=(v.penReq && v.penReq.status==='PENDING' && v.penReq.byId===u.id) ? v.penReq : null;
+  return `<div class="card tight">
+    <div class="banner b-warn"><b>${L?'Lecture seule':'Read only'}</b><br>
+      ${L?`Droits d'édition : <b>${esc(who)}</b>`:`Editing rights: <b>${esc(who)}</b>`}
+      ${v.updated?` · ${L?'dernière synchronisation':'last synced'} ${fmtDT(v.updated)}`:''}
+      <div class="xs" style="margin-top:6px">${L
+        ?'Vous pouvez consulter cette supervision et son rapport. Vous ne pouvez pas la modifier : une seule personne écrit sur une formation sanitaire, sinon deux saisies se remplacent l\'une l\'autre.'
+        :'You can read this supervision and its report. You cannot change it: one person writes on a facility, otherwise two sets of entries overwrite each other.'}</div></div>
+    ${v.status==='DRAFT'?(req
+      ? `<div class="banner b-info" style="margin-top:8px">${L
+          ?`Demande envoyée le ${fmtDT(req.at)}. ${esc(who)} ou la coordination régionale peut l'accorder.`
+          :`Request sent on ${fmtDT(req.at)}. ${esc(who)} or the regional coordination can grant it.`}</div>`
+      : `<p class="xs muted" style="margin-top:8px">${L
+          ?'<b>Ce qu\'il faut faire :</b> si cette personne est empêchée, demandez les droits d\'édition. Elle peut les accorder elle-même, et la coordination régionale peut les accorder à sa place.'
+          :'<b>What to do:</b> if that person is unavailable, ask for the editing rights. They can grant them, and the regional coordination can grant them in their place.'}</p>
+         <button class="btn sec blk sm" style="margin-top:6px" ${ONLINE?'':'disabled'}
+           onclick="penAskModal('${v.id}')">✋ ${L?'Demander les droits d\'édition':'Ask for the editing rights'}</button>
+         ${ONLINE?'':`<p class="xs muted" style="margin-top:4px">${L?'Hors ligne — la demande part dès que le réseau revient.':'Offline — the request leaves as soon as the network is back.'}</p>`}`)
+      :''}
+  </div>`;
+}
+function penCandidates(v){
+  const s=siteById(v.siteId)||{};
+  const own=new Set();   /* nobody supervises their own facility, transfer included */
+  DB.d.users.forEach(u=>{ if(hasSiteHat(u)) (u.sites||[]).forEach(id=>{ if(id===v.siteId) own.add(u.id); }); });
+  return DB.d.users.filter(u=>
+    !isSlot(u) && u.active!==false && normStatus(u.status)===U_ACTIVE &&
+    hasSupHat(u) && u.id!==v.uid && !own.has(u.id) &&
+    (Array.isArray(u.districts) ? u.districts.includes(s.district) : true));
+}
+function penHandModal(vid){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
+  const L=LANG==='fr'; const cands=penCandidates(v);
+  const s=siteById(v.siteId)||{};
+  modal(L?'Transférer les droits d\'édition':'Transfer the editing rights',
+    `<p class="small">${esc(s.facility||'')} — ${esc(s.district||'')}</p>
+     <div class="banner b-warn">${L
+       ?'Le transfert emporte ce qui a été <b>synchronisé</b>. Tout ce que vous avez saisi hors réseau et pas encore envoyé reste sur ce téléphone. Synchronisez avant de transférer.'
+       :'A transfer carries what has been <b>synced</b>. Anything entered offline and not yet sent stays on this phone. Sync before you transfer.'}</div>
+     ${cands.length? `<label class="f"><span>${L?'Transférer à':'Transfer to'}</span>
+       <select id="pn-to">${cands.map(u=>`<option value="${esc(u.id)}">${esc(u.name)}${u.fn?' — '+esc(u.fn):''}</option>`).join('')}</select></label>
+       <label class="f"><span>${L?'Motif (obligatoire)':'Reason (mandatory)'}</span>
+         <input id="pn-why" placeholder="${L?'ex. congé maladie, je quitte le district':'e.g. sick leave, leaving the district'}"></label>`
+      : `<div class="banner b-err">${L
+       ?'Aucun autre superviseur actif n\'est affecté à ce district. La coordination régionale doit d\'abord affecter quelqu\'un.'
+       :'No other active supervisor is assigned to this district. The regional coordination has to assign somebody first.'}</div>`}`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     ${cands.length?`<button class="btn" ${ONLINE?'':'disabled'} onclick="penHandGo('${vid}')">⇄ ${L?'Transférer':'Transfer'}</button>`:''}`);
+}
+function penHandGo(vid){
+  const to=($('#pn-to')||{}).value||'';
+  const why=(($('#pn-why')||{}).value||'').trim();
+  const L=LANG==='fr';
+  if(!to) return;
+  if(why.length<4) return toast(L?'Le motif est obligatoire':'The reason is mandatory');
+  penHand(vid, to, why);
+}
+function penHand(vid, toId, why){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
+  const L=LANG==='fr';
+  if(!ONLINE) return toast(L?'Un transfert exige le réseau.':'A transfer needs the network.', 4000);
+  const to=DB.d.users.find(u=>u.id===toId); if(!to) return;
+  /* push whatever is still here BEFORE the pen moves, so nothing is stranded */
+  if(typeof autoPushDrafts==='function'){ v.updated=Date.now(); v.pushed=0; autoPushDrafts(); }
+  queue('penSet', {visitId:vid, toId, toName:to.name, byId:(me()||{}).id, why:why||''});
+  v.uid=toId; v.supervisor=to.name; v.penReq=null; v.updated=Date.now();
+  DB.save(); audit('PEN_TRANSFER','visit', `${(siteById(v.siteId)||{}).facility||v.siteId} → ${to.name} (${why||'—'})`);
+  closeModal();
+  infoModal(L?'Droits transférés':'Rights transferred',
+    L?`Cette supervision appartient maintenant à ${to.name}. Elle reste visible sur votre téléphone, en lecture seule.`
+     :`This supervision now belongs to ${to.name}. It stays visible on your phone, read only.`);
+  render();
+}
+function penAskModal(vid){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
+  const L=LANG==='fr'; const who=penHolderName(v)||(L?'le superviseur':'the supervisor');
+  modal(L?'Demander les droits d\'édition':'Ask for the editing rights',
+    `<div class="banner b-info">${L
+      ?`${esc(who)} peut accorder les droits directement. Si cette personne est injoignable, la coordination régionale les accorde à sa place — la demande leur parvient dans les deux cas.`
+      :`${esc(who)} can grant the rights directly. If they cannot be reached, the regional coordination grants them instead — the request reaches both.`}</div>
+     <label class="f"><span>${L?'Motif (obligatoire)':'Reason (mandatory)'}</span>
+       <input id="pa-why" placeholder="${L?'ex. le superviseur est malade, je suis sur place demain':'e.g. the supervisor is ill, I am on site tomorrow'}"></label>`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn" onclick="penAskGo('${vid}')">${L?'Envoyer la demande':'Send the request'}</button>`);
+}
+function penAskGo(vid){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
+  const L=LANG==='fr'; const u=me();
+  const why=(($('#pa-why')||{}).value||'').trim();
+  if(why.length<4) return toast(L?'Le motif est obligatoire':'The reason is mandatory');
+  v.penReq={byId:u.id, byName:u.name, why, at:Date.now(), status:'PENDING'};
+  v.updated=Date.now(); DB.save();
+  queue('penReq', {visitId:vid, byId:u.id, byName:u.name, why});
+  audit('PEN_REQUEST','visit', `${(siteById(v.siteId)||{}).facility||v.siteId} — ${why}`);
+  closeModal();
+  toast(L?'✓ Demande envoyée. Elle part dès que le réseau le permet.'
+        :'✓ Request sent. It leaves as soon as the network allows.', 5000);
+  render();
+}
+
+/* =====================================================================
+   THE VERIFICATION PANELS
+
+   Every question with more than one thing to verify, and every question
+   whose "yes" is followed by a second question, opens its own panel. The
+   questionnaire page keeps one line per question and the checking happens
+   in front of the supervisor, item by item, with the rule written above
+   the list so nobody has to remember it.
+   ===================================================================== */
+function itemsModal(vid,qid){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
+  const q=qById(qid,v); if(!q || !(q.items||[]).length) return;
+  const a=(DB.d.answers[vid]||{})[qid]||{};
+  const ticks=a.items||[]; const L=LANG==='fr';
+  const locked = visitLocked(v);
+  modal(`${L?'Question':'Question'} ${q.n} — ${L?'vérification':'verification'}`,
+   `<p class="small">${esc(q.q)}</p>
+    ${q.sub?`<p class="xs muted">${esc(q.sub)}</p>`:''}
+    <div class="banner b-info">${L
+      ?`<b>Tout ou rien.</b> Le point n'est accordé que si les ${q.items.length} éléments sont cochés. S'il en manque un seul, la question s'affiche en jaune pour marquer qu'il s'en est fallu de peu — mais elle vaut 0.`
+      :`<b>All or nothing.</b> The point is awarded only if all ${q.items.length} items are ticked. One missing shows amber to mark how close it came — but it still scores 0.`}</div>
+    <div id="im-list">${itemsList(vid,qid,locked)}</div>`,
+   `<button class="btn" onclick="closeModal()">${L?'Terminé':'Done'}</button>`);
+}
+function itemsList(vid,qid,locked){
+  const v=DB.d.visits.find(x=>x.id===vid); const q=qById(qid,v);
+  const a=(DB.d.answers[vid]||{})[qid]||{}; const ticks=a.items||[];
+  const nb=ticks.filter(Boolean).length, tot=q.items.length; const L=LANG==='fr';
+  return q.items.map((it,i)=>`<label class="chk"><input type="checkbox" ${locked?'disabled':''}
+      ${ticks[i]?'checked':''} onchange="setItem('${vid}','${qid}',${i},this.checked,${tot});$('#im-list').innerHTML=itemsList('${vid}','${qid}',${locked})">
+      <span>${esc(it)}</span></label>`).join('')+
+   `<div class="banner ${nb===tot?'b-ok':(nb===tot-1?'b-warn':'b-err')}" style="margin-top:10px">
+      <b>${nb} / ${tot}</b> — ${nb===tot ? (L?'tous les éléments sont présents : 1 point.':'every item present: 1 point.')
+        : nb===tot-1 ? (L?'il en manque un seul : jaune, mais 0 point.':'one missing: amber, but 0 points.')
+        : (L?'plusieurs éléments manquent : 0 point.':'several missing: 0 points.')}</div>`;
+}
+function fuModal(vid,qid){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
+  const q=qById(qid,v); if(!q||!q.fu) return;
+  const a=(DB.d.answers[vid]||{})[qid]||{}; const L=LANG==='fr';
+  const locked = visitLocked(v);
+  modal(`${L?'Question':'Question'} ${q.n} — ${L?'vérification':'verification'}`,
+   `<p class="small">${esc(q.q)}</p>
+    <div class="banner b-info">${L
+      ?'Les <b>deux</b> réponses doivent être « Oui » pour que le point soit accordé. Un outil qui existe mais qui n\'est pas à jour vaut zéro, comme s\'il n\'existait pas.'
+      :'<b>Both</b> answers must be "Yes" for the point to be awarded. A tool that exists but is not up to date scores zero, exactly as if it did not exist.'}</div>
+    <p class="small"><b>↳</b> ${esc(q.fu)}</p>
+    <div class="yn">
+      <button class="${a.fu===true?'sel-y':''}" ${locked?'disabled':''} onclick="setA('${vid}','${qid}',{fu:true});closeModal()">${T('yes')}</button>
+      <button class="${a.fu===false?'sel-n':''}" ${locked?'disabled':''} onclick="setA('${vid}','${qid}',{fu:false});closeModal()">${T('no')}</button>
+    </div>`,
+   `<button class="btn sec" onclick="closeModal()">${L?'Fermer':'Close'}</button>`);
+}
+
+/* ---- THE SYSTEMATIC SAMPLE ---------------------------------------------------------
+   Ten records, drawn once, answering three questions. The supervisor gives the active
+   file, the app gives back the interval and the exact positions to open in the ART
+   register. Drawn once and stored on the supervision, so the three questions are read
+   on the SAME ten patients — which is the only way the three answers can be compared. */
+function sampleOf(v, group){ return ((v.samples||{})[group])||null; }
+function sampleLine(v,q,dis){
+  const s=sampleOf(v,q.sampleGroup); const L=LANG==='fr';
+  if(!s) return `<div class="chkline" style="margin-top:6px">
+    <button class="btn sm" ${dis} onclick="sampleModal('${v.id}','${q.sampleGroup}')">🎯 ${
+      L?'Tirer l\'échantillon':'Draw the sample'}</button>
+    <span class="small kov" style="margin-left:8px">${L?'— échantillon non tiré':'— not drawn yet'}</span></div>`;
+  return `<div class="chkline" style="margin-top:6px">
+    <button class="btn sec sm" ${dis} onclick="sampleModal('${v.id}','${q.sampleGroup}')">🎯 ${
+      L?'Voir l\'échantillon':'See the sample'}</button>
+    <span class="small" style="margin-left:8px">${L?'File active':'Active file'} <b>${s.fileActive}</b> · ${
+      L?'1 dossier sur':'every'} <b>${s.step}</b>${L?'':'th record'}</span></div>`;
+}
+function sampleModal(vid,group){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
+  const s=sampleOf(v,group); const L=LANG==='fr';
+  const locked = visitLocked(v);
+  modal(L?'Échantillon systématique de 10 dossiers':'Systematic sample of 10 records',
+   `<div class="banner b-info">${L
+     ?'Un seul tirage sert aux trois questions (poids, taille, tension artérielle) : les trois réponses portent donc sur les <b>mêmes</b> dix patients, ce qui est la seule façon de les comparer.'
+     :'One draw serves all three questions (weight, height, blood pressure), so the three answers describe the <b>same</b> ten patients — the only way they can be compared.'}</div>
+    <label class="f"><span>${L?'File active au registre TARV':'Active file in the ART register'}</span>
+      <input type="number" min="1" id="sm-fa" value="${s?s.fileActive:''}" ${locked?'disabled':''}></label>
+    ${locked?'':`<button class="btn blk" style="margin-top:8px" onclick="drawSample('${vid}','${group}')">${
+      s?(L?'Retirer l\'échantillon':'Draw again'):(L?'Tirer':'Draw')}</button>`}
+    <div id="sm-out">${sampleOut(v,group)}</div>`,
+   `<button class="btn sec" onclick="closeModal()">${L?'Fermer':'Close'}</button>`);
+}
+function sampleOut(v,group){
+  const s=sampleOf(v,group); const L=LANG==='fr';
+  if(!s) return `<p class="small muted" style="margin-top:10px">${L
+    ?'Saisissez la file active, puis appuyez sur « Tirer ». L\'application calcule le pas et vous donne les positions exactes à ouvrir dans le registre.'
+    :'Enter the active file, then tap "Draw". The app works out the interval and gives you the exact positions to open in the register.'}</p>`;
+  return `<div class="banner b-ok" style="margin-top:10px">
+      ${L?`File active <b>${s.fileActive}</b> ÷ 10 = pas de <b>${s.step}</b> (arrondi au supérieur). Départ au <b>premier</b> dossier actif.`
+         :`Active file <b>${s.fileActive}</b> ÷ 10 = interval of <b>${s.step}</b> (rounded up). Start at the <b>first</b> active record.`}</div>
+    <p class="small" style="margin-top:8px"><b>${L?'Positions à ouvrir dans le registre TARV :':'Positions to open in the ART register:'}</b></p>
+    <p class="small">${s.positions.join(' · ')}</p>
+    <div class="banner b-warn" style="margin-top:8px">${L
+      ?'<b>Un enfant dans l\'échantillon.</b> Le poids et la taille se mesurent chez l\'enfant : ce dossier reste évalué pour les questions 55 et 56. La tension artérielle ne s\'y mesure pas : pour la question 57 <b>uniquement</b>, remplacez-le par le dossier actif suivant et notez-le dans le commentaire de la question.'
+      :'<b>A child in the sample.</b> Weight and height are measured in children, so that record still counts for questions 55 and 56. Blood pressure is not: for question 57 <b>only</b>, replace it with the next active record and note it in that question\'s comment.'}</div>`;
+}
+function drawSample(vid,group){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
+  if(!mayAnswer(vid)) return;
+  const L=LANG==='fr';
+  const fa=Number(($('#sm-fa')||{}).value||0);
+  if(!fa || fa<1) return toast(L?'Saisissez la file active':'Enter the active file');
+  if(fa<10) return toast(L
+    ?'File active inférieure à 10 : examinez tous les dossiers, l\'échantillon n\'a pas de sens.'
+    :'Active file under 10: review every record — a sample makes no sense.', 6000);
+  const step=Math.ceil(fa/10);
+  const positions=[]; for(let i=0;i<10;i++){ const p=1+i*step; if(p<=fa) positions.push(p); }
+  v.samples=v.samples||{};
+  v.samples[group]={fileActive:fa, step, positions, drawnAt:Date.now(), by:(me()||{}).name||''};
+  DB.save(); audit('SAMPLE_DRAWN','visit', `${group} — file active ${fa}, pas ${step}`);
+  const out=$('#sm-out'); if(out) out.innerHTML=sampleOut(v,group);
+  render();
+}
+
 function liveA(vid,qid,patch){
   const A=DB.d.answers[vid]=DB.d.answers[vid]||{}; const a=A[qid]=A[qid]||{};
   Object.assign(a,patch); a.na=false;
-  touch(vid); refreshQ(vid,qid,false); refreshHeader(vid);
+  const carried = carryDen(vid, qid);
+  touch(vid); refreshQ(vid,qid,false); carried.forEach(id=>refreshQ(vid,id,true)); refreshHeader(vid);
 }
 function quietA(vid,qid,k,val){
   const A=DB.d.answers[vid]=DB.d.answers[vid]||{}; const a=A[qid]=A[qid]||{};
@@ -4021,9 +4611,10 @@ function guardND(vid,qid,which,el){
 function refreshQ(vid,qid,full){
   const v=DB.d.visits.find(x=>x.id===vid); if(!v) return;
   const q=qById(qid, v); if(!q) return;
-  const a=(DB.d.answers[vid]||{})[qid]||{};
-  const r=scoreAnswer(q,a);
-  const locked=v.status==='SUBMITTED'||v.status==='APPROVED'||!canSupervise();
+  const A=DB.d.answers[vid]||{};
+  const a=A[qid]||{};
+  const r=scoreAnswer(q,a,A);
+  const locked=!mayEditQ(v,q);
   const box=document.getElementById('qb-'+qid); if(!box) return;
   if(full){
     const c=cycleOf(v);
@@ -4058,30 +4649,80 @@ function refreshHeader(vid){
     cur.className='chip '+p.band; cur.textContent=pc(p.pct); }
 }
 
+/* ---- WHO MAY TYPE, AND INTO WHAT --------------------------------------------------
+   A submitted supervision is closed. But when the questionnaire is corrected AFTER a
+   supervision was submitted, the questions that changed have to be answerable again —
+   and only those. Sending the whole supervision back to draft would throw away its
+   approval and let everything else be rewritten, which is not what anybody asked for.
+   So the lock is lifted question by question, for the holder, on the corrected ones. */
+function isCorrectedQ(v,q){
+  const c=v&&v.corrected; if(!c||!q) return false;
+  return (c.cleared||[]).includes(q.baseId||q.id);
+}
+function mayEditQ(v,q){
+  if(!v) return false;
+  if(!visitLocked(v)) return true;
+  return holdsPen(v) && canSupervise() && v.status!=='APPROVED' && isCorrectedQ(v,q);
+}
 /* The console reads a supervision; it never types into one. */
-function mayAnswer(vid){
-  if(canSupervise()) return true;
-  toast(LANG==='fr'
-    ?'Lecture seule : vous validez cette supervision, vous ne la remplissez pas.'
-    :'Read only: you approve this supervision, you do not fill it in.', 4000);
-  return false;
+function mayAnswer(vid, qid){
+  const v=DB.d.visits.find(x=>x.id===vid);
+  if(!canSupervise()){
+    toast(LANG==='fr'
+      ?'Lecture seule : vous validez cette supervision, vous ne la remplissez pas.'
+      :'Read only: you approve this supervision, you do not fill it in.', 4000);
+    return false;
+  }
+  if(v && !holdsPen(v)){
+    toast(LANG==='fr'
+      ?'Lecture seule : les droits d\'édition sont à '+(penHolderName(v)||'un autre superviseur')+'.'
+      :'Read only: the editing rights belong to '+(penHolderName(v)||'another supervisor')+'.', 5000);
+    return false;
+  }
+  if(v && visitLocked(v) && !(qid && mayEditQ(v, qById(qid,v)))){
+    toast(LANG==='fr'?'Cette supervision est soumise.':'This supervision has been submitted.', 4000);
+    return false;
+  }
+  return true;
 }
 function setA(vid,qid,patch){
-  if(!mayAnswer(vid)) return;
+  if(!mayAnswer(vid,qid)) return;
   const A=DB.d.answers[vid]=DB.d.answers[vid]||{};
   const a=A[qid]=A[qid]||{};
   Object.assign(a,patch);
   if(patch.v!==undefined||patch.days!==undefined) a.na=false;
-  touch(vid); refreshQ(vid,qid,true); refreshHeader(vid);
+  /* « Non » on a gate question closes it: the figures behind it are not merely hidden,
+     they are cleared, so that a Oui typed by mistake leaves nothing behind. */
+  const qq=qById(qid, DB.d.visits.find(x=>x.id===vid));
+  if(qq && qq.gate && patch.v===false){ a.num=''; if(!qq.denFrom) a.den=''; }
+  const carried = carryDen(vid, qid);
+  touch(vid); refreshQ(vid,qid,true); carried.forEach(id=>refreshQ(vid,id,true)); refreshHeader(vid);
+}
+/* A figure entered once is a figure entered once. Q30 is scored against the samples
+   TAKEN, which the supervisor typed a question earlier on Q29; asking for it a second
+   time invites two different answers to the same question. Whenever a question that
+   feeds another is answered, the figure is carried across and the dependent question
+   redraws. Returns the ids that moved, so the caller can repaint them. */
+function carryDen(vid, qid){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v) return [];
+  const A=DB.d.answers[vid]||{}; const src=A[qid]; const moved=[];
+  visitQs(v).forEach(q=>{
+    if(q.denFrom !== qid) return;
+    const b = A[q.id] = A[q.id] || {};
+    const val = (!src || src.na || src.num===undefined || src.num===null || src.num==='')
+              ? '' : String(src.num);
+    if(b.den !== val){ b.den = val; moved.push(q.id); }
+  });
+  return moved;
 }
 function setItem(vid,qid,i,val,len){
-  if(!mayAnswer(vid)) return;
+  if(!mayAnswer(vid,qid)) return;
   const A=DB.d.answers[vid]=DB.d.answers[vid]||{}; const a=A[qid]=A[qid]||{};
   a.items=a.items||new Array(len).fill(false); a.items[i]=val; a.na=false;
   touch(vid); refreshQ(vid,qid,false); refreshHeader(vid);
 }
 function markNA(vid,qid){
-  if(!mayAnswer(vid)) return;
+  if(!mayAnswer(vid,qid)) return;
   const A=DB.d.answers[vid]=DB.d.answers[vid]||{}; const a=A[qid]=A[qid]||{};
   a.na=!a.na; if(a.na){ a.v=undefined; a.fu=undefined; a.num=''; a.den=''; a.days=''; a.items=undefined; }
   touch(vid); refreshQ(vid,qid,true); refreshHeader(vid);
@@ -4100,23 +4741,31 @@ function qHelp(qid,vid){
   if(q.num) txt += T('numerator')+' : '+q.num+'\n';
   if(q.den) txt += T('denominator')+' : '+q.den+'\n';
   if(q.defDen) txt += (L?'Échantillon prescrit : ':'Prescribed sample: ')+q.defDen+'\n';
+  if(q.sub) txt += (L?'À RETENIR : ':'NOTE: ')+q.sub+'\n';
   if(q.items) txt += '\n'+(L?'Éléments à vérifier :\n':'Elements to check:\n')+q.items.map(i=>'  • '+i).join('\n')+'\n';
   txt += '\n'+(L?'TYPE DE NOTATION\n':'SCORING TYPE\n');
   txt += ({BINARY:L?'Oui = 1 point, Non = 0, dénominateur 1.':'Yes = 1 point, No = 0, denominator 1.',
     THRESHOLD:L?'Moins de 30 jours = 1 point, 30 jours et plus = 0.':'Under 30 days = 1 point, 30 or more = 0.',
-    COMPOSITE:L?'Le point n\'est accordé que si TOUS les éléments listés sont présents.':'The point is awarded only if ALL listed elements are present.',
+    COMPOSITE:L?'Tout ou rien : le point n\'est accordé que si TOUS les éléments listés sont cochés. S\'il en manque un seul, la question s\'affiche en jaune pour marquer qu\'il s\'en est fallu de peu — mais elle vaut 0. Dénominateur 1.'
+               :'All or nothing: the point is awarded only if EVERY listed item is ticked. One missing shows amber to mark how close it came — but it still scores 0. Denominator 1.',
     RATIO:L?'Numérateur ÷ dénominateur, exprimé en pourcentage.':'Numerator ÷ denominator, as a percentage.',
     SAMPLED:L?'Numérateur ÷ échantillon prescrit.':'Numerator ÷ prescribed sample.'})[q.type];
-  if(q.dqa) txt += '\n\n'+(L?'RÈGLE DQA — concordance entre outils\nSi la valeur de référence est supérieure à 100 : un écart de ±5 % est vert. Sinon la concordance doit être exacte. Un écart jusqu\'à ±10 % est jaune ; au-delà, rouge.'
-                            :'DQA RULE — concordance between tools\nIf the reference value is above 100, a ±5 % gap is green. Otherwise concordance must be exact. Up to ±10 % is yellow; beyond that, red.');
+  if(q.gate) txt += '\n'+(L?'Cette question commence par Oui / Non. « Non » la ferme à 0 sur 1 : il n\'y a rien à dénombrer. « Oui » ouvre les deux chiffres, et c\'est eux qui font le score.'
+                          :'This question starts with Yes / No. "No" closes it at 0 out of 1: there is nothing to count. "Yes" opens the two figures, and they are what score.');
+  if(q.denFrom) txt += '\n'+(L?'Le dénominateur est repris de la question précédente : il n\'est pas saisi deux fois.'
+                              :'The denominator is carried from the previous question: it is not entered twice.');
+  if(q.sampleGroup) txt += '\n'+(L?'Échantillon systématique de 10 dossiers, tiré une seule fois et partagé par les questions 55, 56 et 57.'
+                                  :'Systematic sample of 10 records, drawn once and shared by questions 55, 56 and 57.');
+  if(q.dqa) txt += '\n\n'+(L?'RÈGLE DE CONCORDANCE\nOn compare deux comptages indépendants de la même chose, qui devraient être égaux. Un écart dans un sens comme dans l\'autre est une erreur : un outil qui déclare PLUS que l\'autre est aussi faux qu\'un outil qui déclare moins, et un pourcentage ne saurait pas le dire.\nSi la valeur de référence est supérieure à 100 : un écart de ±5 % est vert. Sinon la concordance doit être exacte. Un écart jusqu\'à ±10 % est jaune (½ point) ; au-delà, rouge.'
+                            :'CONCORDANCE RULE\nTwo independent counts of the same thing, which ought to be equal. A gap either way is an error: a tool reporting MORE than the other is as wrong as one reporting less, and a percentage could not say so.\nIf the reference value is above 100, a ±5 % gap is green. Otherwise concordance must be exact. Up to ±10 % is yellow (half a point); beyond that, red.');
   if(q.fu) txt += '\n\n'+(L?'QUESTION DE SUIVI\n':'FOLLOW-UP QUESTION\n')+q.fu+
     (L?'\nElle n\'apparaît que si la réponse principale est Oui.':'\nIt appears only if the main answer is Yes.');
   infoModal((L?'Aide — Question ':'Help — Question ')+q.n, txt);
 }
 function qExplain(qid,vid){
   const q=qById(qid, DB.d.visits.find(x=>x.id===vid)); if(!q) return;
-  const a=(DB.d.answers[vid]||{})[qid];
-  const r=scoreAnswer(q,a);
+  const A=DB.d.answers[vid]||{};
+  const r=scoreAnswer(q,A[qid],A);
   infoModal(T('howCalc'), r.explain || (LANG==='fr'?'Cette question n\'a pas encore été répondue.':'This question has not been answered yet.'));
 }
 function explainOverall(vid){
@@ -4231,8 +4880,9 @@ function autoFillPlan(vid){
   let n=0;
   sc.sections.forEach(s=> s.failed.forEach(q=>{
     if(covered.has(q.id)) return;
-    const ans=(DB.d.answers[vid]||{})[q.id]||{};
-    const r=scoreAnswer(q,ans);
+    const AA=DB.d.answers[vid]||{};
+    const ans=AA[q.id]||{};
+    const r=scoreAnswer(q,ans,AA);
     DB.d.actions.push({id:DB.id('AC'), visitId:vid, siteId:v.siteId, cycleId:v.cycleId,
       qid:q.id, qn:q.n, sec:s.sec,
       root:`[${s.sec}] Q${q.n}${q.monthLabel?' ('+q.monthLabel+')':''} — ${q.q.slice(0,180)} → ${pc(r.pct)}`,
@@ -4287,16 +4937,18 @@ function visitFollowup(v){
 /* ===================== REVIEW & SUBMIT ===================== */
 function unanswered(v){
   const A=DB.d.answers[v.id]||{};
-  return visitQs(v).filter(q=>!scoreAnswer(q,A[q.id]).answered)
+  return visitQs(v).filter(q=>!scoreAnswer(q,A[q.id],A).answered)
     .map(q=>({q, txt:q.q}));
 }
 function missingComments(v){
   const A=DB.d.answers[v.id]||{};
   return visitQs(v).filter(q=>{
     const a=A[q.id]; if(!a) return false;
-    const r=scoreAnswer(q,a);
+    const r=scoreAnswer(q,a,A);
     if(r.na) return !String((a.na?a.naReason:a.comment)||'').trim();
-    return r.answered && r.band==='r' && !(a.comment||'').trim();
+    /* A checklist missing one item shows amber and scores zero — it owes a comment
+       exactly as a red one does, or a site loses a point with nothing written down. */
+    return r.answered && (r.band==='r' || (r.d>0 && r.n===0)) && !(a.comment||'').trim();
   });
 }
 function visitReview(v, sc){
@@ -4304,7 +4956,7 @@ function visitReview(v, sc){
   const acts=visitActions(v.id);
   const noReco=acts.filter(a=>!(a.reco||'').trim());
   const ok = un.length===0 && mc.length===0 && noReco.length===0;
-  const locked = v.status==='SUBMITTED'||v.status==='APPROVED'||!canSupervise();
+  const locked = visitLocked(v);
   return `
   <div class="card">
     <h3>${LANG==='fr'?'Informations de la supervision':'Supervision details'}</h3>
@@ -4402,7 +5054,7 @@ function answersForSync(vid){
   const A=DB.d.answers[vid]||{}; const out={};
   visitQs(v).forEach(q=>{
     const a=A[q.id]; if(!a) return;
-    const r=scoreAnswer(q,a);
+    const r=scoreAnswer(q,a,A);
     out[q.id]=Object.assign({}, a, {_n:q.n, _sec:q.sec, _month:q.monthLabel||'',
       _dom:q.dom==='MNE'?'S&E (DQA)':'Clinique',
       _pct: r.pct===null?'':Math.round(r.pct*10)/10, _band: bandLabel(r.band)});
@@ -4477,7 +5129,7 @@ function exportVisit(vid){
   const v=DB.d.visits.find(x=>x.id===vid); const s=siteById(v.siteId); const c=DB.d.cycles.find(x=>x.id===v.cycleId);
   const A=DB.d.answers[vid]||{};
   const rows=[['District','Aire','Formation sanitaire','Cycle','Periode','N','Mois','Section','Question','Domaine','Num','Den','Score %','Bande','Commentaire']];
-  visitQs(v).forEach(q=>{ const a=A[q.id]||{}; const r=scoreAnswer(q,a);
+  visitQs(v).forEach(q=>{ const a=A[q.id]||{}; const r=scoreAnswer(q,a,A);
     rows.push([s.district,s.area,s.facility,c.name,cyclePeriodLabel(c),q.n,q.monthLabel||'',q.sec,q.q,
       q.dom==='MNE'?'S&E (DQA)':'Clinique', a.na?'NA':(a.num??(a.v===true?1:a.v===false?0:'')),
       a.na?'NA':(a.den??(a.v===undefined?'':1)), r.pct===null?'':r.pct.toFixed(1),
@@ -4611,7 +5263,7 @@ function reportReady(v){ return v && (v.status==='SUBMITTED' || v.status==='APPR
 function rankedQuestions(v){
   const A=DB.d.answers[v.id]||{};
   return visitQs(v).map(q=>{
-    const a=A[q.id]||{}; const r=scoreAnswer(q,a);
+    const a=A[q.id]||{}; const r=scoreAnswer(q,a,A);
     return {q, a, r, txt:q.q};
   }).filter(x=>x.r.answered);
 }
@@ -5747,6 +6399,43 @@ async function doReleaseSlot(slotId){
    Before this the only way in was a card on the home screen, and only if the
    supervision had somehow reached the device — which, until the data endpoint
    existed, it had not. */
+/* The console grants the pen in the holder's place. It is the same server message the
+   holder sends, checked against the caller's role — nothing here is a special case. */
+function penGrant(vid){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v || !v.penReq) return;
+  const L=LANG==='fr';
+  const to=DB.d.users.find(u=>u.id===v.penReq.byId);
+  if(!to) return toast(L?'Compte demandeur introuvable':'Requesting account not found');
+  confirmModal({
+    title:L?'Accorder les droits d\'édition':'Grant the editing rights',
+    tone:'b-warn',
+    body:L?`La supervision de « ${esc((siteById(v.siteId)||{}).facility||'')} » passera de <b>${esc(penHolderName(v)||'—')}</b> à <b>${esc(to.name)}</b>.<br><br>Ce qui a été synchronisé suit la supervision. Ce que le détenteur actuel a saisi hors réseau et pas encore envoyé reste sur son téléphone.`
+           :`The supervision of "${esc((siteById(v.siteId)||{}).facility||'')}" will move from <b>${esc(penHolderName(v)||'—')}</b> to <b>${esc(to.name)}</b>.<br><br>Whatever was synced follows the supervision. Anything the current holder entered offline and has not sent stays on their phone.`,
+    okLabel:L?'Accorder':'Grant',
+    onOk:()=>{
+      queue('penSet', {visitId:vid, toId:to.id, toName:to.name, byId:(me()||{}).id,
+                       why:(L?'accordé par la console : ':'granted by the console: ')+(v.penReq.why||'')});
+      v.uid=to.id; v.supervisor=to.name; v.penReq=null; v.updated=Date.now(); DB.save();
+      audit('PEN_GRANT','visit', `${(siteById(v.siteId)||{}).facility||v.siteId} → ${to.name}`);
+      toast(L?'✓ Droits accordés':'✓ Rights granted'); render();
+    }});
+}
+function penRefuse(vid){
+  const v=DB.d.visits.find(x=>x.id===vid); if(!v || !v.penReq) return;
+  const L=LANG==='fr';
+  askReason({
+    title:L?'Refuser la demande':'Refuse the request',
+    label:L?'Motif (lu sur le téléphone du demandeur)':'Reason (read on the requester\'s phone)',
+    confirmLabel:L?'Refuser':'Refuse', danger:true,
+    onOk:why=>{
+      v.penReq=Object.assign({}, v.penReq, {status:'REFUSED', note:why, by:(me()||{}).name||''});
+      v.updated=Date.now(); DB.save();
+      queue('visit', {visit:visitForSync(v), answers:answersForSync(v.id), actions:visitActions(v.id)});
+      audit('PEN_REFUSE','visit', `${(siteById(v.siteId)||{}).facility||v.siteId} — ${why}`);
+      toast(L?'Demande refusée':'Request refused'); render();
+    }});
+}
+
 function admVisits(){
   const L=LANG==='fr';
   const all=DB.d.visits.slice().sort((a,b)=>(b.submitted||b.updated||0)-(a.submitted||a.updated||0));
@@ -5763,7 +6452,30 @@ function admVisits(){
           ${v.submitted?' · '+(L?'soumise ':'submitted ')+fmtDT(v.submitted):''}</div></div>
       <span class="chip ${sc.pct===null?'n':band(sc.pct)}">${pc(sc.pct)}</span></div>`;
   };
-  return `<div class="card">
+  /* ---- SOMEBODY IS ASKING FOR THE PEN ----------------------------------------------
+     This is the route that works when the supervisor holding a facility cannot be
+     reached — which is the whole reason the transfer exists. It lands here. */
+  const pens=all.filter(v=>v.penReq && v.penReq.status==='PENDING');
+  const penCard = pens.length ? `<div class="card">
+    <h3>${L?'Demandes de droits d\'édition':'Requests for editing rights'} <span class="badge">${pens.length}</span></h3>
+    <p class="small muted">${L
+      ?'Un superviseur demande à reprendre une supervision commencée par quelqu\'un d\'autre. Accorder les droits déplace la plume : la personne qui les détenait garde la supervision en lecture seule et son téléphone le lui dit.'
+      :'A supervisor is asking to take over a supervision started by somebody else. Granting moves the pen: the previous holder keeps the supervision read only, and their phone tells them so.'}</p>
+    <div class="list">${pens.map(v=>{
+      const s=siteById(v.siteId)||{facility:'?',district:'?'};
+      return `<div class="card tight">
+        <div><b>${esc(s.facility)}</b> <span class="s">${esc(s.district)}</span></div>
+        <div class="xs muted" style="margin:4px 0">
+          ${L?'Détenue par':'Held by'} <b>${esc(penHolderName(v)||'—')}</b> ·
+          ${L?'demandée par':'requested by'} <b>${esc(v.penReq.byName||'—')}</b> · ${fmtDT(v.penReq.at)}</div>
+        <div class="small">« ${esc(v.penReq.why||'—')} »</div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn sm" ${ONLINE?'':'disabled'} onclick="penGrant('${v.id}')">⇄ ${L?'Accorder':'Grant'}</button>
+          <button class="btn sec sm" onclick="penRefuse('${v.id}')">${L?'Refuser':'Refuse'}</button>
+          <button class="btn sec sm" onclick="go('#/visit/${v.id}/rev')">${L?'Voir':'Open'}</button>
+        </div></div>`; }).join('')}</div></div>` : '';
+
+  return `${penCard}<div class="card">
     <div class="spread"><h3>${L?'À approuver':'To approve'}
       ${sub.length?`<span class="badge">${sub.length}</span>`:''}</h3>
       <div class="row" style="flex-wrap:nowrap;gap:6px">
@@ -6144,10 +6856,21 @@ function saveScope(uid){
     u.districts=next; if(why) u.transferNote=why;
   }
   DB.save();
-  /* a scope change is a privileged act now: it travels as a grant, not as a user push */
-  if(isDual(u)) queue('roleGrant', {id:u.id, byId:(me()||{}).id, want:EDIT_HAT,
+  /* ---- A SCOPE CHANGE IS A PRIVILEGED ACT, AND IT TRAVELS LIKE ONE -----------------
+     It used to leave as an ordinary pushUser() for a single-hat account. The server
+     locks role, districts and sites on any settled account — rightly, so that no phone
+     can hand itself the region — so the push was silently ignored and the next pull put
+     the old districts straight back. That is the "I change the districts and after
+     syncing it returns to the previous value" you reported: the console was being
+     refused by a guard meant for phones.
+
+     Both hats now leave as their own privileged message, checked against the caller. */
+  const byId=(me()||{}).id;
+  if(isDual(u)) queue('roleGrant', {id:u.id, byId, want:EDIT_HAT,
                                     scope: EDIT_HAT==='SITE' ? (u.sites||[]) : (u.districts||[])});
-  else pushUser(u);
+  else if(EDIT_HAT==='SITE') queue('scopeSet', {id:u.id, byId, what:'SITES',
+                                    scope:(u.sites||[]), districts:(u.districts||[])});
+  else queue('scopeSet', {id:u.id, byId, what:'DISTRICTS', scope:(u.districts||[])});
   closeModal();
   toast(LANG==='fr'?'✓ Affectation enregistrée':'✓ Assignment saved'); render();
 }
@@ -6369,24 +7092,59 @@ function decideSiteDo(id, decision, note){
   DB.save(); audit('SITE_DECISION', decision, r.ref+' '+note); queue('siteReq', r); render();
 }
 
+/* Each hat with the scope it actually carries, and a button per hat that edits that hat
+   alone. A dual account has two scopes and they mean different things: the districts are
+   what the person supervises, the facilities are what they answer for. Printing only one
+   was how the second role stayed invisible. */
+function scopeCell(u){
+  const L=LANG==='fr';
+  if(isSlot(u)) return L?'Toute la région':'The whole region';
+  const ds=Array.isArray(u.districts)?u.districts:[];
+  const ss=(u.sites||[]).map(i=>(siteById(i)||{}).facility||i);
+  const line=(icon,label,vals,hat)=>`<div style="margin:1px 0">${icon} <b>${label}</b> ${
+      vals.length?esc(vals.join(', ')):`<span class="kov">${L?'aucune':'none'}</span>`}
+      <button class="btn sec sm" style="padding:1px 6px;margin-left:4px"
+        onclick="editScope('${u.id}','${hat}')">✎</button></div>`;
+  let out='';
+  if(hasSupHat(u))  out += line('👥', L?'Districts :':'Districts:', ds, 'SUPERVISOR');
+  if(hasSiteHat(u)) out += line('🏥', L?'FOSA :':'Facilities:', ss, 'SITE');
+  return out || '—';
+}
+let USR_FILTER='';
+function usrFilter(k){ USR_FILTER = (USR_FILTER===k?'':k); render(); }
+
 function admUsers(){
   const weak=[];   // there is no default PIN anywhere any more
   return `<div class="card"><h3>${LANG==='fr'?'Utilisateurs':'Users'}</h3>
     ${weak.length?`<div class="banner b-err">${LANG==='fr'
       ?`${weak.length} super utilisateur(s) utilisent encore un code PIN par défaut : ${esc(weak.map(u=>u.name).join(', '))}. Changez-le immédiatement.`
       :`${weak.length} super user(s) still use a default PIN: ${esc(weak.map(u=>u.name).join(', '))}. Change it immediately.`}</div>`:''}
+    ${(()=>{ const nd=DB.d.users.filter(u=>isDual(u)).length; const L=LANG==='fr';
+      return `<div class="row" style="gap:8px;align-items:center;margin-bottom:8px">
+        <button class="btn sec sm ${USR_FILTER==='dual'?'sel-y':''}" onclick="usrFilter('dual')">
+          👥🏥 ${L?'Deux rôles':'Two roles'} <span class="badge">${nd}</span></button>
+        <button class="btn sec sm ${USR_FILTER===''?'sel-y':''}" onclick="usrFilter('')">${L?'Tous':'All'}</button>
+      </div>`; })()}
     <div class="tw"><table>
       <thead><tr><th>${T('name')}</th><th>${T('role')}</th><th>${LANG==='fr'?'Fonction':'Function'}</th>
-        <th>${LANG==='fr'?'Pièce':'ID'}</th><th>${LANG==='fr'?'Districts':'Districts'}</th>
+        <th>${LANG==='fr'?'Pièce':'ID'}</th><th>${LANG==='fr'?'Portée':'Scope'}</th>
         <th>${T('status')}</th><th>PIN</th></tr></thead>
-      <tbody>${DB.d.users.map(u=>`<tr class="${u.active===false?'muted':''}">
+      <tbody>${DB.d.users.filter(u=>USR_FILTER!=='dual'||isDual(u)).map(u=>`<tr class="${u.active===false?'muted':''}">
         <td class="small">${esc(u.name)}</td>
-        <td><select onchange="setRole('${u.id}',this.value)">
-          ${ROLES.map(r=>`<option value="${r.k}" ${u.role===r.k?'selected':''}>${esc(roleLabel(r.k))}</option>`).join('')}
-        </select></td>
+        <td>${isDual(u)||isSlot(u)
+          /* ---- A DROP-DOWN CANNOT HOLD TWO ROLES ------------------------------------
+             This cell was a single-role <select>. On an account carrying both hats it
+             showed the principal one and hid the other completely — and one careless
+             change in it silently overwrote the principal role. An account with two
+             roles is now stated, not offered as a choice, and each hat is edited
+             through its own scope button, which writes only its own column. */
+          ? `<span class="chip ${isDual(u)?'g':'n'}">${esc(rolesLabel(u))}</span>`
+          : `<select onchange="setRole('${u.id}',this.value)">
+              ${ROLES.map(r=>`<option value="${r.k}" ${u.role===r.k?'selected':''}>${esc(roleLabel(r.k))}</option>`).join('')}
+            </select>`}</td>
         <td class="xs">${esc(u.fn||'')}</td>
         <td class="xs">${u.idNumber?esc(u.idType)+' '+esc(u.idNumber)+(u.idFile?' <a href="'+u.idFile+'" target="_blank">↗</a>':''):'—'}</td>
-        <td class="xs">${Array.isArray(u.districts)?esc(u.districts.join(', ')):'ALL'}</td>
+        <td class="xs">${scopeCell(u)}</td>
         <td class="xs">${userStatus(u)}</td>
         <td>${isSlot(u)
           ? `<span class="xs muted">${LANG==='fr'?'attribué':'assigned'}</span>`
@@ -6397,8 +7155,15 @@ function admUsers(){
       :'Privileged accounts are not edited here: they are assigned by an administrator, tab "Super users". No PIN is stored in this table.'}</p>
   </div>`;
 }
-function setRole(uid,r){ const u=DB.d.users.find(x=>x.id===uid); u.role=r; DB.save();
-  audit('USER_ROLE','user',u.name+'→'+r); pushUser(u); render(); }
+/* Same story as saveScope: the role is locked on the server for a settled account, so
+   an ordinary push was thrown away and the old role came back on the next pull. */
+function setRole(uid,r){ const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
+  if(isSlot(u)) return toast(LANG==='fr'
+    ?'Un compte privilégié n\'est pas un rôle que l\'on change ici : c\'est un poste, attribué par code.'
+    :'A privileged account is not a role changed here: it is a slot, assigned by code.', 5000);
+  const before=u.role; u.role=r; DB.save();
+  audit('USER_ROLE','user',u.name+' : '+roleLabel(before)+' → '+roleLabel(r));
+  queue('scopeSet', {id:u.id, byId:(me()||{}).id, what:'ROLE', role:r}); render(); }
 function setPin(uid,p){ const u=DB.d.users.find(x=>x.id===uid); u.pin=p; DB.save(); }
 function toggleUser(uid){ const u=DB.d.users.find(x=>x.id===uid); u.active=u.active===false;
   DB.save(); pushUser(u); render(); }
@@ -6857,15 +7622,36 @@ async function pullData(full, deep){
 
   /* A supervision still open on THIS phone is the one being typed into right now.
      The server's copy of it is older by definition, so it never overwrites it. */
+  const penLost=[];
   (j.visits||[]).forEach(rv=>{
     if(!rv || !rv.id) return;
     const i = DB.d.visits.findIndex(x=>x.id===rv.id);
     if(i < 0){ DB.d.visits.push(rv); changed++; return; }
     const mine = DB.d.visits[i];
+    /* ---- A HANDOVER HAS TO REACH THE PHONE THAT IS GIVING THE PEN UP ---------------
+       The rule below — never overwrite the draft being typed into on this phone — is
+       right, and it is also exactly what would have stopped a transfer from landing:
+       the phone still believes the supervision is its own, so it would refuse the very
+       message telling it that it is not. A change of HOLDER is therefore always taken,
+       whatever this phone thinks. The work itself is safe: the outbox is emptied before
+       the pull runs, so anything typed here has already gone up. */
+    const handedOver = String(rv.uid||'') && String(rv.uid) !== String(mine.uid||'');
     const editingHere = mine.status==='DRAFT' && mine.uid===meNow.id;
-    if(editingHere) return;
-    if((rv.updated||0) >= (mine.updated||0)){ DB.d.visits[i] = Object.assign({}, mine, rv); changed++; }
+    if(editingHere && !handedOver) return;
+    if(handedOver && mine.uid===meNow.id){
+      penLost.push({v:rv, site:(siteById(rv.siteId)||{}).facility||rv.siteId});
+    }
+    if(handedOver || (rv.updated||0) >= (mine.updated||0)){
+      DB.d.visits[i] = Object.assign({}, mine, rv); changed++; }
   });
+  /* Losing half your buttons in silence is what people report as "the app is broken". */
+  if(penLost.length && typeof infoModal==='function'){
+    const L=LANG==='fr'; const x=penLost[0];
+    setTimeout(()=>infoModal(
+      L?'Droits d\'édition transférés':'Editing rights transferred',
+      (L?`La supervision de « ${x.site} » ne vous appartient plus : les droits d'édition ont été transférés à ${penHolderName(x.v)||'un autre superviseur'}.\n\nVous la voyez toujours, en lecture seule. Tout ce que vous aviez saisi et synchronisé s'y trouve.`
+        :`The supervision of "${x.site}" is no longer yours: the editing rights were transferred to ${penHolderName(x.v)||'another supervisor'}.\n\nYou can still see it, read only. Everything you had entered and synced is there.`)), 600);
+  }
 
   Object.keys(j.answers||{}).forEach(vid=>{
     const v = DB.d.visits.find(x=>x.id===vid);
@@ -7165,10 +7951,42 @@ async function runDiag(){
   );
 }
 
+/* =====================================================================
+   A SUPERVISION IN PROGRESS NOW LEAVES THE PHONE
+
+   Until now a draft was uploaded only when it was SUBMITTED. Everything
+   typed before that lived on exactly one phone and nowhere else, which is
+   why a supervisor who travelled, fell ill or lost a handset took the whole
+   facility's work with them and the team started again from nothing.
+
+   A draft that has changed since its last upload now goes up on the ordinary
+   sync. Nothing else changes: it is still the holder's supervision, still
+   read-only to everybody else, and it still counts in no score until it is
+   submitted. But it EXISTS somewhere other than one pocket, so a colleague
+   can see where the work got to, and the pen can be handed over.
+
+   Only what changed is sent — a draft nobody has touched since its last
+   upload is not re-sent on every tick.
+   ===================================================================== */
+function autoPushDrafts(){
+  const u=me(); if(!u || isSlot(u)) return 0;
+  let n=0;
+  DB.d.visits.forEach(v=>{
+    if(v.status!=='DRAFT' || v.uid!==u.id) return;
+    if((v.updated||0) <= (v.pushed||0)) return;
+    v.pushed = v.updated || Date.now();
+    queue('visit', {visit:visitForSync(v), answers:answersForSync(v.id), actions:visitActions(v.id)});
+    n++;
+  });
+  if(n) DB.save();
+  return n;
+}
+
 let ADMIN_TICK=0;
 setInterval(()=>{
   if(!ONLINE || !DB.d.config.api) return;
   pullRemote();
+  autoPushDrafts();
   if(DB.d.outbox.length) syncNow(true);
   const u=me();
   if(u){ if(isSlot(u)) refreshRoster(false); else refreshMyState(false); }
