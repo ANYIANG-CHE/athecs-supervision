@@ -716,7 +716,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.3.2';
+const APP_VERSION = '4.3.3';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 const DASH_URL = '';
@@ -7676,13 +7676,16 @@ async function syncNow(quiet){
   if(!ONLINE){ if(!quiet) toast(T('offline')); return; }
   if(syncNow._busy) return; syncNow._busy=true;
   const box=DB.d.outbox.slice();
-  let ok=0, fail=0, badToken=false;
+  let ok=0, fail=0, badToken=false, busy=false;
   for(const item of box){
     try{
       const res=await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
         body:JSON.stringify({token:apiToken(), kind:item.kind, id:item.id, payload:item.payload})});
       const j=await res.json();
       if(j && j.ok){ DB.d.outbox=DB.d.outbox.filter(x=>x.id!==item.id); ok++; }
+      /* The workbook is busy with somebody else's write. Nothing is wrong, nothing is
+         lost: this stays in the outbox and goes on the next pass. */
+      else if(j && j.busy){ busy=true; item.tries++; break; }
       /* "bad token" is the server refusing this device outright. Counting it as an
          ordinary failure produced "Synchronisé : 0" — which looks like success with
          nothing to send, and hid a total communication breakdown. */
@@ -7694,6 +7697,9 @@ async function syncNow(quiet){
   DB.d.messages.forEach(m=>{ if(m.pending && !DB.d.outbox.some(o=>o.kind==='message'&&o.payload.id===m.id)) m.pending=false; });
   DB.save();
   if(badToken){ render(); return tokenRefused(); }
+  if(busy && !quiet) toast(LANG==='fr'
+    ?'Le serveur est occupé — vos données restent en attente et repartiront seules.'
+    :'The server is busy — your data stays queued and will go by itself.', 4500);
   if(!quiet||ok) toast((LANG==='fr'?'Synchronisé : ':'Synced: ')+ok+(fail?(LANG==='fr'?' · échecs '+fail:' · failed '+fail):''));
   render();
 }
@@ -7956,10 +7962,17 @@ async function probeToken(tok){
   try{
     const r = await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({token:tok, kind:'__probe__', id:'PROBE', payload:{}})});
-    const j = await r.json();
+    /* Read it as TEXT first. A write that is queued behind a long one, or a script that
+       threw, comes back as an HTML page — and calling .json() on that throws, which the
+       old code reported as "unreachable", i.e. as if the address had not answered at
+       all. It had answered; it had said something we could not read. */
+    const txt = await r.text();
+    let j=null; try{ j = JSON.parse(txt); }catch(e){}
+    if(!j) out.post = /^\s*</.test(txt) ? 'html' : 'other';
+    else if(j.busy) out.post = 'busy';
     /* the token is checked before the kind: "unknown kind" is a PASS */
-    out.post = /bad token/i.test(String((j&&j.error)||'')) ? 'refused'
-             : (/unknown kind/i.test(String((j&&j.error)||'')) || (j&&j.ok)) ? 'ok' : 'other';
+    else out.post = /bad token/i.test(String(j.error||'')) ? 'refused'
+             : (/unknown kind/i.test(String(j.error||'')) || j.ok) ? 'ok' : 'other';
   }catch(e){ out.post = 'unreachable'; }
   return out;
 }
@@ -8024,7 +8037,31 @@ async function tokenRefused(){
     return setTimeout(()=>syncNow(true), 500);
   }
 
-  /* 5 · anything else: say exactly what was observed rather than guessing */
+  /* ---- 5 · THE READ WORKS, SO THE PASSWORD IS RIGHT --------------------------------
+     This branch used to be headed "Le serveur refuse cet appareil" and printed two
+     words of diagnostics, which sent people hunting for a password fault that the probe
+     directly above had already ruled out: a read that returns ok, with the script's
+     version number, is a read that was authenticated.
+
+     What it actually means is that the WRITE could not get through — almost always
+     because the workbook is busy with a long write and this one queued behind it.
+     Nothing is lost while that is true: everything waits in the outbox. */
+  if(a.get === 'ok'){
+    const busyish = (a.post === 'busy' || a.post === 'html' || a.post === 'unreachable');
+    return infoModal(
+      L?'Le serveur est occupé — rien n\'est perdu':'The server is busy — nothing is lost',
+      (busyish
+        ? (L?'Votre mot de passe de liaison est BON : la lecture fonctionne et le serveur a répondu.\n\nC\'est l\'ÉCRITURE qui n\'est pas passée. Le classeur est occupé par une écriture plus longue — souvent au moment d\'une mise à jour, quand plusieurs téléphones écrivent en même temps.\n\nÀ FAIRE : rien. Tout ce qui attend reste dans la file et repartira tout seul. Réessayez dans quelques minutes.\n\nSi cela dure plus d\'une heure, montrez cet écran à la coordination régionale.'
+            :'Your link password is CORRECT: reading works and the server answered.\n\nIt is the WRITE that did not get through. The workbook is busy with a longer write — often during an update, when several phones write at once.\n\nWHAT TO DO: nothing. Everything waiting stays in the queue and will go by itself. Try again in a few minutes.\n\nIf it lasts more than an hour, show this screen to the regional coordination.')
+        : (L?'Le serveur répond à la lecture mais donne une réponse inattendue à l\'écriture.'
+            :'The server answers reads but gives an unexpected answer to writes.'))
+      + '\n\n' + api + '\n'
+      + (L?'  lecture : ':'  read: ') + a.get + (L?'   ·   écriture : ':'   ·   write: ') + a.post + '\n'
+      + (a.version ? (L?'  version du script : ':'  script version: ') + a.version + '\n' : '')
+      + (L?'  en attente d\'envoi : ':'  waiting to be sent: ') + DB.d.outbox.length);
+  }
+
+  /* 6 · anything else: say exactly what was observed rather than guessing */
   return box((L?'RÉPONSE INATTENDUE DU SERVEUR\n\n':'UNEXPECTED ANSWER FROM THE SERVER\n\n')
     + api + '\n\n'
     + (L?'Avec le mot de passe enregistré ici (':'With the password saved here (') + shown + ') :\n'
@@ -8221,6 +8258,17 @@ window.addEventListener('load', ()=>{ if(ONLINE){ pullRemote(); syncNow(true); r
    ===================================================================== */
 function publishQuestionnaire(force, stamp){
   if(!ONLINE || !DB.d.config.api) return false;
+  /* ---- THE QUESTIONNAIRE IS PUBLISHED FROM THE CONSOLE -----------------------------
+     It used to be published by whichever phone synced first. On the morning of an
+     upgrade that is twenty phones each sending sixty questions within the same minute,
+     all of them queueing behind the same script lock — which is what took the writes
+     down across the region while the reads carried on working.
+
+     One account publishes: a super user's or an administrator's. A supervisor's phone
+     keeps using its own built-in questionnaire meanwhile, which is correct and needs no
+     network at all; it simply stops shouting it at the workbook. */
+  const who = me();
+  if(!stamp && !(who && isSlot(who))) return false;
   const mark = stamp || QCORR_VERSION;
   if(!force && String(DB.d.config.qserver||'') >= String(mark)) return false;
   if(!stamp && publishQuestionnaire._busy) return false;
