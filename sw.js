@@ -1,7 +1,7 @@
 /* INTEGRATED SUPERVISION WEST REGION — ATHECS
    Service worker: lets the app open with no network at all.
    NACC powered by ICAP Global Health © 2025-2026 */
-const CACHE = 'athecs-v4-3-2';
+const CACHE = 'athecs-v4-3-3';
 
 self.addEventListener('install', e => {
   e.waitUntil(
