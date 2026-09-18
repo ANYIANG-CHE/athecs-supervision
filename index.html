@@ -733,7 +733,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.3.8';
+const APP_VERSION = '4.4.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 const DASH_URL = '';
@@ -8423,6 +8423,7 @@ function afterRender(r, sameView){
 }
 DB.load();
 render();
+updateNotice();
 maybeTour();
 window.addEventListener('load', ()=>{ if(ONLINE){ pullRemote(); syncNow(true); refreshAdmins(false);
   const u=me();
@@ -8574,7 +8575,19 @@ function updateDue(){
    typing, never mid-sync. A reload that interrupts a visit would be a
    worse failure than an old version. */
 
-let UPDATE_READY = '';        /* a newer version is already in this phone's cache */
+/* var, NOT let — and this is load-bearing.
+
+   render() is called from the boot block a hundred and fifty lines ABOVE
+   this one. shell() calls updateBanner(), which reads UPDATE_READY. With
+   `let`, that read lands in the temporal dead zone and throws
+   ReferenceError on the very first paint, so the app shows nothing at all.
+
+   It only fires when updateDue() is already non-empty at boot — that is, on
+   a phone the SERVER has reported as behind. In other words it would have
+   blanked exactly the phones this whole release exists to bring up to date,
+   and left every other phone working, which is the worst way for a fault to
+   hide. `var` hoists, reads as undefined, and the banner behaves. */
+var UPDATE_READY = '';        /* a newer version is already in this phone's cache */
 
 function updateReady(v){
   if(!v || !verLt(APP_VERSION, v)) return;
@@ -8617,8 +8630,39 @@ function autoApply(){
   try{ localStorage.setItem('ath_autoupd', JSON.stringify({v, at:Date.now()})); }catch(e){}
   try{ DB.save(); }catch(e){}
   try{ clearInterval(updateReady._t); }catch(e){}
-  autoApply._go();
+
+  /* v4.4.0 — SAY SO. Asked for in the field: "auto install with just a
+     notification". Until now the phone reloaded itself in silence, so a
+     supervisor saw the screen blink and was told nothing, either before or
+     after. Two lines fix that: one on the way out, one on the way back.
+     The note that survives the reload is written here, and read by
+     updateNotice() when the new version boots. */
+  const L = LANG==='fr';
+  try{ localStorage.setItem('ath_upd_done',
+        JSON.stringify({from: APP_VERSION, to: v, at: Date.now()})); }catch(e){}
+  toast(L ? 'Mise à jour vers la v' + v + '… un instant.'
+          : 'Updating to v' + v + '… one moment.', 4000);
+  /* long enough for the message to be read, short enough not to be a wait */
+  setTimeout(() => autoApply._go(), 1100);
   return true;
+}
+
+/* Read once, on the other side of the reload. The supervisor opened the app,
+   it changed under them, and this is the sentence that explains why. */
+function updateNotice(){
+  let n = null;
+  try{ n = JSON.parse(localStorage.getItem('ath_upd_done') || 'null'); }catch(e){}
+  if(!n) return;
+  try{ localStorage.removeItem('ath_upd_done'); }catch(e){}
+  if(Date.now() - (n.at || 0) > 5*60*1000) return;      /* stale: say nothing */
+  const L = LANG==='fr';
+  if(String(n.to) !== String(APP_VERSION)){
+    /* it did not take — the banner and the manual button carry on from here */
+    return;
+  }
+  setTimeout(() => toast(L
+    ? '✓ Application mise à jour : v' + APP_VERSION + '. Rien n\'a été perdu.'
+    : '✓ Application updated: v' + APP_VERSION + '. Nothing was lost.', 6000), 700);
 }
 /* A named seam, so the test can watch the decision without navigating away. */
 autoApply._go = () => { try{ location.reload(); }catch(e){} };
@@ -8632,8 +8676,8 @@ function updateBanner(){
   if(UPDATE_READY) return `<div class="wrap" style="padding-bottom:0">
     <div class="banner b-ok" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <span style="flex:1;min-width:180px">${L
-        ?`<b>Version v${esc(v)} prête sur cet appareil</b><br><span class="xs">Elle s'installera toute seule dès que vous ne serez pas en pleine supervision. Vous n'avez rien à faire.</span>`
-        :`<b>Version v${esc(v)} is ready on this device</b><br><span class="xs">It will install by itself as soon as you are not in the middle of a supervision. You have nothing to do.</span>`}</span>
+        ?`<b>Mise à jour v${esc(v)} en attente</b><br><span class="xs">Elle s'installera toute seule dès que vous ne serez pas en pleine supervision — vous serez prévenu juste avant. Rien à faire.</span>`
+        :`<b>Update v${esc(v)} is waiting</b><br><span class="xs">It installs by itself as soon as you are not in the middle of a supervision — you are told just before. Nothing to do.</span>`}</span>
       <button class="btn sec sm" onclick="updateModal()">${L?'Installer maintenant':'Install now'}</button>
     </div></div>`;
   return `<div class="wrap" style="padding-bottom:0">
@@ -8649,7 +8693,7 @@ function updateBanner(){
    the phone has nothing cached and a human really is the only way through.
    When the update is already on the device it installs itself, and
    interrupting a supervisor to tell them that would be noise. */
-let UPD_ASKED = '';
+var UPD_ASKED = '';   /* same reason as UPDATE_READY above */
 function updateAsk(){
   const v = updateDue(); if(!v || UPD_ASKED === v) return;
   if(UPDATE_READY) return;                       /* it is coming by itself */
