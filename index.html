@@ -716,7 +716,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.3.4';
+const APP_VERSION = '4.3.5';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 const DASH_URL = '';
@@ -798,6 +798,9 @@ var NEW_VERSION = '';                     /* '' = this phone is up to date */
       if(d.type !== 'ATHECS_NEW_VERSION') return;
       if(!d.version || d.version === APP_VERSION) return;
       NEW_VERSION = String(d.version);
+      /* The new file is already in this phone's cache: from here it installs
+         itself at the first safe moment, and on the next open regardless. */
+      try{ if(typeof updateReady === 'function') return updateReady(NEW_VERSION); }catch(e){}
       try{ if(typeof render === 'function') render(); }catch(e){}
     });
 
@@ -8131,9 +8134,15 @@ async function runDiag(){
     j = await r.json();
   }catch(e){ err=String(e); }
 
-  if(err) return box((L?'SERVEUR INJOIGNABLE\n\n':'SERVER UNREACHABLE\n\n')
-    + (L?'L\'adresse configurée ne répond pas :\n':'The configured address does not answer:\n')
-    + api + '\n\n' + err);
+  /* A single blip on a district connection is not a diagnosis. Ask twice. */
+  if(err){
+    await new Promise(r=>setTimeout(r, 1200));
+    try{
+      const r2 = await fetch(api+'?action=diag&token='+encodeURIComponent(apiToken()));
+      j = await r2.json(); err='';
+    }catch(e){ err=String(e); }
+  }
+  if(err) return box(await whyUnreachable(api, err));
 
   if(j && j.ok===false && /bad token/i.test(String(j.error||''))) return box(
     (L?'LE SERVEUR REFUSE CET APPAREIL\n\n':'THE SERVER IS REFUSING THIS DEVICE\n\n')
@@ -8391,10 +8400,92 @@ function updateDue(){
   return '';
 }
 
-/* Sits under the top bar, on every screen, for as long as the phone is behind. */
+/* =====================================================================
+   INSTALLING AN UPDATE WITHOUT ASKING ANYBODY          (v4.3.5)
+
+   Asked for in the field: "is there a way to force update their version,
+   without them having to do anything?"
+
+   There are two quite different situations, and only one of them ever
+   needs a human:
+
+   ① THE NEW VERSION IS ALREADY ON THE PHONE. Since v4.3.4 the worker
+      caches it in the background while the app is being used. From that
+      moment the update needs no network, no permission and no button —
+      the phone is simply holding the new file and still showing the old
+      one. Reloading is all that remains, and this code does it by itself
+      at the first SAFE moment. Nothing is asked. Nothing is announced
+      beyond a line saying it is about to happen.
+
+      Even if the app is closed before that moment arrives, the NEXT time
+      it is opened the cached copy IS the new version. So every phone that
+      opens the app twice updates itself, whatever anybody does or does
+      not tap.
+
+   ② THE SERVER SAYS THE PHONE IS BEHIND, BUT NOTHING IS CACHED. This is
+      a phone whose worker is too old to have fetched it — the v4.0.0
+      case. Here there genuinely is nothing on the device to apply, so
+      this is the one case that still asks.
+
+   WHAT "SAFE" MEANS, and it is not negotiable: never during a
+   supervision, never with a dialogue open, never while the supervisor is
+   typing, never mid-sync. A reload that interrupts a visit would be a
+   worse failure than an old version. */
+
+let UPDATE_READY = '';        /* a newer version is already in this phone's cache */
+
+function updateReady(v){
+  if(!v || !verLt(APP_VERSION, v)) return;
+  UPDATE_READY = v;
+  if(!updateReady._t) updateReady._t = setInterval(autoApply, 15000);
+  setTimeout(autoApply, 4000);
+  try{ render(); }catch(e){}
+}
+
+/* The whole list of reasons not to reload right now. */
+function autoApplySafe(){
+  if(!UPDATE_READY) return false;
+  const r = (typeof route==='function') ? route()[0] : '';
+  if(r === 'visit' || r === 'new' || r === 'sitereq') return false;  /* mid-supervision */
+  if(document.querySelector('.modal')) return false;                 /* mid-dialogue */
+  const el = document.activeElement;
+  if(el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName||'')) return false;  /* mid-typing */
+  if(syncNow._busy) return false;                                    /* mid-send */
+  return true;
+}
+
+/* A reload that does not take must not become a reload loop: if we already
+   reloaded for this exact version a few minutes ago and are still not on it,
+   the host is serving something inconsistent — stop, and let the banner and
+   the manual button take over. */
+function autoApply(){
+  if(!autoApplySafe()) return false;
+  const v = UPDATE_READY;
+  let last = {};
+  try{ last = JSON.parse(localStorage.getItem('ath_autoupd')||'{}'); }catch(e){}
+  if(last.v === v && (Date.now() - (last.at||0)) < 10*60*1000) return false;
+  try{ localStorage.setItem('ath_autoupd', JSON.stringify({v, at:Date.now()})); }catch(e){}
+  try{ DB.save(); }catch(e){}
+  try{ clearInterval(updateReady._t); }catch(e){}
+  autoApply._go();
+  return true;
+}
+/* A named seam, so the test can watch the decision without navigating away. */
+autoApply._go = () => { try{ location.reload(); }catch(e){} };
+
+/* Sits under the top bar, on every screen, for as long as the phone is behind.
+   Two versions of it, because the two situations above deserve two different
+   sentences: one is an announcement, the other is a request. */
 function updateBanner(){
   const v = updateDue(); if(!v) return '';
   const L = LANG==='fr';
+  if(UPDATE_READY) return `<div class="wrap" style="padding-bottom:0">
+    <div class="banner b-ok" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span style="flex:1;min-width:180px">${L
+        ?`<b>Version v${esc(v)} prête sur cet appareil</b><br><span class="xs">Elle s'installera toute seule dès que vous ne serez pas en pleine supervision. Vous n'avez rien à faire.</span>`
+        :`<b>Version v${esc(v)} is ready on this device</b><br><span class="xs">It will install by itself as soon as you are not in the middle of a supervision. You have nothing to do.</span>`}</span>
+      <button class="btn sec sm" onclick="updateModal()">${L?'Installer maintenant':'Install now'}</button>
+    </div></div>`;
   return `<div class="wrap" style="padding-bottom:0">
     <div class="banner b-warn" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <span style="flex:1;min-width:180px">${L
@@ -8404,11 +8495,14 @@ function updateBanner(){
     </div></div>`;
 }
 
-/* Asked for once per version per session, so that a supervisor who opens the
-   app in the morning is TOLD, rather than having to notice a banner. */
+/* Asked for once per version per session — and ONLY in situation ②, where
+   the phone has nothing cached and a human really is the only way through.
+   When the update is already on the device it installs itself, and
+   interrupting a supervisor to tell them that would be noise. */
 let UPD_ASKED = '';
 function updateAsk(){
   const v = updateDue(); if(!v || UPD_ASKED === v) return;
+  if(UPDATE_READY) return;                       /* it is coming by itself */
   if(document.querySelector('.modal')) return;   /* never interrupt another dialogue */
   UPD_ASKED = v; updateModal();
 }
@@ -8417,7 +8511,10 @@ function updateModal(){
   const L = LANG==='fr';
   const v = updateDue() || APP_VERSION;
   modal(L?'Mettre à jour l\'application':'Update the application',
-   `<div class="banner b-ok">${L
+   `${UPDATE_READY?`<div class="banner b-ok">${L
+      ?'Cette version est DÉJÀ téléchargée sur cet appareil. L\'installer ne demande aucun réseau et ne dure qu\'un instant. Elle s\'installera d\'elle-même si vous ne faites rien.'
+      :'This version is ALREADY downloaded on this device. Installing it needs no network and takes a moment. It will install by itself if you do nothing.'}</div>`:''}
+    <div class="banner b-ok">${L
      ?`Cet appareil : <b>v${APP_VERSION}</b> &nbsp;·&nbsp; disponible : <b>v${esc(v)}</b>`
      :`This device: <b>v${APP_VERSION}</b> &nbsp;·&nbsp; available: <b>v${esc(v)}</b>`}</div>
     <p class="small">${L
@@ -8468,6 +8565,88 @@ async function forceUpdate(){
 /* A named seam, so the test can watch where the update WOULD send the phone
    without actually navigating away mid-assertion. Nothing else overrides it. */
 forceUpdate._go = u => { try{ location.replace(u); }catch(e){ location.href = u; } };
+
+
+/* =====================================================================
+   "SERVER UNREACHABLE — TypeError: Failed to fetch"      (v4.3.5)
+
+   That message was true and useless. A browser reports exactly the same
+   TypeError whether the phone has no route to Google at all, or reaches
+   Google perfectly well and is refused by this one deployment. The two
+   have completely different fixes — one is the operator's network and
+   nothing to touch, the other is a setting in Manage deployments — and
+   the coordination team was being asked to guess which.
+
+   They can be told apart, cheaply. Ask Google for something that is not
+   this deployment: script.google.com's own favicon, no-cors, so it needs
+   no permission to answer. If THAT fails too, the phone cannot reach
+   Google. If it succeeds while the deployment does not, the phone is fine
+   and the deployment is refusing it.
+   ===================================================================== */
+async function googleReachable(){
+  try{
+    await fetch('https://script.google.com/favicon.ico',
+      {mode:'no-cors', cache:'no-store'});
+    return true;
+  }catch(e){ return false; }
+}
+
+async function whyUnreachable(api, err){
+  const L = LANG==='fr';
+  const up = await googleReachable();
+  const tail = '\n\n' + api + '\n' + err
+    + '\n' + (L?'  en attente sur cet appareil : ':'  waiting on this device: ') + DB.d.outbox.length;
+
+  if(!up) return (L
+    ?'CE TÉLÉPHONE N\'ATTEINT PAS GOOGLE DU TOUT\n\n'
+     +'script.google.com ne répond pas non plus. Le problème est la connexion de ce téléphone, pas le classeur.\n\n'
+     +'À FAIRE :\n'
+     +'1. Basculez entre données mobiles et Wi-Fi, puis réessayez.\n'
+     +'2. Si plusieurs superviseurs le signalent en même temps, c\'est l\'opérateur qui bloque ou ralentit Google. Attendez et réessayez plus tard.\n'
+     +'3. Rien n\'est perdu : tout ce qui attend reste sur le téléphone et repartira seul.\n\n'
+     +'RIEN À CHANGER SUR LE CLASSEUR.'
+    :'THIS PHONE CANNOT REACH GOOGLE AT ALL\n\n'
+     +'script.google.com does not answer either. The problem is this phone\'s connection, not the workbook.\n\n'
+     +'WHAT TO DO:\n'
+     +'1. Switch between mobile data and Wi-Fi, then try again.\n'
+     +'2. If several supervisors report this at the same time, the operator is blocking or throttling Google. Wait and try later.\n'
+     +'3. Nothing is lost: everything waiting stays on the phone and leaves by itself.\n\n'
+     +'NOTHING TO CHANGE ON THE WORKBOOK.') + tail;
+
+  return (L
+    ?'GOOGLE RÉPOND, CE DÉPLOIEMENT NON\n\n'
+     +'Ce téléphone atteint script.google.com, mais cette adresse-ci refuse la connexion. En pratique cela veut dire l\'une de deux choses, et les deux se règlent au même endroit :\n\n'
+     +'· l\'accès du déploiement n\'est plus « Tout le monde » — le navigateur est renvoyé vers une page de connexion Google qu\'il ne peut pas suivre ;\n'
+     +'· cette adresse n\'est plus un déploiement actif (archivé, ou remplacé par un « Nouveau déploiement » qui a une autre adresse).\n\n'
+     +'VÉRIFICATION LA PLUS RAPIDE : copiez l\'adresse ci-dessous dans Chrome, sur ce téléphone.\n'
+     +'   du JSON s\'affiche  →  le déploiement va bien, c\'était passager.\n'
+     +'   une page de connexion Google  →  point 4 ci-dessous.\n'
+     +'   « Impossible d\'ouvrir le fichier »  →  l\'adresse est morte, point 5.\n\n'
+     +'À FAIRE, sur l\'ordinateur qui possède le classeur :\n'
+     +'1. Classeur ▸ Extensions ▸ Apps Script\n'
+     +'2. Déployer ▸ GÉRER LES DÉPLOIEMENTS\n'
+     +'3. ✏️ sur le déploiement existant\n'
+     +'4. Qui a accès : TOUT LE MONDE   ← vérifiez ceci en premier\n'
+     +'5. Version : nouvelle version ▸ Déployer\n'
+     +'6. Recopiez l\'adresse /exec affichée et comparez-la, caractère par caractère, avec celle ci-dessous.\n\n'
+     +'Jamais « Nouveau déploiement » : cela crée une deuxième adresse et les téléphones continuent de parler à l\'ancienne.'
+    :'GOOGLE ANSWERS, THIS DEPLOYMENT DOES NOT\n\n'
+     +'This phone reaches script.google.com, but this particular address refuses the connection. In practice that means one of two things, and both are fixed in the same place:\n\n'
+     +'· the deployment\'s access is no longer "Anyone" — the browser is being sent to a Google sign-in page it cannot follow;\n'
+     +'· this address is no longer a live deployment (archived, or replaced by a "New deployment" that has a different address).\n\n'
+     +'QUICKEST CHECK: copy the address below into Chrome, on this phone.\n'
+     +'   JSON appears  →  the deployment is fine, this was transient.\n'
+     +'   a Google sign-in page  →  step 4 below.\n'
+     +'   "Sorry, unable to open the file"  →  the address is dead, step 5.\n\n'
+     +'WHAT TO DO, on the computer that owns the workbook:\n'
+     +'1. Workbook ▸ Extensions ▸ Apps Script\n'
+     +'2. Deploy ▸ MANAGE DEPLOYMENTS\n'
+     +'3. ✏️ on the existing deployment\n'
+     +'4. Who has access: ANYONE   ← check this first\n'
+     +'5. Version: New version ▸ Deploy\n'
+     +'6. Copy the /exec address it shows and compare it, character for character, with the one below.\n\n'
+     +'Never "New deployment": that creates a second address and the phones keep talking to the old one.') + tail;
+}
 
 </script>
 </body>
