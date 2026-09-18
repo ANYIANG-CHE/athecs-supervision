@@ -34,7 +34,7 @@
    Nothing here ever touches localStorage, where enrolment, PINs and every
    unsent supervision live. A cache purge is not a data loss. */
 
-const CACHE = 'athecs-v4-3-4';
+const CACHE = 'athecs-v4-3-5';
 const VKEY  = './__athecs_version__';   /* not a real file: a marker we keep in the cache */
 
 /* The version stamp is written once, by build.py, into the head of the
