@@ -2,40 +2,41 @@
    Service worker: lets the app open with no network at all.
    NACC powered by ICAP Global Health © 2025-2026
 
-   WHY THIS FILE CHANGED IN v4.3.4
-   ───────────────────────────────
-   Until v4.3.3 this worker was NETWORK FIRST with no timeout. Two field
-   reports came straight out of that one line:
+   v4.3.4 made this STALE WHILE REVALIDATE: the cached copy is served at
+   once, a conditional request goes out in the background, and a new
+   APP_VERSION is announced to the page. That part was right and is kept.
 
-   1. "the app is slow to open". On a good connection nobody notices. On a
-      district road with one bar, the phone sat waiting for the whole of
-      index.html before drawing anything, because the cached copy was only
-      consulted after the network gave up — and a stalled connection never
-      gives up, it just stays slow. The app was as slow as the worst signal
-      of the day.
+   v4.3.6 fixes three things that could leave a phone on a screen that
+   never opens. All three were mine.
 
-   2. "supervisors keep refreshing and stay on v4.0.0". Network first still
-      goes through the phone's ORDINARY HTTP CACHE. If the host answered
-      that request from cache — and a static host will, for hours — the
-      worker faithfully re-cached the SAME OLD FILE, for ever. Refreshing
-      could not break the loop because every refresh asked the same
-      question and got the same stale answer.
+   ① NO TIMEOUT ON THE NETWORK LEG. When the cache has no entry — the
+      first launch, or straight after a cache purge — serve() awaited
+      fetch() with nothing to stop it. A connection that STALLS rather
+      than fails never settles that promise, so respondWith() never
+      resolved and the phone sat on an empty screen indefinitely. There
+      is now a hard deadline, and a readable page at the end of it.
 
-   What it does now — STALE WHILE REVALIDATE:
-     · the cached copy is served IMMEDIATELY, so the app opens at the speed
-       of the phone's own storage, signal or no signal;
-     · a conditional request goes out in the background (cache:'no-cache'
-       sends the ETag, so an unchanged file costs a few hundred bytes, not
-       574 KB) — this is what breaks the stale-HTTP-cache loop;
-     · when the copy that comes back carries a different APP_VERSION, the
-       new copy is cached and every open tab is TOLD, by postMessage. The
-       page then shows the update banner. Nobody has to notice anything.
+   ② forceUpdate() DELETED EVERY CACHE AND THEN RELOADED. That is the
+      exact state ① hangs in: an empty cache plus a bad connection. The
+      new copy is now fetched FIRST and only swapped in once it is in
+      hand (see REFRESH below); nothing is ever deleted before there is
+      something to replace it with.
 
-   Nothing here ever touches localStorage, where enrolment, PINs and every
-   unsent supervision live. A cache purge is not a data loss. */
+   ③ ?v= ENTRIES POISONED THE CACHE. The reload used
+      index.html?v=<timestamp>, and the response was stored under that
+      URL. Lookups use {ignoreSearch:true}, so a later plain request for
+      index.html could match a ?v= entry from any earlier update and
+      return it for ever — "I updated and nothing changed". Documents are
+      now always stored under the canonical keys './index.html' and './',
+      whatever query string asked for them.
 
-const CACHE = 'athecs-v4-3-5';
-const VKEY  = './__athecs_version__';   /* not a real file: a marker we keep in the cache */
+   Nothing here ever touches localStorage, where enrolment, PINs and
+   every unsent supervision live. A cache purge is not a data loss. */
+
+const CACHE   = 'athecs-v4-3-7';
+const VKEY    = './__athecs_version__';  /* not a real file: a marker kept in the cache */
+const DOC     = './index.html';          /* the ONE key every document is stored under */
+const NET_MS  = 7000;                    /* a stalled connection gets this long, no more */
 
 /* The version stamp is written once, by build.py, into the head of the
    document. Reading it out of the response body is how this worker knows
@@ -51,15 +52,40 @@ function isDoc(req){
   return p.endsWith('/') || /\.html?$/.test(p);
 }
 
+/* A promise that settles, whatever the network does. */
+function withDeadline(p, ms){
+  return Promise.race([
+    p,
+    new Promise(r => setTimeout(() => r(null), ms))
+  ]);
+}
+
 async function announce(now, was){
   const cs = await self.clients.matchAll({includeUncontrolled:true, type:'window'});
   cs.forEach(c => { try{ c.postMessage({type:'ATHECS_NEW_VERSION', version:now, was:was||''}); }catch(e){} });
 }
 
+async function stored(cache){
+  try{ const r = await cache.match(VKEY); return r ? await r.text() : ''; }
+  catch(e){ return ''; }
+}
+
+/* One place that writes a document into the cache, so the keys can never
+   drift apart and a ?v= URL can never become one of them. */
+async function putDoc(cache, res){
+  const body = await res.clone().text();
+  const mk = () => new Response(body, {status:200, headers:{'Content-Type':'text/html; charset=utf-8'}});
+  await cache.put(DOC, mk());
+  await cache.put('./', mk());
+  const v = verOf(body);
+  if(v) await cache.put(VKEY, new Response(v));
+  return v;
+}
+
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(['./', './index.html']).catch(() => c.add('./')))
+      .then(c => c.addAll([DOC, './']).catch(() => c.add('./')))
       .then(() => self.skipWaiting())
   );
 });
@@ -72,44 +98,46 @@ self.addEventListener('activate', e => {
   );
 });
 
-/* The page can ask three things of this worker. */
 self.addEventListener('message', e => {
   const d = (e && e.data) || {};
+  const reply = msg => { try{ e.source && e.source.postMessage(msg); }catch(err){} };
   if(d.type === 'ATHECS_SKIP_WAITING'){ self.skipWaiting(); return; }
   if(d.type === 'ATHECS_CHECK'){ e.waitUntil(checkNow()); return; }
-  if(d.type === 'ATHECS_PURGE'){
-    e.waitUntil(caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))));
-  }
+  /* REFRESH — what the update button asks for now. Fetch first, swap second,
+     and say whether it worked. Nothing is deleted on a failure. */
+  if(d.type === 'ATHECS_REFRESH'){ e.waitUntil(refresh().then(reply)); return; }
 });
 
-/* An explicit "is there a new version?", asked by the page at start-up and
-   again whenever the phone regains signal. Conditional, so it is nearly
-   free when the answer is no. */
 async function checkNow(){
   try{
     const cache = await caches.open(CACHE);
-    const res = await fetch(new Request('./index.html',
-      {cache:'no-cache', credentials:'same-origin'}));
+    const res = await withDeadline(
+      fetch(new Request(DOC, {cache:'no-cache', credentials:'same-origin'})), NET_MS);
     if(!res || res.status !== 200) return;
-    const txt = await res.clone().text();
-    const now = verOf(txt);
-    if(!now) return;
     const was = await stored(cache);
-    await cache.put('./index.html', res.clone());
-    await cache.put('./', res.clone());
-    await cache.put(VKEY, new Response(now));
-    if(was && was !== now) await announce(now, was);
+    const now = await putDoc(cache, res);
+    if(now && was && was !== now) await announce(now, was);
   }catch(e){ /* no signal: nothing to report, nothing broken */ }
 }
 
-async function stored(cache){
-  try{ const r = await cache.match(VKEY); return r ? await r.text() : ''; }
-  catch(e){ return ''; }
+/* Bypass every cache between here and the server, but keep the old copy
+   until the new one is safely in hand. */
+async function refresh(){
+  try{
+    const res = await withDeadline(
+      fetch(new Request(DOC + '?r=' + Date.now(),
+        {cache:'reload', credentials:'same-origin'})), NET_MS);
+    if(!res || res.status !== 200)
+      return {type:'ATHECS_REFRESH_DONE', ok:false, reason:'no-answer'};
+    const cache = await caches.open(CACHE);
+    const was = await stored(cache);
+    const now = await putDoc(cache, res);          /* canonical keys only */
+    return {type:'ATHECS_REFRESH_DONE', ok:true, version:now, was:was};
+  }catch(e){
+    return {type:'ATHECS_REFRESH_DONE', ok:false, reason:String(e)};
+  }
 }
 
-/* waitUntil keeps the worker alive for the background half. Without it the
-   browser is free to kill the worker the moment the cached copy is handed
-   over, and the revalidation — the whole point — would be cut off. */
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   let url;
@@ -121,35 +149,62 @@ self.addEventListener('fetch', e => {
 });
 
 /* The background half: conditional, so an unchanged file costs an ETag
-   round trip and not 583 KB. */
+   round trip and not 594 KB. */
 async function revalidate(req){
   try{
-    const res = await fetch(new Request(req.url, {cache:'no-cache', credentials:'same-origin'}));
+    const res = await withDeadline(
+      fetch(new Request(req.url, {cache:'no-cache', credentials:'same-origin'})), NET_MS);
     if(!res || !res.ok || res.status !== 200) return res || null;
     const cache = await caches.open(CACHE);
-    await cache.put(req, res.clone());
     if(isDoc(req)){
-      const now = verOf(await res.clone().text());
-      if(now){
-        const was = await stored(cache);
-        await cache.put(VKEY, new Response(now));
-        if(was && was !== now) await announce(now, was);
-      }
+      const was = await stored(cache);
+      const now = await putDoc(cache, res);
+      if(now && was && was !== now) await announce(now, was);
+    }else{
+      await cache.put(req, res.clone());
     }
     return res;
   }catch(e){ return null; }
 }
 
-/* The foreground half: whatever is on this phone already, at once. */
+/* The foreground half: whatever is on this phone already, at once —
+   and, when there is nothing, an answer within NET_MS either way. */
 async function serve(req, job){
   const cache = await caches.open(CACHE);
-  const hit   = await cache.match(req, {ignoreSearch:true});
+  const hit = isDoc(req)
+    ? (await cache.match(DOC)) || (await cache.match('./'))
+    : await cache.match(req, {ignoreSearch:true});
   if(hit) return hit;
-  const got = await job;
+
+  const got = await job;                       /* already deadlined */
   if(got && got.ok) return got;
-  return (await cache.match('./index.html'))
+  return (await cache.match(DOC))
       || (await cache.match('./'))
       || got
-      || new Response('Hors ligne — ouvrez l\'application une fois avec du réseau.',
-           { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+      || offlinePage();
+}
+
+/* Never a blank screen. If it comes to this, the phone is being told what
+   happened and what to do, in both languages, from the worker itself. */
+function offlinePage(){
+  const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+    + '<title>ATHECS</title><style>body{margin:0;font:16px/1.5 system-ui,sans-serif;'
+    + 'background:#F5F8FC;color:#0F1723;display:flex;align-items:center;justify-content:center;'
+    + 'min-height:100vh;padding:24px}div{max-width:420px}h1{font-size:1.1rem;color:#0B3C71;margin:0 0 12px}'
+    + 'p{margin:0 0 10px;font-size:.95rem}button{margin-top:14px;padding:12px 18px;border:0;'
+    + 'border-radius:10px;background:#0B3C71;color:#fff;font-size:1rem;font-weight:600}'
+    + '</style></head><body><div>'
+    + '<h1>ATHECS n’a pas pu s’ouvrir / could not open</h1>'
+    + '<p>Cet appareil n’a pas encore de copie de l’application, et le serveur n’a pas '
+    + 'répondu à temps.</p>'
+    + '<p>Ouvrez l’application <b>une fois avec du réseau</b> : elle fonctionnera ensuite '
+    + 'hors ligne. Rien de ce qui était enregistré sur ce téléphone n’est perdu.</p>'
+    + '<p style="font-size:.85rem;color:#54617A">This device has no copy of the application yet and '
+    + 'the server did not answer in time. Open it once with a network; nothing saved on this phone '
+    + 'is lost.</p>'
+    + '<button onclick="location.reload()">Réessayer / Retry</button>'
+    + '</div></body></html>';
+  return new Response(html, {status:200,
+    headers:{'Content-Type':'text/html; charset=utf-8'}});
 }
