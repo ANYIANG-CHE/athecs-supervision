@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ATHECS — Réparer / Repair</title>
+<style>
+  body{margin:0;font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+       background:#F5F8FC;color:#0F1723;display:flex;align-items:center;
+       justify-content:center;min-height:100vh;padding:24px}
+  .card{max-width:430px;width:100%}
+  h1{font-size:1.15rem;color:#0B3C71;margin:0 0 14px}
+  p{margin:0 0 10px;font-size:.95rem}
+  .en{font-size:.85rem;color:#54617A}
+  .ok{background:#E3F5EB;border:1px solid #A6DDC0;border-radius:10px;padding:12px;margin:14px 0}
+  .warn{background:#FFF3DE;border:1px solid #F0CE93;border-radius:10px;padding:12px;margin:14px 0}
+  button{width:100%;margin-top:12px;padding:14px;border:0;border-radius:11px;
+         background:#0B3C71;color:#fff;font-size:1rem;font-weight:600}
+  .spin{width:30px;height:30px;margin:0 auto 16px;border-radius:50%;
+        border:3px solid #DCEAF9;border-top-color:#0B3C71;animation:s 900ms linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  code{font-size:.8rem;color:#54617A;word-break:break-all}
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="busy">
+    <div class="spin"></div>
+    <h1>Réparation en cours…</h1>
+    <p>Ne fermez pas cette page.</p>
+    <p class="en">Repairing. Do not close this page.</p>
+  </div>
+
+  <div id="done" style="display:none">
+    <h1>C'est réparé</h1>
+    <div class="ok">
+      <b>Rien n'a été perdu.</b> Votre compte, votre code PIN et vos supervisions —
+      envoyées ou non — sont intacts.
+      <div class="en" style="margin-top:6px">Nothing was lost: your account, your PIN and
+      your supervisions, sent or not, are untouched.</div>
+    </div>
+    <p id="what"></p>
+    <p>L'application va s'ouvrir dans sa dernière version.</p>
+    <p class="en">The app will now open in its latest version.</p>
+    <button onclick="go()">Ouvrir ATHECS / Open ATHECS</button>
+  </div>
+
+  <div id="fail" style="display:none">
+    <h1>Réparation incomplète</h1>
+    <div class="warn">
+      Ce navigateur n'a pas laissé tout nettoyer. Essayez ceci, dans cet ordre :
+      <div class="en" style="margin-top:6px">This browser did not allow a full clean.
+      Try, in this order:</div>
+    </div>
+    <p>1. Rouvrez cette page et attendez.<br>
+       2. Chrome ▸ ⋮ ▸ Paramètres ▸ Confidentialité ▸ Effacer les données de navigation ▸
+          cochez <b>uniquement</b> « Images et fichiers en cache » ▸ Effacer.</p>
+    <div class="warn"><b>Ne cochez jamais « Cookies et données de site »</b> — cela
+      effacerait votre compte et vos supervisions non envoyées.
+      <div class="en" style="margin-top:6px">Never tick "Cookies and site data" — that would
+      erase your account and any unsent supervision.</div></div>
+    <button onclick="location.reload()">Réessayer / Retry</button>
+  </div>
+
+  <p style="margin-top:18px"><code id="log"></code></p>
+</div>
+
+<script>
+/* =====================================================================
+   ATHECS — the rescue page.
+
+   It exists for one situation: a browser whose cached copy of the app has
+   got stuck on an old version and will not move, whatever the supervisor
+   does. It empties the two things that can hold a stale copy — the service
+   worker registrations and the Cache Storage — and it deliberately does
+   NOT touch the browser's local storage area, which is where the enrolment,
+   the PIN and every unsent supervision live.
+
+   Service worker registrations and Cache Storage belong to the whole
+   ORIGIN, not to this one page, so clearing them from here clears them for
+   the application as well. The local storage area belongs to that same
+   origin and is simply never read or written by this file — the name of
+   that API appears nowhere in it, which is asserted by a build guard.
+
+   It is a separate file on purpose. The application cannot reliably repair
+   its own cache from inside a page that the broken cache is serving.
+   ===================================================================== */
+var line = [];
+function note(s){ line.push(s); document.getElementById('log').textContent = line.join(' · '); }
+
+function go(){
+  location.replace('index.html?fresh=' + Date.now());
+}
+
+(async function(){
+  var killedSW = 0, killedCache = 0, trouble = false;
+
+  try{
+    if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations){
+      var regs = await navigator.serviceWorker.getRegistrations();
+      for(var i = 0; i < regs.length; i++){
+        try{ if(await regs[i].unregister()) killedSW++; }catch(e){ trouble = true; }
+      }
+    }
+    note('workers: ' + killedSW);
+  }catch(e){ trouble = true; note('workers: erreur'); }
+
+  try{
+    if(window.caches){
+      var keys = await caches.keys();
+      for(var j = 0; j < keys.length; j++){
+        try{ if(await caches.delete(keys[j])) killedCache++; }catch(e){ trouble = true; }
+      }
+      var left = await caches.keys();
+      if(left.length) trouble = true;
+    }
+    note('caches: ' + killedCache);
+  }catch(e){ trouble = true; note('caches: erreur'); }
+
+  document.getElementById('busy').style.display = 'none';
+  if(trouble){
+    document.getElementById('fail').style.display = 'block';
+    return;
+  }
+  document.getElementById('what').textContent =
+    killedSW + ' service worker(s) et ' + killedCache + ' cache(s) supprimés. / '
+    + killedSW + ' worker(s) and ' + killedCache + ' cache(s) removed.';
+  document.getElementById('done').style.display = 'block';
+  setTimeout(go, 2500);            /* and it goes on by itself */
+})();
+</script>
+</body>
+</html>

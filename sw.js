@@ -33,7 +33,7 @@
    Nothing here ever touches localStorage, where enrolment, PINs and
    every unsent supervision live. A cache purge is not a data loss. */
 
-const CACHE   = 'athecs-v4-4-0';
+const CACHE   = 'athecs-v4-4-1';
 const VKEY    = './__athecs_version__';  /* not a real file: a marker kept in the cache */
 const DOC     = './index.html';          /* the ONE key every document is stored under */
 const NET_MS  = 7000;                    /* a stalled connection gets this long, no more */
@@ -66,6 +66,10 @@ function isDoc(req){
      the slot the application is served from. The cached app was replaced by
      its own manifest, on any phone whose owner followed the deployment
      guide. A last segment with a dot in it is a FILE unless it is .html. */
+  /* The rescue page is never the application. If a stuck cache were allowed
+     to answer reset.html with index.html, the one tool that can unstick a
+     phone would be shadowed by the very copy it exists to remove. */
+  if(/(^|\/)reset\.html$/i.test(p)) return false;
   const last = p.split('/').pop();
   if(last && last.indexOf('.') >= 0 && !/\.html?$/i.test(last)) return false;
   if(req.mode === 'navigate') return true;
