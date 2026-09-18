@@ -33,7 +33,7 @@
    Nothing here ever touches localStorage, where enrolment, PINs and
    every unsent supervision live. A cache purge is not a data loss. */
 
-const CACHE   = 'athecs-v4-3-7';
+const CACHE   = 'athecs-v4-3-8';
 const VKEY    = './__athecs_version__';  /* not a real file: a marker kept in the cache */
 const DOC     = './index.html';          /* the ONE key every document is stored under */
 const NET_MS  = 7000;                    /* a stalled connection gets this long, no more */
@@ -46,10 +46,30 @@ function verOf(text){
   return m ? m[1] : '';
 }
 
+/* v4.3.8 — WHY THIS IS NOT SIMPLY req.mode === 'navigate'
+   It was, and that was wrong. Typing any address into the bar is a
+   NAVIGATION, so asking for /icon-192.png or /manifest.webmanifest returned
+   index.html from the cache: the app opened, appended its own #/home, and
+   every file on the server appeared to exist whether it had been uploaded
+   or not. A missing upload looked exactly like a successful one, which is
+   the one thing a deployment check must never do.
+
+   A path that names a FILE is that file, whoever asked for it. Everything
+   else — a bare path, a folder, an .html — is the application, so deep
+   links still open offline. */
 function isDoc(req){
+  let p;
+  try{ p = new URL(req.url).pathname; }catch(e){ return req.mode === 'navigate'; }
+  /* No length cap on the extension. The first attempt used {2,8}, which does
+     not match ".webmanifest" — eleven letters — so typing the manifest
+     address counted as a navigation, and putDoc wrote 900 bytes of JSON into
+     the slot the application is served from. The cached app was replaced by
+     its own manifest, on any phone whose owner followed the deployment
+     guide. A last segment with a dot in it is a FILE unless it is .html. */
+  const last = p.split('/').pop();
+  if(last && last.indexOf('.') >= 0 && !/\.html?$/i.test(last)) return false;
   if(req.mode === 'navigate') return true;
-  let p; try{ p = new URL(req.url).pathname; }catch(e){ return false; }
-  return p.endsWith('/') || /\.html?$/.test(p);
+  return p.endsWith('/') || /\.html?$/i.test(last || '');
 }
 
 /* A promise that settles, whatever the network does. */
@@ -74,6 +94,9 @@ async function stored(cache){
    drift apart and a ?v= URL can never become one of them. */
 async function putDoc(cache, res){
   const body = await res.clone().text();
+  /* Belt and braces after the fault above: whatever the routing decides,
+     only the APPLICATION is ever written into the application's slot. */
+  if(!/<html|APP_VERSION/i.test(body.slice(0, 4000))) return '';
   const mk = () => new Response(body, {status:200, headers:{'Content-Type':'text/html; charset=utf-8'}});
   await cache.put(DOC, mk());
   await cache.put('./', mk());
@@ -171,13 +194,21 @@ async function revalidate(req){
    and, when there is nothing, an answer within NET_MS either way. */
 async function serve(req, job){
   const cache = await caches.open(CACHE);
-  const hit = isDoc(req)
+  const doc = isDoc(req);
+  const hit = doc
     ? (await cache.match(DOC)) || (await cache.match('./'))
     : await cache.match(req, {ignoreSearch:true});
   if(hit) return hit;
 
   const got = await job;                       /* already deadlined */
   if(got && got.ok) return got;
+
+  /* An ASSET that the server does not have must come back missing. Falling
+     back to the app shell here was the other half of the v4.3.7 fault: a
+     404 for icon-512.png was answered with index.html, so a file that had
+     never been uploaded returned HTTP 200 and looked perfectly fine. */
+  if(!doc) return got || new Response('', {status:504, statusText:'no answer'});
+
   return (await cache.match(DOC))
       || (await cache.match('./'))
       || got
