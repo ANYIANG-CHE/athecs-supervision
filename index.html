@@ -1167,7 +1167,7 @@ const DB = {
       users:[], sites:[], questions:[], cycles:[], visits:[], answers:{},
       actions:[], threads:[], messages:[], siteReq:[], audit:[], outbox:[],
       /* declarations — a road of its own, shared with nothing above */
-      forms:[], formEntries:[], formSignatures:[], formAssign:[],
+      forms:[], formEntries:[], formSignatures:[],
       config:{ api:'', dashUrl:'', bands:{green:100,yellow:90}, dqa:{tolPct:5, exactBelow:100, yellowPct:10},
                admins:[], lastSync:null },
       session:null, seq:1
@@ -1180,7 +1180,6 @@ const DB = {
     if(!Array.isArray(d.forms))          d.forms = [];
     if(!Array.isArray(d.formEntries))    d.formEntries = [];
     if(!Array.isArray(d.formSignatures)) d.formSignatures = [];
-    if(!Array.isArray(d.formAssign))     d.formAssign = [];
     if(!d.sites || !d.sites.length){
       d.sites = SEED_SITES.map((s,i)=>({
         id:'S'+String(i+1).padStart(3,'0'), district:s[0], area:s[1], facility:s[2],
@@ -2010,6 +2009,11 @@ function render(){
     if(r[0]==='report' && mySiteIds().includes((DB.d.visits.find(v=>v.id===r[1])||{}).siteId))
       return paint(viewReport(r[1]), 'home', r);
     if(r[0]==='chat') return paint(viewChat(r[1]), 'chat', r);
+    /* A declaration is addressed to a HAT, not to a space. A coordinator who
+       carries both and happens to have the facility space open would otherwise
+       be bounced back here and would have to work out that they must switch. */
+    if(r[0]==='fm' && (fmVisible().length || fmCurrent()))
+      return paint(r[1]&&r[2] ? viewFormFill(r[1], r[2]) : viewForms(), 'home', r);
     return paint(viewSiteHome(), 'home', r);
   }
   switch(r[0]){
@@ -3201,7 +3205,7 @@ function wipeLocalData(withUsers){
   const d=DB.d;
   d.visits=[]; d.answers={}; d.actions=[]; d.siteReq=[];
   d.messages=[]; d.threads=[]; d.audit=[]; d.outbox=[];
-  d.forms=[]; d.formEntries=[]; d.formSignatures=[]; d.formAssign=[];
+  d.forms=[]; d.formEntries=[]; d.formSignatures=[];
   d.sites=(d.sites||[]).filter(s=>String(s.status||'').toUpperCase()!=='PROVISIONAL');
   /* a facility invented during the test may be somebody's assigned facility: let go of
      the reference too, so nothing points at a site that no longer exists */
@@ -5892,6 +5896,7 @@ function viewSiteHome(){
     ${last?`<div class="small" style="opacity:.92;margin-top:7px">
       ${L?'Dernière supervision':'Last supervision'} : <b>${esc(last.date||'')}</b> · ${pc((last.scores||visitScores(last)).overall.pct)}</div>`:''}
   </div>
+  ${typeof fmHomeCard==='function' ? fmHomeCard() : ''}
 
   ${typeof roleRequestCard==='function' ? roleRequestCard() : ''}
 
@@ -8123,7 +8128,6 @@ async function pullData(full, deep){
     DB.d.formEntries[i] = re; changed++;
   });
   if(Array.isArray(j.formSignatures)) DB.d.formSignatures = j.formSignatures.slice();
-  if(Array.isArray(j.formAssign))     DB.d.formAssign     = j.formAssign.slice();
   /* Who may sign is the workbook's answer. Without it no phone would ever show
      a Sign button — not even the Business Official's own. */
   if(j.formOfficers){
@@ -9127,50 +9131,64 @@ function fmForms(){ return (DB.d.forms || []).filter(f => f && f.id); }
 /* The form this account is being asked to fill, if there is one. */
 function fmCurrent(){
   const u = me(); if(!u) return null;
-  const role = String(u.role || '');
-  return fmForms().filter(f => {
-    if(String(f.status || '') !== 'OPEN') return false;
-    const who = String(f.fillers || 'SUPER').toUpperCase().split(/[,;\s]+/);
-    return who.indexOf(role) >= 0 || (role === 'ADMIN' && who.indexOf('SUPER') >= 0);
-  })[0] || null;
+  return fmForms().filter(f =>
+    String(f.status || '') === 'OPEN' && (fmMayFill(f) || isSuper()))[0] || null;
 }
 
-/* Any form this account may at least look at — a closed one still has to
-   be printable, because printing is what the submission is made of. */
+/* Any form this account may at least look at — a closed one still has to be
+   printable, because printing is what the submission is made of.
+
+   This used to require a console account, which was a plain mistake: there are
+   eight console accounts in the whole region, and the people who fill these
+   pages are the coordinators. A coordinator would have opened the request and
+   been told that none had been sent. Who may see a form is now the form's own
+   `fillers` field, exactly as it is for filling — plus the console, which must
+   see every request in order to verify, certify and print it. */
+function fmMayFill(f){
+  const u = me(); if(!u || !f) return false;
+  const who = String(f.fillers || 'SUPER').toUpperCase().split(/[,;\s]+/);
+  const has = x => who.indexOf(x) >= 0;
+
+  /* A coordinator who carries BOTH hats has `role` set to whichever space they
+     were enrolled in — which may be SITE. Testing the role string would have
+     hidden the request from exactly those people. The question is which HAT the
+     account carries, as it is everywhere else in this app; the space they
+     happen to have open decides what is displayed, never what they may do. */
+  if(has('SUPERVISOR') && hasSupHat(u)) return true;
+  if(has('SITE')       && hasSiteHat(u)) return true;
+
+  const role = String(u.role || '').toUpperCase();
+  if(has('SUPER') && (role === 'SUPER' || role === 'ADMIN')) return true;
+  if(has('ADMIN') && role === 'ADMIN') return true;
+  return false;
+}
 function fmVisible(){
-  const u = me(); if(!u || !isSuper()) return [];
-  return fmForms().filter(f => String(f.status || '') !== 'ARCHIVED');
+  const u = me(); if(!u) return [];
+  return fmForms().filter(f => String(f.status || '') !== 'ARCHIVED')
+                  .filter(f => isSuper() || fmMayFill(f));
 }
 
-/* Which facilities this account is responsible for, for ONE request.
+/* Which facilities this account fills.
 
-   When the workbook has named the facilities of each coordinator, that is the
-   answer and nothing else is: each person sees their own sites and no others.
-   Until it has — the day the request is published, before anyone has been
-   assigned — nobody would see anything at all, so the districts stand in. The
-   screen says which of the two is in force, because "I can't see my sites" and
-   "nobody has been assigned yet" are not the same problem.
+   NOT a new assignment. It is the facilities already granted to the account —
+   the site access the person requested and a super user approved, the same one
+   the supervisions already run on. A coordinator who holds their facilities
+   today holds them for this document too: nothing to assign before the request
+   goes out, nothing to undo after it.
 
-   An administrator, and the two officers who must verify and certify, always
-   see every site: they cannot sign what they cannot open. */
-function fmAssigned(formId){
-  return (DB.d.formAssign || []).filter(a => a.formId === formId);
-}
-function fmSitesFor(formId){
-  const u = me() || {}, mine = myDistricts();
+   The console and the two officers see every facility, because they verify,
+   certify and print what the others fill. */
+function fmSitesFor(){
   const live = (DB.d.sites || [])
     .filter(s => String(s.status || '').toUpperCase() !== 'INACTIVE');
   const sort = arr => arr.sort((a, b) =>
     (a.district + a.facility).localeCompare(b.district + b.facility));
 
-  const rows = formId ? fmAssigned(formId) : [];
-  if(rows.length && !isAdmin() && !fmRoleOf()){
-    const ids = {};
-    rows.forEach(a => { if(String(a.uid) === String(u.id)) ids[a.siteId] = true; });
-    return sort(live.filter(s => ids[s.id]));
-  }
-  if(rows.length) return sort(live.filter(s => rows.some(a => a.siteId === s.id)));
-  return sort(live.filter(s => !mine || mine.indexOf(s.district) >= 0));
+  if(isSuper() || fmRoleOf()) return sort(live.slice());
+
+  const granted = {};
+  mySiteIds().forEach(id => { granted[id] = true; });
+  return sort(live.filter(s => granted[s.id]));
 }
 
 function fmEntryId(formId, siteId){ return 'FE-' + formId + '-' + siteId; }
@@ -9208,24 +9226,27 @@ function viewForms(){
   const f = forms.filter(x => x.id === FM_PICK)[0] || forms[0];
   FM_PICK = f.id;
 
-  const sites = fmSitesFor(f.id);
-  const assigned = fmAssigned(f.id);
-  const wide = isAdmin() || !!fmRoleOf();
+  const sites = fmSitesFor();
+  const wide = isSuper() || !!fmRoleOf();
+  const u = me() || {};
 
-  /* Three situations, and the screen must not leave anyone guessing which. */
+  /* Three situations, and the screen must leave nobody guessing which. */
   const scopeNote =
-    !assigned.length
-      ? '<p class="xs muted" style="margin:0 0 8px">No facility has been assigned for this '
-        + 'request yet, so every facility of your districts is shown.</p>'
-      : wide
-      ? '<p class="xs muted" style="margin:0 0 8px">You see every assigned facility of the '
+    wide
+      ? '<p class="xs muted" style="margin:0 0 8px">You see every facility of the '
         + 'region, because you verify and certify them.</p>'
       : sites.length
-      ? '<p class="xs muted" style="margin:0 0 8px">These are the facilities assigned to '
-        + 'your account for this request.</p>'
-      : '<div class="banner b-warn" style="margin:0 0 8px">No facility has been assigned to '
-        + 'your account for this request. Ask the regional M&amp;E team to assign yours — '
-        + 'nothing is missing from the app.</div>';
+      ? '<p class="xs muted" style="margin:0 0 8px">These are the facilities granted to '
+        + 'your account — the same ones you already follow. Nothing was assigned for '
+        + 'this request.</p>'
+      : '<div class="banner b-warn" style="margin:0 0 8px"><b>No facility is granted to '
+        + 'your account yet.</b><br>This request uses the facility access you already '
+        + 'have. Ask for your facilities the usual way, and a super user approves it — '
+        + 'they will appear here by themselves, with nothing else to do.'
+        + (typeof missingHat === 'function' && missingHat(u) === 'SITE'
+            ? '<div style="margin-top:8px"><button class="btn sec sm" '
+              + 'onclick="roleRequestModal()">＋ Ask for my facilities</button></div>' : '')
+        + '</div>';
 
   const rows = sites.map(s => {
     const e = fmEntry(f.id, s.id), st = fmStatus(e);
@@ -9306,7 +9327,7 @@ function viewForms(){
   </div>` : ''}
 
   <div class="card">
-    <h4 style="margin:0 0 4px">${assigned.length ? 'My facilities' : 'Sites'}</h4>
+    <h4 style="margin:0 0 4px">My facilities</h4>
     ${scopeNote}
     ${sites.length ? `<div class="tw"><table>
       <thead><tr><th>District</th><th>Facility</th><th>Status</th><th></th></tr></thead>
@@ -9326,7 +9347,10 @@ function viewFormFill(formId, siteId){
   const L = f.layout, e = fmEntry(formId, siteId) || {};
   const d = e.data || {};
   const st = fmStatus(e);
-  const locked = st === 'APPROVED' || st === 'SIGNED' || String(f.status) !== 'OPEN';
+  /* The console can see and verify every page; it does not type into them
+     unless the request names it as a filler. */
+  const locked = st === 'APPROVED' || st === 'SIGNED'
+              || String(f.status) !== 'OPEN' || !fmMayFill(f);
 
   const hd = L.sections[0], cl = L.sections[1], tb = L.sections[2];
 
@@ -9424,6 +9448,11 @@ function viewFormFill(formId, siteId){
            <button class="btn" onclick="fmSave('${formId}','${siteId}','SUBMITTED')">Submit this site</button>`}
       ${(isSuper() && st === 'SUBMITTED')
         ? `<button class="btn" onclick="fmApprove('${formId}','${siteId}',true)">Verify and approve</button>` : ''}
+      ${(isSuper() && st === 'SUBMITTED' && mine)
+        ? `<p class="xs muted" style="flex:1 1 100%;margin:6px 0 0">You are the ${
+            mine === 'BO' ? 'Business Official' : 'Principal Investigator'} for this request.
+           Verifying a page and then certifying it puts both in one pair of hands — if
+           another super user can verify it, let them.</p>` : ''}
       ${(mine && (st === 'APPROVED' || st === 'SIGNED'))
         ? `<button class="btn" onclick="fmSignPad('${formId}','${mine}','${siteId}')">Sign this site</button>` : ''}
     </div>
@@ -9518,7 +9547,7 @@ function fmApprove(formId, siteId, on){
 function fmSignPad(formId, role, siteId){
   const u = me() || {};
   const who = role === 'BO' ? 'Business Official' : 'Principal Investigator';
-  const n = siteId ? 1 : fmSitesFor(formId).filter(s => {
+  const n = siteId ? 1 : fmSitesFor().filter(s => {
     const st = fmStatus(fmEntry(formId, s.id)); return st === 'APPROVED' || st === 'SIGNED';
   }).length;
   if(!n){ toast('There is no verified site to sign yet.', 3000); return; }
@@ -9602,7 +9631,7 @@ function fmSignDo(formId, role, siteId){
   const u = me() || {};
   const name = ($('#fmsn') || {}).value || u.name || '';
   const title = ($('#fmst') || {}).value || '';
-  const targets = siteId ? [siteId] : fmSitesFor(formId).filter(s => {
+  const targets = siteId ? [siteId] : fmSitesFor().filter(s => {
     const st = fmStatus(fmEntry(formId, s.id)); return st === 'APPROVED' || st === 'SIGNED';
   }).map(s => s.id);
 
@@ -9819,7 +9848,7 @@ function fmPrint(formId, siteId, mode){
 
   const sites = siteId
     ? (DB.d.sites || []).filter(s => s.id === siteId)
-    : fmSitesFor(formId).filter(s => fmEntry(formId, s.id));
+    : fmSitesFor().filter(s => fmEntry(formId, s.id));
   if(!sites.length){ toast('Nothing has been filled in yet.', 3000); return; }
 
   let pages = [], unsigned = 0;
@@ -9878,7 +9907,7 @@ function fmPrint(formId, siteId, mode){
 function fmHomeCard(){
   const f = fmCurrent();
   if(!f) return '';
-  const sites = fmSitesFor(f.id);
+  const sites = fmSitesFor();
   const done = sites.filter(s => {
     const st = fmStatus(fmEntry(f.id, s.id));
     return st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED';
