@@ -369,6 +369,36 @@ select[multiple] option{padding:6px 8px;border-radius:6px}
 .chk{display:flex;align-items:flex-start;gap:10px;padding:8px 0;font-size:.845rem;cursor:pointer}
 .chk input{width:20px;height:20px;margin:1px 0 0;flex:0 0 auto;accent-color:var(--brand-2);cursor:pointer}
 
+/* ---- declarations: the one-off requests sent to the sites ---------------
+   On screen the box comes FIRST, where a thumb lands. On paper it goes back
+   into its own column, because that is where the CDC document puts it. */
+.fmlist{margin-top:4px}
+.fmrow{display:flex;align-items:center;gap:11px;padding:9px 2px;
+  border-bottom:1px solid var(--line);font-size:.845rem;cursor:pointer}
+.fmrow:last-child{border-bottom:0}
+.fmrow>input[type=checkbox]{width:22px;height:22px;margin:0;flex:0 0 auto;
+  accent-color:var(--brand-2);cursor:pointer}
+.fmlab{flex:1 1 auto;min-width:0;line-height:1.35}
+.fmcmt{flex:0 0 180px;padding:6px 9px !important;font-size:.78rem !important}
+@media(max-width:620px){
+  .fmrow{flex-wrap:wrap}
+  .fmcmt{flex:1 1 100%;margin-left:33px}
+}
+.fmnum{padding:6px 8px !important;font-size:.8rem !important;min-width:62px}
+.fmdesc{padding:6px 8px !important;font-size:.8rem !important}
+.fmcount{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}
+.fmcount span{font-size:.72rem;padding:4px 9px;border-radius:999px;
+  background:var(--surface-3);border:1px solid var(--line);color:var(--ink-2)}
+.fmchip{display:inline-block;font-size:.68rem;font-weight:650;padding:3px 9px;
+  border-radius:999px;letter-spacing:.02em;white-space:nowrap}
+.fmchip.c-none{background:var(--surface-3);color:var(--ink-3);border:1px solid var(--line)}
+.fmchip.c-grey{background:#E6EAF0;color:#445060}
+.fmchip.c-blue{background:#DCEAF7;color:#1F4E79}
+.fmchip.c-amber{background:#FDF0D5;color:#845B10}
+.fmchip.c-green{background:#DCF3E3;color:#17603A}
+.fmpad{display:block;width:100%;height:150px;border:1px dashed var(--line);
+  border-radius:var(--r-sm);background:#fff;touch-action:none;cursor:crosshair}
+
 .qres{
   margin-top:11px;padding:9px 12px;border-radius:var(--r-sm);
   border:1px solid var(--line);background:var(--surface-3);
@@ -733,10 +763,14 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.4.1';
+const APP_VERSION = '4.6.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
-const DASH_URL = '';
+/* Relative on purpose. dashboard.html sits beside index.html, so this
+   resolves wherever the app is hosted — no address to configure, and no
+   host name to go stale if the region ever moves the app. The per-device
+   override in Console ▸ Paramètres still wins when it is set. */
+const DASH_URL = 'dashboard.html';
 /* ---------------------------------------------------------------
    SECURITY TOKEN — change this ONE line, and change the matching
    line  var TOKEN = 'ATHECS';  in Code.gs to exactly the same value.
@@ -1132,6 +1166,8 @@ const DB = {
     return {
       users:[], sites:[], questions:[], cycles:[], visits:[], answers:{},
       actions:[], threads:[], messages:[], siteReq:[], audit:[], outbox:[],
+      /* declarations — a road of its own, shared with nothing above */
+      forms:[], formEntries:[], formSignatures:[], formAssign:[],
       config:{ api:'', dashUrl:'', bands:{green:100,yellow:90}, dqa:{tolPct:5, exactBelow:100, yellowPct:10},
                admins:[], lastSync:null },
       session:null, seq:1
@@ -1139,6 +1175,12 @@ const DB = {
   },
   migrate(){
     const d=this.d;
+    /* A phone upgraded from before declarations existed has no such arrays.
+       Nothing else is touched: the supervisions on it stay exactly as they are. */
+    if(!Array.isArray(d.forms))          d.forms = [];
+    if(!Array.isArray(d.formEntries))    d.formEntries = [];
+    if(!Array.isArray(d.formSignatures)) d.formSignatures = [];
+    if(!Array.isArray(d.formAssign))     d.formAssign = [];
     if(!d.sites || !d.sites.length){
       d.sites = SEED_SITES.map((s,i)=>({
         id:'S'+String(i+1).padStart(3,'0'), district:s[0], area:s[1], facility:s[2],
@@ -1980,6 +2022,8 @@ function render(){
     case 'chat':   html=viewChat(r[1]); break;
     case 'admin':  html=isSuper()?viewAdmin(r[1]||'supervisions', r[2]):'<div class="banner b-err">Accès refusé.</div>'; break;
     case 'sitereq':html=viewSiteReq(r[1]); key='visits'; break;
+    /* declarations — a road of its own; nothing above it is touched */
+    case 'fm':     html=r[1]&&r[2] ? viewFormFill(r[1], r[2]) : viewForms(); key='home'; break;
     default: html=viewHome(); key='home';
   }
   paint(html, key, r);
@@ -3157,6 +3201,7 @@ function wipeLocalData(withUsers){
   const d=DB.d;
   d.visits=[]; d.answers={}; d.actions=[]; d.siteReq=[];
   d.messages=[]; d.threads=[]; d.audit=[]; d.outbox=[];
+  d.forms=[]; d.formEntries=[]; d.formSignatures=[]; d.formAssign=[];
   d.sites=(d.sites||[]).filter(s=>String(s.status||'').toUpperCase()!=='PROVISIONAL');
   /* a facility invented during the test may be somebody's assigned facility: let go of
      the reference too, so nothing points at a site that no longer exists */
@@ -4043,6 +4088,7 @@ function viewHome(){
     <div class="small" style="opacity:.9;margin-top:6px">${T('period')} : <b>${c?esc(cyclePeriodLabel(c)):'—'}</b></div>
   </div>
   ${conflictBanner()}
+  ${typeof fmHomeCard==='function' ? fmHomeCard() : ''}
   ${typeof roleRequestCard==='function' ? roleRequestCard() : ''}
 
   <div class="grid g3 always" style="margin-bottom:12px">
@@ -7924,8 +7970,11 @@ async function pullData(full, deep){
   const since = deep ? 0 : (DB.d.config.lastData || 0);
   let j;
   try{
+    /* The account is named on the pull so the server can decide who may be
+       sent a drawn signature. It decides; the app only asks. */
     const res = await fetch(api+'?action=data&token='+encodeURIComponent(apiToken())
-      +'&since='+since+(full?'&full=1':''));
+      +'&since='+since+(full?'&full=1':'')
+      +'&uid='+encodeURIComponent((me()||{}).id||''));
     j = await res.json();
   }catch(e){ return {changed:0, error:String(e)}; }
   if(j && j.ok===false && /bad token/i.test(String(j.error||''))) return {changed:0, badToken:true};
@@ -8054,6 +8103,32 @@ async function pullData(full, deep){
       const i = DB.d.sites.findIndex(x=>x.id===rs.id);
       if(i < 0) DB.d.sites.push(rs); else DB.d.sites[i] = Object.assign({}, DB.d.sites[i], rs);
     });
+  }
+
+  /* ---- declarations: their own road, merged on their own terms -----------
+     A form definition is the server's; the app never edits one, so the
+     server's copy always wins. An ENTRY may be half-typed on this phone at
+     this moment, so — exactly as with a supervision draft — the server's
+     copy never overwrites the one being filled in here. */
+  if(Array.isArray(j.forms)){
+    DB.d.forms = j.forms.slice();
+    changed += j.forms.length ? 1 : 0;
+  }
+  (j.formEntries || []).forEach(re => {
+    if(!re || !re.id) return;
+    const i = DB.d.formEntries.findIndex(x => x.id === re.id);
+    if(i < 0){ DB.d.formEntries.push(re); changed++; return; }
+    const mine = DB.d.formEntries[i];
+    if(mine.status === 'DRAFT' && mine.dirty) return;
+    DB.d.formEntries[i] = re; changed++;
+  });
+  if(Array.isArray(j.formSignatures)) DB.d.formSignatures = j.formSignatures.slice();
+  if(Array.isArray(j.formAssign))     DB.d.formAssign     = j.formAssign.slice();
+  /* Who may sign is the workbook's answer. Without it no phone would ever show
+     a Sign button — not even the Business Official's own. */
+  if(j.formOfficers){
+    DB.d.config.fmBoUid = String(j.formOfficers.bo || '');
+    DB.d.config.fmPiUid = String(j.formOfficers.pi || '');
   }
 
   DB.d.config.lastData = j.now || Date.now();
@@ -9020,6 +9095,819 @@ function copyAddr(){
       return navigator.clipboard.writeText(t).then(ok, fallback);
   }catch(e){}
   fallback();
+}
+
+/* =====================================================================
+   DECLARATIONS — one-off requests sent to the sites          (v4.6.0)
+
+   A road of its own. Nothing here reads or writes a supervision, an
+   answer, a recommendation or a SWOT line; the mentorship data is live
+   in the field and stays exactly as it is.
+
+   A form arrives from the workbook carrying its own LAYOUT, so the next
+   request will be a different shape without a new version of the app.
+   What this file does is render that layout three ways:
+
+     · to fill in   — box in front of the item, big enough for a thumb
+     · to print     — the document's own pages, to the letter
+     · to certify   — BO and PI, drawn on the screen with a finger
+
+   The printed pages are the Foundational Milestone document as it was
+   issued: US Letter, 0.65in margins, Arial 10pt, the running header on
+   every page, the checklist broken after item 17, one site over two
+   pages. Every string printed comes from the layout, which is generated
+   from the .docx itself. Nothing is retyped, reworded or translated.
+   ===================================================================== */
+
+var FM_SIGPAD = null;                 /* the pad currently open, if any */
+var FM_PRINT_SEQ = 0;                 /* which print render is the current one */
+
+function fmForms(){ return (DB.d.forms || []).filter(f => f && f.id); }
+
+/* The form this account is being asked to fill, if there is one. */
+function fmCurrent(){
+  const u = me(); if(!u) return null;
+  const role = String(u.role || '');
+  return fmForms().filter(f => {
+    if(String(f.status || '') !== 'OPEN') return false;
+    const who = String(f.fillers || 'SUPER').toUpperCase().split(/[,;\s]+/);
+    return who.indexOf(role) >= 0 || (role === 'ADMIN' && who.indexOf('SUPER') >= 0);
+  })[0] || null;
+}
+
+/* Any form this account may at least look at — a closed one still has to
+   be printable, because printing is what the submission is made of. */
+function fmVisible(){
+  const u = me(); if(!u || !isSuper()) return [];
+  return fmForms().filter(f => String(f.status || '') !== 'ARCHIVED');
+}
+
+/* Which facilities this account is responsible for, for ONE request.
+
+   When the workbook has named the facilities of each coordinator, that is the
+   answer and nothing else is: each person sees their own sites and no others.
+   Until it has — the day the request is published, before anyone has been
+   assigned — nobody would see anything at all, so the districts stand in. The
+   screen says which of the two is in force, because "I can't see my sites" and
+   "nobody has been assigned yet" are not the same problem.
+
+   An administrator, and the two officers who must verify and certify, always
+   see every site: they cannot sign what they cannot open. */
+function fmAssigned(formId){
+  return (DB.d.formAssign || []).filter(a => a.formId === formId);
+}
+function fmSitesFor(formId){
+  const u = me() || {}, mine = myDistricts();
+  const live = (DB.d.sites || [])
+    .filter(s => String(s.status || '').toUpperCase() !== 'INACTIVE');
+  const sort = arr => arr.sort((a, b) =>
+    (a.district + a.facility).localeCompare(b.district + b.facility));
+
+  const rows = formId ? fmAssigned(formId) : [];
+  if(rows.length && !isAdmin() && !fmRoleOf()){
+    const ids = {};
+    rows.forEach(a => { if(String(a.uid) === String(u.id)) ids[a.siteId] = true; });
+    return sort(live.filter(s => ids[s.id]));
+  }
+  if(rows.length) return sort(live.filter(s => rows.some(a => a.siteId === s.id)));
+  return sort(live.filter(s => !mine || mine.indexOf(s.district) >= 0));
+}
+
+function fmEntryId(formId, siteId){ return 'FE-' + formId + '-' + siteId; }
+function fmEntry(formId, siteId){
+  return (DB.d.formEntries || []).filter(e =>
+    e.formId === formId && e.siteId === siteId)[0] || null;
+}
+function fmSigs(formId, siteId){
+  return (DB.d.formSignatures || []).filter(s =>
+    s.formId === formId && String(s.siteId || '') === String(siteId) &&
+    String(s.status || 'VALID') !== 'VOID');
+}
+function fmRoleOf(){
+  const u = me(); if(!u) return '';
+  const cfg = DB.d.config || {};
+  if(String(cfg.fmBoUid || '') === u.id) return 'BO';
+  if(String(cfg.fmPiUid || '') === u.id) return 'PI';
+  return '';
+}
+
+/* ---------------------------------------------------------------- status */
+function fmStatus(e){ return e ? String(e.status || 'DRAFT') : ''; }
+function fmChip(st){
+  const map = {DRAFT:'c-grey', SUBMITTED:'c-blue', APPROVED:'c-amber', SIGNED:'c-green'};
+  const lbl = {DRAFT:'Draft', SUBMITTED:'Submitted', APPROVED:'Verified', SIGNED:'Signed'};
+  if(!st) return '<span class="fmchip c-none">Not started</span>';
+  return '<span class="fmchip ' + (map[st] || 'c-grey') + '">' + (lbl[st] || st) + '</span>';
+}
+
+/* ================================================================ screens */
+function viewForms(){
+  const forms = fmVisible();
+  if(!forms.length) return '<div class="card"><p class="muted">'
+    + 'No request has been sent to this region yet.</p></div>';
+  const f = forms.filter(x => x.id === FM_PICK)[0] || forms[0];
+  FM_PICK = f.id;
+
+  const sites = fmSitesFor(f.id);
+  const assigned = fmAssigned(f.id);
+  const wide = isAdmin() || !!fmRoleOf();
+
+  /* Three situations, and the screen must not leave anyone guessing which. */
+  const scopeNote =
+    !assigned.length
+      ? '<p class="xs muted" style="margin:0 0 8px">No facility has been assigned for this '
+        + 'request yet, so every facility of your districts is shown.</p>'
+      : wide
+      ? '<p class="xs muted" style="margin:0 0 8px">You see every assigned facility of the '
+        + 'region, because you verify and certify them.</p>'
+      : sites.length
+      ? '<p class="xs muted" style="margin:0 0 8px">These are the facilities assigned to '
+        + 'your account for this request.</p>'
+      : '<div class="banner b-warn" style="margin:0 0 8px">No facility has been assigned to '
+        + 'your account for this request. Ask the regional M&amp;E team to assign yours — '
+        + 'nothing is missing from the app.</div>';
+
+  const rows = sites.map(s => {
+    const e = fmEntry(f.id, s.id), st = fmStatus(e);
+    /* Two coordinators may cover the same district. There is one page per site
+       and the newest save is the one that stands, so whoever is about to open
+       it must be able to see that somebody else already has. */
+    const held = e && e.by ? '<div class="xs muted">' + esc(e.by)
+               + (e.at ? ' · ' + esc(fmtDT(e.at)) : '') + '</div>' : '';
+    return '<tr><td>' + esc(s.district) + '</td><td>' + esc(s.facility) + held + '</td>'
+      + '<td>' + fmChip(st) + '</td>'
+      + '<td style="text-align:right;white-space:nowrap">'
+      + '<button class="btn sec sm" onclick="go(\'#/fm/' + f.id + '/' + s.id + '\')">'
+      + (st ? 'Open' : 'Fill') + '</button></td></tr>';
+  }).join('');
+
+  const n = st => sites.filter(s => fmStatus(fmEntry(f.id, s.id)) === st).length;
+  const started = sites.filter(s => fmEntry(f.id, s.id)).length;
+
+  const mySig = fmRoleOf();
+  const sub = fmSigs(f.id, '');
+  const signedBy = r => sub.filter(x => x.role === r)[0];
+
+  return `
+  <div class="card">
+    <h3 style="margin:0">${esc(f.title)}</h3>
+    ${f.subtitle ? '<p class="small muted" style="margin:2px 0 0">' + esc(f.subtitle) + '</p>' : ''}
+    <p class="small muted" style="margin:6px 0 0">
+      ${esc((f.layout && f.layout.sectionHeading) || '')}</p>
+    ${f.closes ? '<p class="small" style="margin:6px 0 0"><b>Due:</b> ' + esc(f.closes) + '</p>' : ''}
+    ${String(f.status) === 'CLOSED'
+      ? '<div class="banner b-warn" style="margin-top:10px">This request is closed. '
+        + 'The pages can still be printed; nothing more can be entered.</div>' : ''}
+    <div class="fmcount">
+      <span>${started}/${sites.length} started</span>
+      <span>${n('SUBMITTED')} submitted</span>
+      <span>${n('APPROVED')} verified</span>
+      <span>${n('SIGNED')} signed</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h4 style="margin:0 0 8px">Print</h4>
+    <p class="small muted" style="margin:0 0 10px">
+      Each site prints as the two pages of the Word document. Choose where the
+      certification page goes.</p>
+    <div class="row">
+      <button class="btn sm" onclick="fmPrint('${f.id}', null, 'end')">
+        Signature once, at the end</button>
+      <button class="btn sec sm" onclick="fmPrint('${f.id}', null, 'each')">
+        A signature on every site</button>
+      <button class="btn sec sm" onclick="fmPrint('${f.id}', null, 'none')">
+        No signature — to sign by hand</button>
+    </div>
+    <ul class="xs muted" style="margin:10px 0 0;padding-left:18px;line-height:1.7">
+      <li><b>Signature once, at the end</b> — the site pages, then one signed
+        certification page covering the whole submission. Two pages per site,
+        plus one. This is what the document itself instructs.</li>
+      <li><b>A signature on every site</b> — a signed certification page after
+        each site. Three pages per site.</li>
+      <li><b>No signature</b> — the same pages with the Name, Title, Signature
+        and Date lines left blank, exactly as the Word file has them, to be
+        signed by hand.</li>
+    </ul>
+  </div>
+
+  ${mySig ? `
+  <div class="card">
+    <h4 style="margin:0 0 4px">Certification — ${mySig === 'BO' ? 'Business Official' : 'Principal Investigator'}</h4>
+    <p class="small muted" style="margin:0 0 10px">
+      You may sign every verified site in one action, or one site at a time
+      from its own page. Only verified sites can be signed.</p>
+    <div class="row">
+      <button class="btn sm" onclick="fmSignPad('${f.id}','${mySig}',null)">
+        Sign all verified (${n('APPROVED') + n('SIGNED')})</button>
+    </div>
+    ${signedBy(mySig) ? '<p class="small" style="margin:10px 0 0">Last signed '
+      + esc(fmtDT(signedBy(mySig).at)) + '</p>' : ''}
+  </div>` : ''}
+
+  <div class="card">
+    <h4 style="margin:0 0 4px">${assigned.length ? 'My facilities' : 'Sites'}</h4>
+    ${scopeNote}
+    ${sites.length ? `<div class="tw"><table>
+      <thead><tr><th>District</th><th>Facility</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`
+      : '<p class="small muted" style="margin:6px 0 0">Nothing to show here yet.</p>'}
+  </div>`;
+}
+
+var FM_PICK = '';
+
+/* ------------------------------------------------------------- the filling */
+function viewFormFill(formId, siteId){
+  const f = fmForms().filter(x => x.id === formId)[0];
+  const s = (DB.d.sites || []).filter(x => x.id === siteId)[0];
+  if(!f || !s || !f.layout) return '<div class="banner b-err">This request is not available on this device.</div>';
+
+  const L = f.layout, e = fmEntry(formId, siteId) || {};
+  const d = e.data || {};
+  const st = fmStatus(e);
+  const locked = st === 'APPROVED' || st === 'SIGNED' || String(f.status) !== 'OPEN';
+
+  const hd = L.sections[0], cl = L.sections[1], tb = L.sections[2];
+
+  /* Region, district and facility come from the site register. Nobody retypes
+     what the app already knows, and nobody can mistype it. */
+  const known = {region:'Ouest', district:s.district, site:s.facility};
+  const head = hd.fields.map(fl => {
+    const ro = fl.readonly;
+    const val = ro ? (known[fl.k] || '') : (d[fl.k] === undefined ? '' : d[fl.k]);
+    return `<label class="f"><span>${esc(fl.label)}</span>
+      <input ${ro ? 'readonly class="ro"' : ''} ${fl.type === 'number' ? 'inputmode="numeric"' : ''}
+        value="${esc(val)}" ${locked ? 'disabled' : ''}
+        oninput="fmSet('${formId}','${siteId}','${fl.k}',this.value)"></label>`;
+  }).join('');
+
+  const items = cl.items.map(it => {
+    const a = d[it.k] || {};
+    return `<label class="fmrow">
+      <input type="checkbox" ${a.v ? 'checked' : ''} ${locked ? 'disabled' : ''}
+        onchange="fmTick('${formId}','${siteId}','${it.k}',this.checked)">
+      <span class="fmlab">${esc(it.label)}</span>
+      <input class="fmcmt" placeholder="Comments" value="${esc(a.c || '')}" ${locked ? 'disabled' : ''}
+        oninput="fmCmt('${formId}','${siteId}','${it.k}',this.value)"></label>`;
+  }).join('');
+
+  const staff = d.staff || {};
+  const extra = d.staffExtra || [];
+  const cell = (rk, ck, v, type) =>
+    `<td><input class="fmnum" ${type === 'number' ? 'inputmode="numeric"' : ''}
+       value="${esc(v === undefined ? '' : v)}" ${locked ? 'disabled' : ''}
+       oninput="fmStaff('${formId}','${siteId}','${rk}','${ck}',this.value)"></td>`;
+
+  const srows = tb.rows.map(r => {
+    const v = staff[r.k] || {};
+    /* "Other (Describe)" is a row of the document. The site describes the post
+       in it; it is not a free-for-all, and it is not a new permission. */
+    const label = r.describe
+      ? `<input class="fmdesc" placeholder="${esc(r.label)}" value="${esc(v.label || '')}"
+           ${locked ? 'disabled' : ''}
+           oninput="fmStaff('${formId}','${siteId}','${r.k}','label',this.value)">`
+      : esc(r.label);
+    return '<tr><td>' + label + '</td>'
+      + tb.columns.map(c => cell(r.k, c.k, v[c.k], c.type)).join('') + '</tr>';
+  }).join('');
+
+  const xrows = extra.map((x, i) =>
+    '<tr><td><input class="fmdesc" placeholder="Describe the post" value="' + esc(x.label || '') + '"'
+    + (locked ? ' disabled' : '') + ' oninput="fmExtra(\'' + formId + '\',\'' + siteId + '\','
+    + i + ',\'label\',this.value)"></td>'
+    + tb.columns.map(c => '<td><input class="fmnum" value="' + esc(x[c.k] === undefined ? '' : x[c.k]) + '"'
+        + (locked ? ' disabled' : '') + ' oninput="fmExtra(\'' + formId + '\',\'' + siteId + '\','
+        + i + ',\'' + c.k + '\',this.value)"></td>').join('')
+    + '<td>' + (locked ? '' : '<button class="btn sec sm" onclick="fmExtraDel(\'' + formId
+        + '\',\'' + siteId + '\',' + i + ')">✕</button>') + '</td></tr>').join('');
+
+  const sigs = fmSigs(formId, siteId);
+  const mine = fmRoleOf();
+
+  return `
+  <div class="card tight">
+    <button class="btn sec sm" onclick="go('#/fm')">‹ All sites</button>
+    <h3 style="margin:8px 0 2px">${esc(s.facility)}</h3>
+    <p class="small muted" style="margin:0">${esc(s.district)} · ${fmChip(st)}</p>
+  </div>
+
+  ${locked ? '<div class="banner b-ok">This page has been verified. Reopen it to change '
+    + 'an answer — any signature given on it will be withdrawn.</div>' : ''}
+  ${fmOtherHand(e)}
+
+  <div class="card">${head}
+    <p class="xs muted" style="margin:6px 0 0">
+      Region, district and facility come from the site register. Only TX_CURR is typed.</p>
+  </div>
+
+  <div class="card">
+    <h4 style="margin:0 0 2px">${esc(cl.columns[1])}</h4>
+    <div class="fmlist">${items}</div>
+  </div>
+
+  <div class="card">
+    <h4 style="margin:0 0 8px">${esc(tb.title)}</h4>
+    <div class="tw"><table class="fmstaff">
+      <thead><tr><th>${esc(tb.rowHeader)}</th>
+        ${tb.columns.map(c => '<th>' + esc(c.label) + '</th>').join('')}<th></th></tr></thead>
+      <tbody>${srows}${xrows}</tbody></table></div>
+    ${locked ? '' : '<button class="btn sec sm" style="margin-top:8px" onclick="fmExtraAdd(\''
+      + formId + '\',\'' + siteId + '\')">＋ Add a row</button>'}
+    <p class="xs muted" style="margin:8px 0 0">${esc(tb.note)}</p>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      ${locked ? `<button class="btn sec" onclick="fmReopen('${formId}','${siteId}')">Reopen for editing</button>`
+        : `<button class="btn sec" onclick="fmSave('${formId}','${siteId}','DRAFT')">Save draft</button>
+           <button class="btn" onclick="fmSave('${formId}','${siteId}','SUBMITTED')">Submit this site</button>`}
+      ${(isSuper() && st === 'SUBMITTED')
+        ? `<button class="btn" onclick="fmApprove('${formId}','${siteId}',true)">Verify and approve</button>` : ''}
+      ${(mine && (st === 'APPROVED' || st === 'SIGNED'))
+        ? `<button class="btn" onclick="fmSignPad('${formId}','${mine}','${siteId}')">Sign this site</button>` : ''}
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn sec sm" onclick="fmPrint('${formId}','${siteId}','each')">
+        Print this site — with its signature</button>
+      <button class="btn sec sm" onclick="fmPrint('${formId}','${siteId}','none')">
+        Print this site — to sign by hand</button>
+    </div>
+    ${sigs.length ? '<p class="small" style="margin:10px 0 0">Signed: '
+      + sigs.map(x => esc(x.role + ' · ' + (x.name || '') + ' · ' + fmtDT(x.at))).join(' — ')
+      + '</p>' : ''}
+  </div>`;
+}
+
+/* ------------------------------------------------------------ typing into it */
+function fmTouch(formId, siteId){
+  let e = fmEntry(formId, siteId);
+  if(!e){
+    const s = (DB.d.sites || []).filter(x => x.id === siteId)[0] || {};
+    e = {id:fmEntryId(formId, siteId), formId, siteId, status:'DRAFT',
+         by:(me() || {}).name || '', uid:(me() || {}).id || '',
+         at:Date.now(), dirty:true,
+         data:{region:'Ouest', district:s.district || '', site:s.facility || '',
+               staff:{}, staffExtra:[]}};
+    DB.d.formEntries.push(e);
+  }
+  e.dirty = true;
+  if(!e.data) e.data = {};
+  if(!e.data.staff) e.data.staff = {};
+  if(!e.data.staffExtra) e.data.staffExtra = [];
+  return e;
+}
+function fmSet(formId, siteId, k, v){ fmTouch(formId, siteId).data[k] = v; DB.save(); }
+function fmTick(formId, siteId, k, on){
+  const e = fmTouch(formId, siteId);
+  e.data[k] = Object.assign({}, e.data[k], {v:!!on}); DB.save();
+}
+function fmCmt(formId, siteId, k, v){
+  const e = fmTouch(formId, siteId);
+  e.data[k] = Object.assign({}, e.data[k], {c:v}); DB.save();
+}
+function fmStaff(formId, siteId, rk, ck, v){
+  const e = fmTouch(formId, siteId);
+  e.data.staff[rk] = Object.assign({}, e.data.staff[rk]); e.data.staff[rk][ck] = v; DB.save();
+}
+function fmExtra(formId, siteId, i, ck, v){
+  const e = fmTouch(formId, siteId);
+  if(!e.data.staffExtra[i]) e.data.staffExtra[i] = {};
+  e.data.staffExtra[i][ck] = v; DB.save();
+}
+function fmExtraAdd(formId, siteId){
+  const e = fmTouch(formId, siteId);
+  e.data.staffExtra.push({label:''}); DB.save(); render();
+}
+function fmExtraDel(formId, siteId, i){
+  const e = fmTouch(formId, siteId);
+  e.data.staffExtra.splice(i, 1); DB.save(); render();
+}
+
+function fmSave(formId, siteId, status){
+  const e = fmTouch(formId, siteId);
+  const u = me() || {};
+  e.status = status;
+  e.by = u.name || '';
+  e.uid = u.id || '';
+  e.at = Date.now();
+  e.dirty = false;
+  DB.save();
+  queue('formEntry', {id:e.id, formId, siteId, status, by:e.by, uid:u.id, at:e.at, data:e.data});
+  toast(status === 'DRAFT' ? 'Draft saved on this device' : 'Submitted', 2500);
+  render();
+}
+function fmReopen(formId, siteId){
+  const e = fmEntry(formId, siteId); if(!e) return;
+  if(fmSigs(formId, siteId).length && !confirm(
+    'This page has been signed. Reopening it withdraws the signature, and it will '
+    + 'have to be verified and signed again. Continue?')) return;
+  e.status = 'DRAFT'; e.dirty = true; DB.save(); render();
+}
+function fmApprove(formId, siteId, on){
+  const e = fmEntry(formId, siteId); if(!e) return;
+  const u = me() || {};
+  e.status = on ? 'APPROVED' : 'SUBMITTED';
+  DB.save();
+  queue('formApprove', {id:e.id, approved:!!on, by:u.name || '', uid:u.id});
+  toast(on ? 'Verified' : 'Approval withdrawn', 2200);
+  render();
+}
+
+/* ------------------------------------------------------- drawing a signature */
+function fmSignPad(formId, role, siteId){
+  const u = me() || {};
+  const who = role === 'BO' ? 'Business Official' : 'Principal Investigator';
+  const n = siteId ? 1 : fmSitesFor(formId).filter(s => {
+    const st = fmStatus(fmEntry(formId, s.id)); return st === 'APPROVED' || st === 'SIGNED';
+  }).length;
+  if(!n){ toast('There is no verified site to sign yet.', 3000); return; }
+
+  modal(who,
+    `<p class="small">You are about to certify <b>${n}</b> site page${n > 1 ? 's' : ''}.</p>
+     <label class="f"><span>Name</span>
+       <input id="fmsn" value="${esc(u.name || '')}"></label>
+     <label class="f"><span>Title</span>
+       <input id="fmst" value="${esc(who)}"></label>
+     <p class="small" style="margin:10px 0 4px">Sign below with your finger.</p>
+     <canvas id="fmsc" class="fmpad"></canvas>
+     <div class="row" style="margin-top:6px">
+       <button class="btn sec sm" onclick="fmPadClear()">Clear</button></div>
+     <p class="xs muted" style="margin:8px 0 0">
+       The printed page keeps the blank signature line as well, so the document is
+       valid whether it is accepted electronically or signed by hand.</p>`,
+    `<button class="btn sec" onclick="closeModal()">Cancel</button>
+     <button class="btn" onclick="fmSignDo('${formId}','${role}',${siteId ? "'" + siteId + "'" : 'null'})">Sign</button>`);
+  setTimeout(fmPadInit, 50);
+}
+
+function fmPadInit(){
+  const c = $('#fmsc'); if(!c) return;
+  const r = c.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
+  const g = c.getContext('2d');
+  g.scale(dpr, dpr); g.lineWidth = 2.2; g.lineCap = 'round'; g.lineJoin = 'round';
+  g.strokeStyle = '#111';
+  let drawing = false, ink = false;
+  const pt = ev => {
+    const b = c.getBoundingClientRect();
+    const t = ev.touches ? ev.touches[0] : ev;
+    return {x:t.clientX - b.left, y:t.clientY - b.top};
+  };
+  const down = ev => { ev.preventDefault(); drawing = true; ink = true;
+    const p = pt(ev); g.beginPath(); g.moveTo(p.x, p.y); };
+  const move = ev => { if(!drawing) return; ev.preventDefault();
+    const p = pt(ev); g.lineTo(p.x, p.y); g.stroke(); };
+  const up = () => { drawing = false; };
+  c.addEventListener('mousedown', down); c.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+  c.addEventListener('touchstart', down, {passive:false});
+  c.addEventListener('touchmove', move, {passive:false});
+  c.addEventListener('touchend', up);
+  FM_SIGPAD = {canvas:c, ctx:g, hasInk:() => ink, clear:() => {
+    g.clearRect(0, 0, c.width, c.height); ink = false; }};
+}
+function fmPadClear(){ if(FM_SIGPAD) FM_SIGPAD.clear(); }
+
+/* Trim the blank margin off the drawing so the signature sits on the line at a
+   sensible size, whatever part of the pad was used. */
+function fmPadImage(){
+  if(!FM_SIGPAD || !FM_SIGPAD.hasInk()) return '';
+  const c = FM_SIGPAD.canvas, g = FM_SIGPAD.ctx;
+  const w = c.width, h = c.height;
+  const px = g.getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for(let y = 0; y < h; y++) for(let x = 0; x < w; x++){
+    if(px[(y * w + x) * 4 + 3] > 24){
+      if(x < x0) x0 = x; if(x > x1) x1 = x;
+      if(y < y0) y0 = y; if(y > y1) y1 = y;
+    }
+  }
+  if(x1 < 0) return '';
+  const pad = 6;
+  x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad);
+  x1 = Math.min(w - 1, x1 + pad); y1 = Math.min(h - 1, y1 + pad);
+  const sw = x1 - x0 + 1, sh = y1 - y0 + 1;
+  const out = document.createElement('canvas');
+  const H = 110, W = Math.max(40, Math.round(sw * (H / sh)));
+  out.width = Math.min(W, 900); out.height = H;
+  out.getContext('2d').drawImage(c, x0, y0, sw, sh, 0, 0, out.width, out.height);
+  return out.toDataURL('image/png');
+}
+
+function fmSignDo(formId, role, siteId){
+  const ink = fmPadImage();
+  if(!ink){ toast('Please sign in the box first.', 2500); return; }
+  const u = me() || {};
+  const name = ($('#fmsn') || {}).value || u.name || '';
+  const title = ($('#fmst') || {}).value || '';
+  const targets = siteId ? [siteId] : fmSitesFor(formId).filter(s => {
+    const st = fmStatus(fmEntry(formId, s.id)); return st === 'APPROVED' || st === 'SIGNED';
+  }).map(s => s.id);
+
+  const at = Date.now();
+  const put = sid => {
+    DB.d.formSignatures = (DB.d.formSignatures || []).filter(x =>
+      !(x.formId === formId && x.role === role && String(x.siteId || '') === String(sid)));
+    DB.d.formSignatures.push({id:formId + '|' + role + '|' + (sid || 'SUBMISSION'),
+      formId, role, siteId:sid, name, title, at, status:'VALID', ink});
+  };
+  targets.forEach(sid => {
+    put(sid);
+    const e = fmEntry(formId, sid);
+    if(e && fmSigs(formId, sid).length >= 2) e.status = 'SIGNED';
+  });
+  put('');
+  DB.save();
+  queue('formSign', {formId, role, uid:u.id, name, title, ink,
+                     siteIds:siteId ? [siteId] : 'ALL'});
+  closeModal();
+  toast('Signed ' + targets.length + ' site page' + (targets.length > 1 ? 's' : ''), 3000);
+  render();
+}
+
+/* ====================================================================
+   PRINTING — the document's own pages
+
+   Letter, 0.65in margins, Arial 10pt, the running header on every page,
+   the checklist broken after the item the Word file breaks after, one
+   site over two pages, and a single certification page at the end.
+   ==================================================================== */
+const FM_CSS = [
+  '#fmout{display:none}',
+  '.fmdoc{background:#fff;color:#000;font:10pt/1.25 Arial,Helvetica,sans-serif}',
+  '.fmdoc *{box-sizing:border-box}',
+  '.fmpage{width:8.5in;height:11in;padding:.65in;background:#fff;position:relative;',
+  '        overflow:hidden;page-break-after:always;break-after:page}',
+  '.fmpage:last-child{page-break-after:auto;break-after:auto}',
+  '.fmrh{font-size:10pt;color:#191919;margin:0 0 2pt}',
+  '.fmh{font-size:10pt;font-weight:700;color:#1F4E79;margin:0 0 10pt}',
+  '.fmh span{font-weight:400}',
+  '.fmsub{font-size:10pt;font-weight:700;color:#1F4E79;margin:14pt 0 4pt}',
+  '.fmt{width:100%;border-collapse:collapse;table-layout:fixed}',
+  '.fmt td,.fmt th{border:.75pt solid #000;padding:3pt 4pt;font-size:10pt;',
+  '                vertical-align:top;text-align:left;word-wrap:break-word;color:#000}',
+  /* The app's own print rules paint every th dark blue with !important.
+     These pages are the CDC document, not an ATHECS report. */
+  '.fmt th{background:#DCEAF7 !important;color:#000 !important;font-weight:700;',
+  '        text-transform:none !important;letter-spacing:0 !important;position:static !important;',
+  '        font-size:10pt !important;border-bottom:.75pt solid #000 !important}',
+  '.fmt td{background:#fff !important}',
+  '.fmbox{display:inline-block;width:13pt;height:13pt;border:1.1pt solid #000;',
+  '       line-height:12.4pt;text-align:center;font-size:8.5pt;overflow:hidden}',
+  '.fmc{text-align:center}',
+  '.fmnote{font-size:10pt;margin:4pt 0 0}',
+  '.fmgap{height:14pt}',
+  '.fmsg{margin:0 0 0 .18in}',
+  '.fmsg p{margin:0 0 4pt;font-size:10pt;white-space:nowrap}',
+  '.fmsg p.inked{margin-top:15pt}',
+  '.fmwho{font-weight:700;font-style:italic;font-size:10pt;margin:16pt 0 6pt}',
+  '.fmrule{position:relative;white-space:pre}',
+  '.fmval{position:absolute;left:4pt;bottom:2pt;white-space:nowrap;background:#fff;padding:0 2pt}',
+  '.fmink{position:absolute;left:4pt;bottom:0;height:22pt}',
+  '.fmstamp{font-size:7.5pt;color:#444;margin:1pt 0 0 .18in}',
+  '@media print{',
+  '  @page{size:letter;margin:0}',
+  '  body.fmprinting>*{display:none !important}',
+  '  body.fmprinting #fmout{display:block !important}',
+  '  body.fmprinting{background:#fff}',
+  '}'
+].join('');
+
+function fmHeadingHTML(text){
+  const i = String(text || '').indexOf('[');
+  if(i < 0) return esc(text);
+  return esc(text.slice(0, i)) + '<span>' + esc(text.slice(i)) + '</span>';
+}
+function fmPage(rh, inner){
+  return '<section class="fmpage"><p class="fmrh">' + esc(rh) + '</p>' + inner + '</section>';
+}
+function fmChecklistHTML(cl, items, data){
+  let h = '<table class="fmt"><colgroup><col style="width:59.5%"><col style="width:13.6%">'
+        + '<col style="width:26.9%"></colgroup>'
+        + '<thead><tr><th>' + esc(cl.columns[0]) + '</th><th>' + esc(cl.columns[1])
+        + '</th><th>' + esc(cl.columns[2]) + '</th></tr></thead><tbody>';
+  items.forEach(it => {
+    const a = (data && data[it.k]) || {};
+    h += '<tr><td style="padding:7pt 4pt">' + esc(it.label) + '</td>'
+       + '<td class="fmc" style="padding:5pt 4pt"><span class="fmbox">'
+       + (a.v ? '&#10005;' : '') + '</span></td>'
+       + '<td style="padding:7pt 4pt">' + esc(a.c || '') + '</td></tr>';
+  });
+  return h + '</tbody></table>';
+}
+function fmHeadTableHTML(sec, data){
+  let h = '<table class="fmt"><colgroup><col style="width:40.5%"><col></colgroup><tbody>';
+  sec.fields.forEach(f => {
+    h += '<tr><td>' + esc(f.label) + '</td><td>' + esc(data[f.k]) + '</td></tr>';
+  });
+  return h + '</tbody></table>';
+}
+function fmStaffTableHTML(st, data, extra){
+  const w = ['36.1%', '13.0%', '9.1%', '9.1%', '15.7%', '17.0%'];
+  let h = '<table class="fmt"><colgroup>'
+        + w.map(x => '<col style="width:' + x + '">').join('')
+        + '</colgroup><thead><tr><th>' + esc(st.rowHeader) + '</th>'
+        + st.columns.map(c => '<th>' + esc(c.label) + '</th>').join('')
+        + '</tr></thead><tbody>';
+  st.rows.forEach(r => {
+    const v = (data && data[r.k]) || {};
+    const label = (r.describe && v.label) ? v.label : r.label;
+    h += '<tr><td>' + esc(label) + '</td>'
+       + st.columns.map(c => '<td>' + esc(v[c.k]) + '</td>').join('') + '</tr>';
+  });
+  (extra || []).forEach(x => {
+    h += '<tr><td>' + esc(x.label) + '</td>'
+       + st.columns.map(c => '<td>' + esc(x[c.k]) + '</td>').join('') + '</tr>';
+  });
+  return h + '</tbody></table>';
+}
+function fmSitePagesHTML(L, data){
+  const rh = L.runningHeader, cl = L.sections[1], st = L.sections[2];
+  const cut = L.pageBreakAfterItem || 17;
+  const extra = (data && data.staffExtra) || [];
+  const p1 = '<p class="fmh">' + fmHeadingHTML(L.sectionHeading) + '</p>'
+           + fmHeadTableHTML(L.sections[0], data || {})
+           + '<div class="fmgap"></div>'
+           + fmChecklistHTML(cl, cl.items.slice(0, cut), data);
+  const rest = fmChecklistHTML(cl, cl.items.slice(cut), data);
+  const staff = '<p class="fmsub">' + esc(st.title) + '</p>'
+              + fmStaffTableHTML(st, (data || {}).staff, extra)
+              + '<p class="fmnote">' + esc(st.note) + '</p>';
+  /* The document says to add rows as needed. Up to eight added posts still fit
+     beside the remainder of the checklist, exactly as the blank form does;
+     beyond that the staffing summary takes a page rather than being cut off. */
+  if(extra.length > 8) return [fmPage(rh, p1), fmPage(rh, rest), fmPage(rh, staff)];
+  return [fmPage(rh, p1), fmPage(rh, rest + '<div class="fmgap"></div>' + staff)];
+}
+/* The four lines are printed exactly as the document has them — the label and
+   its run of underscores, character for character. What is typed or drawn sits
+   ON the line rather than replacing it, so an unsigned copy is the blank form
+   and a signed copy is the same form with a signature on it. */
+function fmCertPageHTML(L, sig){
+  const ce = L.sections[3];
+  let h = '<p class="fmh">' + esc(ce.title) + '</p>'
+        + '<p style="margin:0 0 6pt">' + esc(ce.text) + '</p>';
+  ce.signers.forEach(s => {
+    const v = (sig && sig[s.k]) || {};
+    h += '<p class="fmwho">' + esc(s.label) + '</p><div class="fmsg">';
+    ce.lines.forEach(line => {
+      const cut = String(line).indexOf('_');
+      const head = cut < 0 ? String(line) : String(line).slice(0, cut);
+      const rule = cut < 0 ? '' : String(line).slice(cut);
+      const key  = /^Name/i.test(head) ? 'name' : /^Title/i.test(head) ? 'title'
+                 : /^Signature/i.test(head) ? 'sig' : 'date';
+      if(!rule){                                   /* Date: has no rule in the document */
+        h += '<p>' + esc(line) + ' ' + esc(v.date || '') + '</p>';
+        return;
+      }
+      const val = key === 'name' ? (v.name || '') : key === 'title' ? (v.title || '') : '';
+      const ink = (key === 'sig' && v.ink)
+        ? '<img class="fmink" src="' + esc(v.ink) + '" alt="">' : '';
+      h += '<p' + (ink ? ' class="inked"' : '') + '>' + esc(head)
+         + '<span class="fmrule">' + esc(rule)
+         + (val ? '<span class="fmval">' + esc(val) + '</span>' : '') + ink + '</span></p>';
+    });
+    h += '</div>';
+    if(v.at) h += '<p class="fmstamp">Signed electronically in ATHECS'
+                + (v.account ? ' &middot; ' + esc(v.account) : '')
+                + ' &middot; ' + esc(v.at) + '</p>';
+  });
+  return fmPage(L.runningHeader, h);
+}
+
+/* Build the signature block the certification page prints, from the signature
+   rows held for one site — or, with siteId '', for the submission as a whole. */
+function fmSigBlock(formId, siteId){
+  const rows = fmSigs(formId, siteId === null ? '' : siteId);
+  const sig = {};
+  [['bo', 'BO'], ['pi', 'PI']].forEach(([k, role]) => {
+    const r = rows.filter(x => x.role === role)[0];
+    if(!r || !r.ink) return;
+    sig[k] = {name:r.name, title:r.title, ink:r.ink,
+              date:new Date(r.at).toISOString().slice(0, 10),
+              account:'', at:fmtDT(r.at)};
+  });
+  return (sig.bo || sig.pi) ? sig : null;
+}
+
+/* ---------------------------------------------------------------------------
+   fmPrint — three ways to lay the certification out, because a submission is
+   assembled differently depending on what CDC is given.
+
+     mode 'each'  a signed certification page after EVERY site
+                  → 3 pages per site
+     mode 'none'  nothing signed anywhere: the site pages, then ONE blank
+                  certification page with the Name, Title, Signature and Date
+                  lines as the Word file has them, to be signed by hand
+                  → 2 pages per site + 1
+     mode 'end'   the site pages, then ONE signed certification page covering
+                  the whole submission — what the document itself instructs,
+                  "Complete Section 4 once for the recipient"
+                  → 2 pages per site + 1
+
+   `true` and `false` are still accepted so nothing that calls this breaks.
+   --------------------------------------------------------------------------- */
+function fmPrint(formId, siteId, mode){
+  if(mode === true)  mode = 'end';
+  if(mode === false || mode === undefined) mode = 'none';
+
+  const f = fmForms().filter(x => x.id === formId)[0];
+  if(!f || !f.layout){ toast('This request is not available on this device.', 3000); return; }
+  const L = f.layout;
+
+  const sites = siteId
+    ? (DB.d.sites || []).filter(s => s.id === siteId)
+    : fmSitesFor(formId).filter(s => fmEntry(formId, s.id));
+  if(!sites.length){ toast('Nothing has been filled in yet.', 3000); return; }
+
+  let pages = [], unsigned = 0;
+  sites.forEach(s => {
+    const e = fmEntry(formId, s.id) || {};
+    const d = Object.assign({}, e.data || {});
+    /* the register's own words for the three fields nobody types */
+    d.region = d.region || 'Ouest'; d.district = s.district; d.site = s.facility;
+    pages = pages.concat(fmSitePagesHTML(L, d));
+    if(mode === 'each'){
+      const sig = fmSigBlock(formId, s.id);
+      if(!sig) unsigned++;
+      pages.push(fmCertPageHTML(L, sig));
+    }
+  });
+
+  if(mode !== 'each'){
+    const sig = mode === 'end' ? fmSigBlock(formId, null) : null;
+    if(mode === 'end' && !sig)
+      toast('No signature is held on this device — printing the blank lines instead.', 4000);
+    pages.push(fmCertPageHTML(L, sig));
+  }else if(unsigned){
+    /* Saying so matters: a stack in which some pages are certified and some are
+       not is exactly the stack that goes to CDC with a gap nobody noticed. */
+    toast(unsigned + ' of ' + sites.length + ' site pages are not signed yet — '
+          + 'their certification pages print blank.', 5000);
+  }
+
+  let out = $('#fmout');
+  if(!out){
+    out = document.createElement('div'); out.id = 'fmout';
+    document.body.appendChild(out);
+    const st = document.createElement('style'); st.textContent = FM_CSS;
+    document.head.appendChild(st);
+  }
+  /* Press two print buttons in quick succession and the first one's tidy-up
+     used to wipe the second one's pages while the browser was still laying
+     them out — printing the site pages with no certification page at all.
+     Each render carries a token; only the newest one is allowed to clear. */
+  const token = ++FM_PRINT_SEQ;
+  out.innerHTML = '<div class="fmdoc">' + pages.join('') + '</div>';
+  document.body.classList.add('fmprinting');
+  setTimeout(() => {
+    if(token !== FM_PRINT_SEQ) return;
+    window.print();
+    setTimeout(() => {
+      if(token !== FM_PRINT_SEQ) return;
+      document.body.classList.remove('fmprinting'); out.innerHTML = '';
+    }, 800);
+  }, 120);
+}
+
+/* The one place a coordinator will look. It appears only while a request is
+   open for this account, and disappears with the request — nothing to undo,
+   nothing left behind on the home screen afterwards. */
+function fmHomeCard(){
+  const f = fmCurrent();
+  if(!f) return '';
+  const sites = fmSitesFor(f.id);
+  const done = sites.filter(s => {
+    const st = fmStatus(fmEntry(f.id, s.id));
+    return st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED';
+  }).length;
+  return `
+  <div class="card" style="border-left:4px solid var(--brand-2)">
+    <div class="spread">
+      <div><b>${esc(f.title)}</b>
+        <div class="small muted">${done}/${sites.length} site pages submitted${
+          f.closes ? ' · due ' + esc(f.closes) : ''}</div></div>
+      <button class="btn sm" onclick="go('#/fm')">Open</button>
+    </div>
+  </div>`;
+}
+
+/* There is ONE page per site, by design: a second save replaces the first and
+   never makes a second copy. That is the right rule — CDC must receive one page
+   per site — but it means two coordinators covering the same district can
+   overwrite one another without noticing. So whoever did not fill it is told,
+   plainly, before they type anything. */
+function fmOtherHand(e){
+  if(!e || !e.by) return '';
+  const u = me() || {};
+  const mineById = e.uid && u.id && String(e.uid) === String(u.id);
+  const mineByName = !e.uid && e.by === u.name;
+  if(mineById || mineByName) return '';
+  return '<div class="banner b-warn"><b>' + esc(e.by) + '</b> filled this page'
+       + (e.at ? ' on ' + esc(fmtDT(e.at)) : '')
+       + '. There is one page per site: if you save, your answers replace theirs.</div>';
 }
 
 </script>

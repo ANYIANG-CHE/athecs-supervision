@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B3C71">
+<title>ATHECS — Tableau de bord · Région de l'Ouest</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<style>
+/* =====================================================================
+   Colour is assigned by the JOB it does, and validated, not chosen by eye.
+
+   · ONE categorical series (blue) — coverage bars and the trend line.
+     A single series needs no legend; the chart title names it.
+   · THREE status colours — the app's own bands, nothing invented:
+     ≥100 performant, ≥90 acceptable, below that critical.
+
+   Run against the real surfaces (#FFFFFF light, #111823 dark) the
+   separation checks pass in both modes: worst adjacent pair amber↔green
+   ΔE 27.6 normal vision, 11.3 under protanopia.
+
+   Status amber sits below 3:1 on a light surface. That is by design in
+   the palette and the documented mitigation is icon + label, so a status
+   colour never carries meaning alone. Here that means every bar shows its
+   own number, every band is named in words, and the whole thing exists
+   again as a table lower down. Nothing on this page is knowable only by
+   its colour.
+   ===================================================================== */
+:root{
+  color-scheme: light;
+  --page:#F5F8FC; --surface:#FFFFFF; --surface-2:#FAFCFE;
+  --line:#E3EAF3; --grid:#EDF1F7; --axis:#C3C2B7;
+  --ink:#0F1723; --ink-2:#52514E; --ink-3:#898781;
+  --brand:#0B3C71; --brand-2:#1B6EC2;
+  --series-1:#2a78d6;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  --track:#E8EEF6;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --page:#080C12; --surface:#111823; --surface-2:#151E2B;
+    --line:#232F40; --grid:#1B2634; --axis:#383835;
+    --ink:#E9EFF8; --ink-2:#A7B4C7; --ink-3:#78889E;
+    --brand:#5AA2E8; --brand-2:#79B6F0;
+    --series-1:#3987e5;
+    --track:#1B2634;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --page:#080C12; --surface:#111823; --surface-2:#151E2B;
+  --line:#232F40; --grid:#1B2634; --axis:#383835;
+  --ink:#E9EFF8; --ink-2:#A7B4C7; --ink-3:#78889E;
+  --brand:#5AA2E8; --brand-2:#79B6F0;
+  --series-1:#3987e5;
+  --track:#1B2634;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);
+     font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+     -webkit-font-smoothing:antialiased}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px 56px}
+
+header{background:linear-gradient(180deg,#0A3565,#0B3C71);color:#fff;
+       padding:env(safe-area-inset-top) 0 0}
+:root[data-theme="dark"] header,
+:root:where(:not([data-theme="light"])) header{background:linear-gradient(180deg,#0C1725,#0F1E30)}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]) header{background:linear-gradient(180deg,#0A3565,#0B3C71)} }
+.hin{max-width:1100px;margin:0 auto;padding:16px;display:flex;gap:12px;
+     align-items:center;flex-wrap:wrap}
+.hin h1{font-size:1.02rem;margin:0;font-weight:680;letter-spacing:.005em;line-height:1.2}
+.hin p{margin:2px 0 0;font-size:.74rem;opacity:.78;letter-spacing:.1em}
+.spacer{flex:1}
+select,.tb{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.12);
+     color:#fff;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:600}
+select option{color:#0F1723}
+.tb{cursor:pointer}.tb.on{background:#fff;color:#0B3C71}
+
+h2{font-size:.95rem;margin:26px 0 3px;letter-spacing:-.01em}
+.sub{font-size:.8rem;color:var(--ink-2);margin:0 0 12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+      padding:16px;box-shadow:0 1px 2px rgba(16,32,56,.04)}
+
+/* ---------- stat tiles: a number is a form, not a failed chart ---------- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:18px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.tile .k{font-size:.72rem;color:var(--ink-2);letter-spacing:.04em;text-transform:uppercase}
+.tile .v{font-size:1.9rem;font-weight:660;line-height:1.15;margin-top:4px;letter-spacing:-.02em}
+.tile .n{font-size:.76rem;color:var(--ink-3);margin-top:2px}
+
+/* ---------- bars ---------- */
+.row{display:grid;grid-template-columns:minmax(96px,150px) 1fr auto;gap:10px;
+     align-items:center;padding:5px 0}
+.row .lab{font-size:.82rem;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar{height:15px;background:var(--track);border-radius:4px;overflow:hidden;position:relative}
+.bar i{display:block;height:100%;border-radius:4px}
+.row .val{font-size:.82rem;font-variant-numeric:tabular-nums;min-width:74px;text-align:right}
+.pill{display:inline-block;font-size:.68rem;font-weight:650;padding:1px 7px;border-radius:999px;
+      border:1px solid var(--line);color:var(--ink-2);margin-left:6px}
+
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);
+   font-weight:640;cursor:pointer;white-space:nowrap}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr:hover{background:var(--surface-2)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:-1px}
+
+.note{font-size:.78rem;color:var(--ink-2);background:var(--surface-2);
+      border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-top:12px}
+.foot{margin-top:34px;font-size:.75rem;color:var(--ink-3);text-align:center;line-height:1.7}
+.err{background:#FCEAE8;border:1px solid #F2B7B2;color:#B3261E;border-radius:10px;padding:14px}
+:root[data-theme="dark"] .err{background:#2C1614;border-color:#7A2F28;color:#FF8A80}
+.skl{height:13px;background:var(--track);border-radius:6px;animation:p 1.3s ease-in-out infinite}
+@keyframes p{0%,100%{opacity:.45}50%{opacity:.9}}
+#tip{position:fixed;pointer-events:none;background:var(--surface);color:var(--ink);
+     border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:.78rem;
+     box-shadow:0 6px 20px rgba(16,32,56,.16);opacity:0;transition:opacity .12s;z-index:50}
+@media (max-width:560px){
+  .row{grid-template-columns:minmax(78px,110px) 1fr auto}
+  .hide-s{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="hin">
+    <div>
+      <h1 id="t-title">Supervision Intégrée — Tableau de bord</h1>
+      <p>ATHECS · <span id="t-region">Région de l'Ouest</span></p>
+    </div>
+    <span class="spacer"></span>
+    <select id="cyc" aria-label="Cycle"></select>
+    <button class="tb on" id="fr" onclick="setLang('fr')">FR</button>
+    <button class="tb" id="en" onclick="setLang('en')">EN</button>
+    <button class="tb" id="th" onclick="cycleTheme()" title="Thème / Theme">☀</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="app">
+    <div class="tiles">
+      <div class="tile"><div class="k">&nbsp;</div><div class="skl" style="margin:10px 0"></div></div>
+      <div class="tile"><div class="k">&nbsp;</div><div class="skl" style="margin:10px 0"></div></div>
+      <div class="tile"><div class="k">&nbsp;</div><div class="skl" style="margin:10px 0"></div></div>
+      <div class="tile"><div class="k">&nbsp;</div><div class="skl" style="margin:10px 0"></div></div>
+    </div>
+  </div>
+</div>
+<div id="tip" role="status"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   ATHECS — public dashboard.
+
+   It reads ONE read-only endpoint. The password below is deliberately
+   public: it opens nothing but this aggregate, it is not the supervisors'
+   password, and the endpoint refuses that one outright. Nothing here can
+   reach a supervisor's name, a comment, a SWOT line, a recommendation or
+   an identity number — those never leave the workbook (see dashPayload()
+   in Code.gs, which is an allow-list).
+
+   Only supervisions the coordination team has APPROVED are shown.
+   ═══════════════════════════════════════════════════════════════════════ */
+var API    = '__DASH_API__';
+var RTOKEN = '__DASH_TOKEN__';
+
+/* The app's own bands — not a new scale invented for this page. */
+var GREEN = 100, AMBER = 90;
+function band(p){
+  if(p === null || p === undefined || isNaN(p)) return 'n';
+  if(p >= GREEN) return 'g';
+  if(p >= AMBER) return 'a';
+  return 'r';
+}
+function bandColor(b){
+  return b === 'g' ? 'var(--good)' : b === 'a' ? 'var(--warn)'
+       : b === 'r' ? 'var(--crit)' : 'var(--track)';
+}
+
+var L = (localStorage.getItem('ath_dash_lang') || 'fr') === 'fr';
+var T = {
+  fr:{ title:'Supervision Intégrée — Tableau de bord',
+       cover:'Couverture', covSub:'Formations sanitaires supervisées et validées, sur le total actif.',
+       score:'Score régional', scoreSub:'Toutes sections confondues, pondéré.',
+       reso:'Recommandations levées', resoSub:'Part des recommandations clôturées.',
+       late:'Échéances dépassées', lateSub:'Recommandations non levées dont la date est passée.',
+       byDist:'Couverture par district', byDistSub:'Supervisions validées ÷ formations sanitaires du district.',
+       bySec:'Score par section', bySecSub:'Ratio groupé : somme des numérateurs ÷ somme des dénominateurs, pondérée. Les pourcentages ne sont jamais moyennés.',
+       trend:'Évolution par cycle', trendSub:'Score régional d’un cycle à l’autre.',
+       facs:'Formations sanitaires', facsSub:'Supervisions validées de ce cycle, du meilleur score au plus faible.',
+       fac:'Formation sanitaire', dist:'District', sc:'Score', st:'Niveau', dt:'Date',
+       perf:'Performant', acc:'Acceptable', crit:'Critique', nod:'—',
+       none:'Aucune supervision validée pour ce cycle.',
+       noTrend:'Il faut au moins deux cycles avec des supervisions validées pour tracer une évolution. Pour l’instant il y en a un.',
+       of:'sur', gen:'Données au', legend:'Lecture :',
+       priv:'Cette page ne publie que des agrégats de supervisions validées. Elle ne contient aucun nom de superviseur, aucun commentaire, aucune analyse SWOT et aucune donnée sur un patient.',
+       err:'Le tableau de bord n’a pas pu charger les données.',
+       errWhat:'Le serveur n’a pas répondu, ou l’adresse n’est pas encore configurée. Réessayez dans un moment.' },
+  en:{ title:'Integrated Supervision — Dashboard',
+       cover:'Coverage', covSub:'Facilities supervised and validated, out of all active facilities.',
+       score:'Regional score', scoreSub:'All sections, weighted.',
+       reso:'Recommendations closed', resoSub:'Share of recommendations resolved.',
+       late:'Past deadline', lateSub:'Unresolved recommendations whose date has passed.',
+       byDist:'Coverage by district', byDistSub:'Validated supervisions ÷ facilities in the district.',
+       bySec:'Score by section', bySecSub:'Pooled ratio: sum of numerators ÷ sum of denominators, weighted. Percentages are never averaged.',
+       trend:'Change across cycles', trendSub:'Regional score from one cycle to the next.',
+       facs:'Facilities', facsSub:'Validated supervisions this cycle, best score first.',
+       fac:'Facility', dist:'District', sc:'Score', st:'Level', dt:'Date',
+       perf:'Performing', acc:'Acceptable', crit:'Critical', nod:'—',
+       none:'No validated supervision for this cycle yet.',
+       noTrend:'A trend needs at least two cycles with validated supervisions. There is one so far.',
+       of:'of', gen:'Data as of', legend:'Reading it:',
+       priv:'This page publishes aggregates of validated supervisions only. It carries no supervisor name, no comment, no SWOT analysis and no patient data.',
+       err:'The dashboard could not load its data.',
+       errWhat:'The server did not answer, or the address is not configured yet. Try again in a moment.' }
+};
+function t(k){ return T[L ? 'fr' : 'en'][k]; }
+
+function setLang(x){
+  L = (x === 'fr');
+  localStorage.setItem('ath_dash_lang', x);
+  document.getElementById('fr').className = 'tb' + (L ? ' on' : '');
+  document.getElementById('en').className = 'tb' + (L ? '' : ' on');
+  document.documentElement.lang = x;
+  if(DATA) draw(DATA); else fetchData();
+}
+function cycleTheme(){
+  var now = document.documentElement.getAttribute('data-theme');
+  var next = now === 'dark' ? 'light' : now === 'light' ? '' : 'dark';
+  if(next) document.documentElement.setAttribute('data-theme', next);
+  else document.documentElement.removeAttribute('data-theme');
+  try{ localStorage.setItem('ath_dash_theme', next); }catch(e){}
+  if(DATA) draw(DATA);
+}
+try{ var th = localStorage.getItem('ath_dash_theme');
+     if(th) document.documentElement.setAttribute('data-theme', th); }catch(e){}
+
+var esc = function(s){ return String(s === undefined || s === null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+var pc = function(p){ return (p === null || p === undefined || isNaN(p)) ? '—'
+  : (Math.round(p * 10) / 10).toLocaleString(L ? 'fr-FR' : 'en-GB') + ' %'; };
+
+var DATA = null, WANT = '';
+
+function fetchData(){
+  var u = API + '?action=dash&rtoken=' + encodeURIComponent(RTOKEN)
+        + (WANT ? '&cycle=' + encodeURIComponent(WANT) : '');
+  fetch(u).then(function(r){ return r.json(); })
+    .then(function(j){
+      if(!j || !j.ok) throw new Error(j && j.error ? j.error : 'no data');
+      DATA = j; draw(j);
+    })
+    .catch(function(e){
+      document.getElementById('app').innerHTML =
+        '<div class="card" style="margin-top:18px"><div class="err"><b>' + esc(t('err'))
+        + '</b><p style="margin:8px 0 0;font-size:.85rem">' + esc(t('errWhat')) + '</p></div></div>';
+    });
+}
+
+/* ---------- one bar row: colour + number + word, never colour alone ---------- */
+function barRow(label, pct, colour, valueText, tipText){
+  var w = Math.max(0, Math.min(100, pct || 0));
+  return '<div class="row" data-tip="' + esc(tipText || '') + '">'
+    + '<div class="lab" title="' + esc(label) + '">' + esc(label) + '</div>'
+    + '<div class="bar"><i style="width:' + w.toFixed(1) + '%;background:' + colour + '"></i></div>'
+    + '<div class="val">' + valueText + '</div></div>';
+}
+
+/* ---------- the trend line ---------- */
+function trendSvg(pts){
+  if(pts.length < 2) return '<div class="note">' + esc(t('noTrend')) + '</div>';
+  var W = 680, H = 190, padL = 42, padR = 16, padT = 14, padB = 30;
+  var vals = pts.map(function(p){ return p.pct || 0; });
+  var lo = Math.max(0, Math.floor((Math.min.apply(null, vals) - 8) / 10) * 10);
+  var hi = Math.min(100, Math.ceil((Math.max.apply(null, vals) + 8) / 10) * 10);
+  if(hi - lo < 20) hi = Math.min(100, lo + 20);
+  var x = function(i){ return padL + (W - padL - padR) * (pts.length === 1 ? .5 : i / (pts.length - 1)); };
+  var y = function(v){ return padT + (H - padT - padB) * (1 - (v - lo) / (hi - lo)); };
+
+  var grid = '', ticks = 4;
+  for(var g = 0; g <= ticks; g++){
+    var v = lo + (hi - lo) * g / ticks, yy = y(v);
+    grid += '<line x1="' + padL + '" y1="' + yy.toFixed(1) + '" x2="' + (W - padR)
+          + '" y2="' + yy.toFixed(1) + '" stroke="var(--grid)" stroke-width="1"/>'
+          + '<text x="' + (padL - 8) + '" y="' + (yy + 4).toFixed(1)
+          + '" text-anchor="end" font-size="11" fill="var(--ink-3)">'
+          + Math.round(v) + '</text>';
+  }
+  var d = pts.map(function(p, i){ return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(p.pct || 0).toFixed(1); }).join(' ');
+  var dots = pts.map(function(p, i){
+    return '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(p.pct || 0).toFixed(1)
+      + '" r="5" fill="var(--series-1)" stroke="var(--surface)" stroke-width="2">'
+      + '<title>' + esc(p.cycle) + ' : ' + pc(p.pct) + '</title></circle>';
+  }).join('');
+  var labs = pts.map(function(p, i){
+    return '<text x="' + x(i).toFixed(1) + '" y="' + (H - 9)
+      + '" text-anchor="middle" font-size="11" fill="var(--ink-3)">' + esc(p.cycle) + '</text>';
+  }).join('');
+  /* the last point is labelled — selectively, not every point */
+  var last = pts[pts.length - 1];
+  var lastLab = '<text x="' + (x(pts.length - 1) - 10).toFixed(1) + '" y="' + (y(last.pct || 0) - 12).toFixed(1)
+      + '" text-anchor="end" font-size="12" font-weight="650" fill="var(--ink)">' + pc(last.pct) + '</text>';
+
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="' + H
+    + '" role="img" aria-label="' + esc(t('trend')) + '">'
+    + grid
+    + '<path d="' + d + '" fill="none" stroke="var(--series-1)" stroke-width="2" '
+    + 'stroke-linejoin="round" stroke-linecap="round"/>'
+    + dots + labs + lastLab + '</svg>';
+}
+
+var SORT = {k:'pct', dir:-1};
+function sortFac(k){
+  SORT = (SORT.k === k) ? {k:k, dir:-SORT.dir} : {k:k, dir:(k === 'pct' ? -1 : 1)};
+  draw(DATA);
+}
+
+function draw(j){
+  var cov = j.coverage || {planned:0, done:0, byDistrict:[]};
+  var act = j.actions || {};
+  var covPct = cov.planned ? (cov.done / cov.planned) * 100 : null;
+  var regional = null;
+  if(j.trend && j.cycle){
+    var me = j.trend.filter(function(x){ return x.cycle === (j.cycle.name || ''); })[0];
+    if(me) regional = me.pct;
+  }
+
+  /* cycle picker */
+  var sel = document.getElementById('cyc');
+  sel.innerHTML = (j.cycles || []).map(function(c){
+    return '<option value="' + esc(c.id) + '"' + (j.cycle && c.id === j.cycle.id ? ' selected' : '')
+      + '>' + esc(c.name) + (c.status === 'OPEN' ? ' •' : '') + '</option>';
+  }).join('');
+  sel.onchange = function(){ WANT = sel.value; DATA = null;
+    document.getElementById('app').innerHTML = '<div class="card" style="margin-top:18px"><div class="skl"></div></div>';
+    fetchData(); };
+
+  document.getElementById('t-title').textContent = t('title');
+  document.getElementById('t-region').textContent = j.region || '';
+
+  var h = '';
+
+  /* ---- stat tiles ---- */
+  h += '<div class="tiles">'
+    + '<div class="tile"><div class="k">' + esc(t('cover')) + '</div><div class="v">'
+      + cov.done + ' <span style="font-size:1rem;color:var(--ink-3)">' + esc(t('of')) + ' ' + cov.planned + '</span></div>'
+      + '<div class="n">' + pc(covPct) + '</div></div>'
+    + '<div class="tile"><div class="k">' + esc(t('score')) + '</div><div class="v" style="color:'
+      + bandColor(band(regional)) + '">' + pc(regional) + '</div>'
+      + '<div class="n">' + esc(bandWord(band(regional))) + '</div></div>'
+    + '<div class="tile"><div class="k">' + esc(t('reso')) + '</div><div class="v">'
+      + pc(act.rate) + '</div><div class="n">' + (act.resolved || 0) + ' / ' + (act.total || 0) + '</div></div>'
+    + '<div class="tile"><div class="k">' + esc(t('late')) + '</div><div class="v" style="color:'
+      + ((act.overdue || 0) > 0 ? 'var(--crit)' : 'var(--ink)') + '">' + (act.overdue || 0) + '</div>'
+      + '<div class="n">' + esc(t('lateSub')) + '</div></div>'
+    + '</div>';
+
+  /* ---- coverage by district ---- */
+  h += '<h2>' + esc(t('byDist')) + '</h2><p class="sub">' + esc(t('byDistSub')) + '</p><div class="card">';
+  var ds = (cov.byDistrict || []).slice().sort(function(a, b){
+    var pa = a.planned ? a.done / a.planned : 0, pb = b.planned ? b.done / b.planned : 0;
+    return pb - pa || a.district.localeCompare(b.district);
+  });
+  h += ds.map(function(d){
+    var p = d.planned ? (d.done / d.planned) * 100 : 0;
+    return barRow(d.district, p, 'var(--series-1)',
+      '<b>' + d.done + '</b><span style="color:var(--ink-3)"> / ' + d.planned + '</span>',
+      d.district + ' — ' + d.done + '/' + d.planned + ' (' + Math.round(p) + '%)');
+  }).join('') || '<p class="sub" style="margin:0">' + esc(t('none')) + '</p>';
+  h += '</div>';
+
+  /* ---- score by section ---- */
+  h += '<h2>' + esc(t('bySec')) + '</h2><p class="sub">' + esc(t('bySecSub')) + '</p><div class="card">';
+  h += (j.sections || []).map(function(s){
+    var b = band(s.pct);
+    return barRow(s.section, s.pct, bandColor(b),
+      '<span style="font-weight:650">' + pc(s.pct) + '</span>'
+      + '<span class="pill hide-s">' + esc(bandWord(b)) + '</span>',
+      s.section + ' — ' + pc(s.pct));
+  }).join('') || '<p class="sub" style="margin:0">' + esc(t('none')) + '</p>';
+  h += '<div class="note"><b>' + esc(t('legend')) + '</b> '
+    + '<span class="dot" style="background:var(--good)"></span>' + esc(t('perf')) + ' ≥ 100 % &nbsp; '
+    + '<span class="dot" style="background:var(--warn)"></span>' + esc(t('acc')) + ' ≥ 90 % &nbsp; '
+    + '<span class="dot" style="background:var(--crit)"></span>' + esc(t('crit')) + ' &lt; 90 %</div>';
+  h += '</div>';
+
+  /* ---- trend ---- */
+  h += '<h2>' + esc(t('trend')) + '</h2><p class="sub">' + esc(t('trendSub')) + '</p><div class="card">'
+     + trendSvg(j.trend || []) + '</div>';
+
+  /* ---- the facility table (also the required table view) ---- */
+  var fs = (j.facilities || []).slice().sort(function(a, b){
+    var va = a[SORT.k], vb = b[SORT.k];
+    if(typeof va === 'number' || typeof vb === 'number') return ((vb || 0) - (va || 0)) * (SORT.dir < 0 ? 1 : -1);
+    return String(va || '').localeCompare(String(vb || '')) * (SORT.dir < 0 ? -1 : 1);
+  });
+  h += '<h2>' + esc(t('facs')) + '</h2><p class="sub">' + esc(t('facsSub'))
+     + (j.named === false ? '' : '') + '</p><div class="card" style="padding:4px 4px 0">';
+  h += '<table><thead><tr>'
+     + '<th onclick="sortFac(\'name\')">' + esc(t('fac')) + '</th>'
+     + '<th onclick="sortFac(\'district\')">' + esc(t('dist')) + '</th>'
+     + '<th class="num" onclick="sortFac(\'pct\')">' + esc(t('sc')) + '</th>'
+     + '<th class="hide-s">' + esc(t('st')) + '</th>'
+     + '<th class="hide-s num" onclick="sortFac(\'date\')">' + esc(t('dt')) + '</th>'
+     + '</tr></thead><tbody>';
+  h += fs.map(function(f){
+    var b = band(f.pct);
+    return '<tr><td>' + esc(f.name) + '</td><td>' + esc(f.district) + '</td>'
+      + '<td class="num" style="font-weight:640">' + pc(f.pct) + '</td>'
+      + '<td class="hide-s"><span class="dot" style="background:' + bandColor(b) + '"></span>'
+      + esc(bandWord(b)) + '</td>'
+      + '<td class="hide-s num">' + esc(f.date || '') + '</td></tr>';
+  }).join('') || '<tr><td colspan="5" style="color:var(--ink-3)">' + esc(t('none')) + '</td></tr>';
+  h += '</tbody></table></div>';
+
+  h += '<div class="note">' + esc(t('priv')) + '</div>';
+  h += '<p class="foot">' + esc(t('gen')) + ' '
+     + esc(new Date(j.generated || Date.now()).toLocaleString(L ? 'fr-FR' : 'en-GB'))
+     + '<br>ATHECS — Projet Attending Epidemic Control and Sustainability'
+     + '<br>NACC powered by ICAP Global Health © 2025–2026</p>';
+
+  document.getElementById('app').innerHTML = h;
+  hookTips();
+}
+
+function bandWord(b){
+  return b === 'g' ? t('perf') : b === 'a' ? t('acc') : b === 'r' ? t('crit') : t('nod');
+}
+
+/* An HTML chart is interactive by nature: every bar answers when touched. */
+function hookTips(){
+  var tip = document.getElementById('tip');
+  document.querySelectorAll('.row[data-tip]').forEach(function(el){
+    var show = function(ev){
+      var x = (ev.touches ? ev.touches[0].clientX : ev.clientX);
+      var y = (ev.touches ? ev.touches[0].clientY : ev.clientY);
+      tip.textContent = el.getAttribute('data-tip');
+      tip.style.left = Math.min(window.innerWidth - 180, x + 12) + 'px';
+      tip.style.top = (y - 38) + 'px';
+      tip.style.opacity = '1';
+    };
+    el.addEventListener('mousemove', show);
+    el.addEventListener('touchstart', show, {passive:true});
+    el.addEventListener('mouseleave', function(){ tip.style.opacity = '0'; });
+    el.addEventListener('touchend', function(){ setTimeout(function(){ tip.style.opacity = '0'; }, 1400); });
+  });
+}
+
+setLang(L ? 'fr' : 'en');
+</script>
+</body>
+</html>
