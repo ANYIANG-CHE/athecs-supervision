@@ -379,16 +379,20 @@ select[multiple] option{padding:6px 8px;border-radius:6px}
    On screen the box comes FIRST, where a thumb lands. On paper it goes back
    into its own column, because that is where the CDC document puts it. */
 .fmlist{margin-top:4px}
-.fmrow{display:flex;align-items:center;gap:11px;padding:9px 2px;
+.fmrow{display:flex;align-items:flex-start;gap:11px;padding:10px 2px;
   border-bottom:1px solid var(--line);font-size:.845rem;cursor:pointer}
 .fmrow:last-child{border-bottom:0}
-.fmrow>input[type=checkbox]{width:22px;height:22px;margin:0;flex:0 0 auto;
+.fmrow>input[type=checkbox]{width:22px;height:22px;margin:1px 0 0;flex:0 0 auto;
   accent-color:var(--brand-2);cursor:pointer}
-.fmlab{flex:1 1 auto;min-width:0;line-height:1.35}
+/* flex-basis 0, not auto: with `auto` the basis is the sentence's own width,
+   so on a phone the label could not shrink onto the same line as the box and
+   dropped underneath it. */
+.fmlab{flex:1 1 0;min-width:0;line-height:1.38}
 .fmcmt{flex:0 0 180px;padding:6px 9px !important;font-size:.78rem !important}
 @media(max-width:620px){
   .fmrow{flex-wrap:wrap}
-  .fmcmt{flex:1 1 100%;margin-left:33px}
+  .fmlab{flex:1 1 0}
+  .fmcmt{flex:1 1 100%;margin:6px 0 0 33px;width:auto}
 }
 .fmnum{padding:6px 8px !important;font-size:.8rem !important;min-width:62px}
 .fmdesc{padding:6px 8px !important;font-size:.8rem !important}
@@ -404,6 +408,29 @@ select[multiple] option{padding:6px 8px;border-radius:6px}
 .fmchip.c-green{background:#DCF3E3;color:#17603A}
 .fmpad{display:block;width:100%;height:150px;border:1px dashed var(--line);
   border-radius:var(--r-sm);background:#fff;touch-action:none;cursor:crosshair}
+
+/* ---- filling a declaration: the feel of it -----------------------------
+   A page of 28 lines needs to answer three questions at a glance: how far
+   am I, which lines have I already decided, and what happens if I press
+   the big button. */
+.fmbar{height:7px;border-radius:999px;background:var(--surface-3);
+  border:1px solid var(--line);overflow:hidden}
+.fmbar>i{display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,var(--brand-2),var(--brand));
+  transition:width .35s var(--ease)}
+.fmhead{position:sticky;top:0;z-index:5;backdrop-filter:blur(8px)}
+.fmrow{transition:background var(--fast) var(--ease)}
+.fmrow.seen{background:linear-gradient(90deg,rgba(27,110,194,.055),transparent 60%)}
+.fmrow.yes .fmlab{color:var(--ink)}
+.fmrow:not(.seen) .fmlab{color:var(--ink-2)}
+.fmrow:active{background:rgba(27,110,194,.10)}
+.fmdate{padding:6px 8px !important;font-size:.8rem !important;min-width:140px}
+.fmact{position:sticky;bottom:0;z-index:4}
+.fmdone{display:flex;align-items:center;gap:11px;padding:10px 12px;margin:0 0 12px;
+  border-radius:var(--r-sm);background:#DCF3E3;border:1px solid #AFDCC1;color:#17603A}
+.fmdone-i{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#17603A;
+  color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+:root[data-theme="dark"] .fmdone{background:#12301F;border-color:#1E5536;color:#8FD9AE}
 
 .qres{
   margin-top:11px;padding:9px 12px;border-radius:var(--r-sm);
@@ -769,7 +796,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.6.2';
+const APP_VERSION = '4.7.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -9274,6 +9301,10 @@ function viewForms(){
 
   const n = st => sites.filter(s => fmStatus(fmEntry(f.id, s.id)) === st).length;
   const started = sites.filter(s => fmEntry(f.id, s.id)).length;
+  /* "All" means every site that has actually been SUBMITTED — not the 84 of the
+     register. Only 28 are expected to send one in, and a download that quietly
+     included blank pages for the rest would be worse than useless. */
+  const nSub = fmSubmitted(f.id).length;
 
   const mySig = fmRoleOf();
   const sub = fmSigs(f.id, '');
@@ -9297,30 +9328,22 @@ function viewForms(){
     </div>
   </div>
 
+  ${isSuper() ? `
   <div class="card">
-    <h4 style="margin:0 0 8px">Print</h4>
-    <p class="small muted" style="margin:0 0 10px">
-      Each site prints as the two pages of the Word document. Choose where the
-      certification page goes.</p>
-    <div class="row">
-      <button class="btn sm" onclick="fmPrint('${f.id}', null, 'end')">
-        Signature once, at the end</button>
-      <button class="btn sec sm" onclick="fmPrint('${f.id}', null, 'each')">
-        A signature on every site</button>
-      <button class="btn sec sm" onclick="fmPrint('${f.id}', null, 'none')">
-        No signature — to sign by hand</button>
+    <div class="spread" style="margin-bottom:8px">
+      <h4 style="margin:0">Download</h4>
+      <span class="fmchip ${nSub ? 'c-blue' : 'c-none'}">${nSub} site${nSub===1?'':'s'} submitted</span>
     </div>
-    <ul class="xs muted" style="margin:10px 0 0;padding-left:18px;line-height:1.7">
-      <li><b>Signature once, at the end</b> — the site pages, then one signed
-        certification page covering the whole submission. Two pages per site,
-        plus one. This is what the document itself instructs.</li>
-      <li><b>A signature on every site</b> — a signed certification page after
-        each site. Three pages per site.</li>
-      <li><b>No signature</b> — the same pages with the Name, Title, Signature
-        and Date lines left blank, exactly as the Word file has them, to be
-        signed by hand.</li>
-    </ul>
-  </div>
+    <p class="small muted" style="margin:0 0 12px">
+      Only submitted sites are downloaded. ${nSub
+        ? 'Each one is the two pages of the Word document.'
+        : 'Nothing has been submitted yet, so there is nothing to download.'}</p>
+    <button class="btn blk" ${nSub ? '' : 'disabled'} onclick="fmDownloadDialog('${f.id}', null)">
+      ⬇ Download PDF…</button>
+    <p class="xs muted" style="margin:8px 0 0">
+      You choose which sites and where the certification goes. CDC may ask for
+      the sites one by one or all together — both come out of the same screen.</p>
+  </div>` : ''}
 
   ${mySig ? `
   <div class="card">
@@ -9357,12 +9380,14 @@ function viewFormFill(formId, siteId){
   const L = f.layout, e = fmEntry(formId, siteId) || {};
   const d = e.data || {};
   const st = fmStatus(e);
-  /* The console can see and verify every page; it does not type into them
-     unless the request names it as a filler. */
-  const locked = st === 'APPROVED' || st === 'SIGNED'
-              || String(f.status) !== 'OPEN' || !fmMayFill(f);
+  /* A submitted page is SETTLED: the fields go quiet and the only way back in
+     is to say so out loud. Leaving Save and Submit live after a submission is
+     what made people press Submit again, unsure whether the first one took. */
+  const settled = st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED';
+  const locked = settled || String(f.status) !== 'OPEN' || !fmMayFill(f);
 
   const hd = L.sections[0], cl = L.sections[1], tb = L.sections[2];
+  const prog = fmProgress(formId, siteId);
 
   /* Region, district and facility come from the site register. Nobody retypes
      what the app already knows, and nobody can mistype it. */
@@ -9378,9 +9403,11 @@ function viewFormFill(formId, siteId){
 
   const items = cl.items.map(it => {
     const a = d[it.k] || {};
-    return `<label class="fmrow">
+    return `<label class="fmrow${a.t ? ' seen' : ''}${a.v ? ' yes' : ''}">
       <input type="checkbox" ${a.v ? 'checked' : ''} ${locked ? 'disabled' : ''}
-        onchange="fmTick('${formId}','${siteId}','${it.k}',this.checked)">
+        onchange="fmTick('${formId}','${siteId}','${it.k}',this.checked);
+                  this.closest('.fmrow').classList.add('seen');
+                  this.closest('.fmrow').classList.toggle('yes', this.checked)">
       <span class="fmlab">${esc(it.label)}</span>
       <input class="fmcmt" placeholder="Comments" value="${esc(a.c || '')}" ${locked ? 'disabled' : ''}
         oninput="fmCmt('${formId}','${siteId}','${it.k}',this.value)"></label>`;
@@ -9388,10 +9415,18 @@ function viewFormFill(formId, siteId){
 
   const staff = d.staff || {};
   const extra = d.staffExtra || [];
-  const cell = (rk, ck, v, type) =>
-    `<td><input class="fmnum" ${type === 'number' ? 'inputmode="numeric"' : ''}
+  /* The expected fill date for a vacant post is by definition still to come.
+     A date input with today as its minimum makes a past date impossible to
+     pick, rather than catching it afterwards. */
+  const today0 = new Date().toISOString().slice(0, 10);
+  const cell = (rk, ck, v, type) => {
+    const isDate = ck === 'dte';
+    return `<td><input class="${isDate ? 'fmdate' : 'fmnum'}"
+       type="${isDate ? 'date' : 'text'}" ${isDate ? 'min="' + today0 + '"' : ''}
+       ${type === 'number' ? 'inputmode="numeric"' : ''}
        value="${esc(v === undefined ? '' : v)}" ${locked ? 'disabled' : ''}
        oninput="fmStaff('${formId}','${siteId}','${rk}','${ck}',this.value)"></td>`;
+  };
 
   const srows = tb.rows.map(r => {
     const v = staff[r.k] || {};
@@ -9410,7 +9445,9 @@ function viewFormFill(formId, siteId){
     '<tr><td><input class="fmdesc" placeholder="Describe the post" value="' + esc(x.label || '') + '"'
     + (locked ? ' disabled' : '') + ' oninput="fmExtra(\'' + formId + '\',\'' + siteId + '\','
     + i + ',\'label\',this.value)"></td>'
-    + tb.columns.map(c => '<td><input class="fmnum" value="' + esc(x[c.k] === undefined ? '' : x[c.k]) + '"'
+    + tb.columns.map(c => '<td><input class="' + (c.k === 'dte' ? 'fmdate' : 'fmnum') + '"'
+        + (c.k === 'dte' ? ' type="date" min="' + today0 + '"' : '')
+        + ' value="' + esc(x[c.k] === undefined ? '' : x[c.k]) + '"'
         + (locked ? ' disabled' : '') + ' oninput="fmExtra(\'' + formId + '\',\'' + siteId + '\','
         + i + ',\'' + c.k + '\',this.value)"></td>').join('')
     + '<td>' + (locked ? '' : '<button class="btn sec sm" onclick="fmExtraDel(\'' + formId
@@ -9420,14 +9457,25 @@ function viewFormFill(formId, siteId){
   const mine = fmRoleOf();
 
   return `
-  <div class="card tight">
+  <div class="card tight fmhead">
     <button class="btn sec sm" onclick="go('#/fm')">‹ All sites</button>
-    <h3 style="margin:8px 0 2px">${esc(s.facility)}</h3>
-    <p class="small muted" style="margin:0">${esc(s.district)} · ${fmChip(st)}</p>
+    <div class="spread" style="margin-top:8px;align-items:flex-start">
+      <div style="min-width:0">
+        <h3 style="margin:0 0 2px">${esc(s.facility)}</h3>
+        <p class="small muted" style="margin:0">${esc(s.district)}</p>
+      </div>
+      ${fmChip(st)}
+    </div>
+    <div class="fmbar" style="margin-top:12px"><i id="fm-bar" style="width:${prog.pct}%"></i></div>
+    <p class="xs muted" style="margin:6px 0 0">
+      <b id="fm-barlab">${prog.done} / ${prog.total}</b> answered on this page</p>
   </div>
 
-  ${locked ? '<div class="banner b-ok">This page has been verified. Reopen it to change '
-    + 'an answer — any signature given on it will be withdrawn.</div>' : ''}
+  ${fmMayFill(f) && (st === 'APPROVED' || st === 'SIGNED')
+      ? '<div class="banner b-ok">This page has been verified. Reopen it to change '
+      + 'an answer — any signature given on it will be withdrawn.</div>' : ''}
+  ${!fmMayFill(f) ? '<div class="banner b-info">You can read, verify and download this '
+      + 'page. Filling it belongs to the people this request was sent to.</div>' : ''}
   ${fmOtherHand(e)}
 
   <div class="card">${head}
@@ -9451,11 +9499,24 @@ function viewFormFill(formId, siteId){
     <p class="xs muted" style="margin:8px 0 0">${esc(tb.note)}</p>
   </div>
 
-  <div class="card">
+  <div class="card fmact">
+    ${st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED' ? `
+      <div class="fmdone">
+        <div class="fmdone-i">✓</div>
+        <div>
+          <b>${st === 'SUBMITTED' ? 'Submitted' : st === 'APPROVED' ? 'Verified' : 'Signed'}</b>
+          <div class="xs muted">${esc(e.by || '')}${e.at ? ' · ' + esc(fmtDT(e.at)) : ''}${
+            st === 'SUBMITTED' ? ' · waiting to be verified' : ''}</div>
+        </div>
+      </div>` : ''}
+
     <div class="row">
-      ${locked ? `<button class="btn sec" onclick="fmReopen('${formId}','${siteId}')">Reopen for editing</button>`
-        : `<button class="btn sec" onclick="fmSave('${formId}','${siteId}','DRAFT')">Save draft</button>
-           <button class="btn" onclick="fmSave('${formId}','${siteId}','SUBMITTED')">Submit this site</button>`}
+      ${settled
+        ? (fmMayFill(f) && String(f.status) === 'OPEN'
+            ? `<button class="btn sec" onclick="fmReopen('${formId}','${siteId}')">Edit the submitted copy</button>`
+            : '')
+        : `<button class="btn sec" id="fm-draft" onclick="fmSave('${formId}','${siteId}','DRAFT')">Save draft</button>
+           <button class="btn" id="fm-sub" onclick="fmSubmit('${formId}','${siteId}')">Submit this site</button>`}
       ${(isSuper() && st === 'SUBMITTED')
         ? `<button class="btn" onclick="fmApprove('${formId}','${siteId}',true)">Verify and approve</button>` : ''}
       ${(isSuper() && st === 'SUBMITTED' && mine)
@@ -9466,12 +9527,13 @@ function viewFormFill(formId, siteId){
       ${(mine && (st === 'APPROVED' || st === 'SIGNED'))
         ? `<button class="btn" onclick="fmSignPad('${formId}','${mine}','${siteId}')">Sign this site</button>` : ''}
     </div>
-    <div class="row" style="margin-top:8px">
-      <button class="btn sec sm" onclick="fmPrint('${formId}','${siteId}','each')">
-        Print this site — with its signature</button>
-      <button class="btn sec sm" onclick="fmPrint('${formId}','${siteId}','none')">
-        Print this site — to sign by hand</button>
-    </div>
+
+    ${isSuper() ? `<div class="row" style="margin-top:10px">
+      <button class="btn sec sm" ${st==='SUBMITTED'||st==='APPROVED'||st==='SIGNED' ? '' : 'disabled'}
+        onclick="fmDownloadDialog('${formId}','${siteId}')">⬇ Download this site…</button>
+      ${st==='DRAFT'||!st ? '<span class="xs muted">A site can be downloaded once it has been submitted.</span>' : ''}
+    </div>` : ''}
+
     ${sigs.length ? '<p class="small" style="margin:10px 0 0">Signed: '
       + sigs.map(x => esc(x.role + ' · ' + (x.name || '') + ' · ' + fmtDT(x.at))).join(' — ')
       + '</p>' : ''}
@@ -9496,14 +9558,30 @@ function fmTouch(formId, siteId){
   if(!e.data.staffExtra) e.data.staffExtra = [];
   return e;
 }
-function fmSet(formId, siteId, k, v){ fmTouch(formId, siteId).data[k] = v; DB.save(); }
+function fmSet(formId, siteId, k, v){
+  fmTouch(formId, siteId).data[k] = v; DB.save(); fmPaintProgress(formId, siteId);
+}
+/* `t` means somebody has been through this line. The document has only a box,
+   so an unticked box and an untouched one look identical on paper — but on the
+   screen the difference is everything: one says "not available", the other says
+   "not reached yet", and the progress bar must not call them the same thing. */
 function fmTick(formId, siteId, k, on){
   const e = fmTouch(formId, siteId);
-  e.data[k] = Object.assign({}, e.data[k], {v:!!on}); DB.save();
+  e.data[k] = Object.assign({}, e.data[k], {v:!!on, t:true}); DB.save();
+  fmPaintProgress(formId, siteId);
 }
 function fmCmt(formId, siteId, k, v){
   const e = fmTouch(formId, siteId);
-  e.data[k] = Object.assign({}, e.data[k], {c:v}); DB.save();
+  e.data[k] = Object.assign({}, e.data[k], {c:v, t:true}); DB.save();
+  fmPaintProgress(formId, siteId);
+}
+/* Repaint the bar in place rather than re-rendering the screen: a full render
+   on every tick would lose the keyboard and scroll position mid-form. */
+function fmPaintProgress(formId, siteId){
+  const p = fmProgress(formId, siteId);
+  const bar = $('#fm-bar'), lab = $('#fm-barlab');
+  if(bar) bar.style.width = p.pct + '%';
+  if(lab) lab.textContent = p.done + ' / ' + p.total;
 }
 function fmStaff(formId, siteId, rk, ck, v){
   const e = fmTouch(formId, siteId);
@@ -9523,7 +9601,7 @@ function fmExtraDel(formId, siteId, i){
   e.data.staffExtra.splice(i, 1); DB.save(); render();
 }
 
-function fmSave(formId, siteId, status){
+function fmSave(formId, siteId, status, quiet){
   const e = fmTouch(formId, siteId);
   const u = me() || {};
   e.status = status;
@@ -9533,8 +9611,11 @@ function fmSave(formId, siteId, status){
   e.dirty = false;
   DB.save();
   queue('formEntry', {id:e.id, formId, siteId, status, by:e.by, uid:u.id, at:e.at, data:e.data});
-  toast(status === 'DRAFT' ? 'Draft saved on this device' : 'Submitted', 2500);
-  render();
+  /* fmSubmitDo says it better, with the facility's name in it */
+  if(!quiet){
+    toast(status === 'DRAFT' ? '✓ Draft saved on this device' : '✓ Submitted', 2500);
+    render();
+  }
 }
 function fmReopen(formId, siteId){
   const e = fmEntry(formId, siteId); if(!e) return;
@@ -9677,21 +9758,45 @@ const FM_CSS = [
   '#fmout{display:none}',
   '.fmdoc{background:#fff;color:#000;font:10pt/1.25 Arial,Helvetica,sans-serif}',
   '.fmdoc *{box-sizing:border-box}',
-  '.fmpage{width:8.5in;height:11in;padding:.65in;background:#fff;position:relative;',
-  '        overflow:hidden;page-break-after:always;break-after:page}',
+  /* min-height, NOT height, and nothing hidden.
+     With a fixed height and overflow:hidden, a long comment or an added
+     staffing row pushed the end of the page past the bottom edge and it was
+     simply painted away — the instruction line vanished and nothing said so.
+     A document that loses a row silently is worse than one that runs to an
+     extra sheet, which is what the Word file does in the same situation. */
+  '.fmpage{width:8.5in;min-height:11in;padding:.65in;background:#fff;',
+  '        position:relative;overflow:visible;page-break-after:always;break-after:page}',
+
+  '.fmt tr{page-break-inside:avoid;break-inside:avoid}',
+  '.fmt thead{display:table-header-group}',
+  '.fmwrap{width:100%;border-collapse:collapse;table-layout:fixed}',
+  '.fmwrap>thead{display:table-header-group}',
+  '.fmwrap>thead>tr>td,.fmwrap>tbody>tr>td{padding:0 !important;border:0 !important;',
+  '                                        background:transparent !important;vertical-align:top}',
+  '.fmt tfoot{display:table-footer-group}',
+  '.fmsub,.fmh{page-break-after:avoid;break-after:avoid}',
   '.fmpage:last-child{page-break-after:auto;break-after:auto}',
   '.fmrh{font-size:10pt;color:#191919;margin:0 0 2pt}',
   '.fmh{font-size:10pt;font-weight:700;color:#1F4E79;margin:0 0 10pt}',
   '.fmh span{font-weight:400}',
   '.fmsub{font-size:10pt;font-weight:700;color:#1F4E79;margin:14pt 0 4pt}',
   '.fmt{width:100%;border-collapse:collapse;table-layout:fixed}',
+  /* The app's own table rule sets `white-space:nowrap` on every th, for the
+     sticky headers of the supervision screens. On these pages that made the
+     long header cells — "Available Now or Will be Available by Nov 30, 2026",
+     "Expected Fill Date For Vacant Position(s)" — run straight across the
+     column beside them and off the sheet. Every cell here wraps inside its
+     own column, as it does in the Word file. */
   '.fmt td,.fmt th{border:.75pt solid #000;padding:3pt 4pt;font-size:10pt;',
-  '                vertical-align:top;text-align:left;word-wrap:break-word;color:#000}',
+  '                vertical-align:top;text-align:left;color:#000;',
+  '                white-space:normal !important;word-wrap:break-word;',
+  '                overflow-wrap:anywhere;word-break:normal;hyphens:auto}',
   /* The app's own print rules paint every th dark blue with !important.
      These pages are the CDC document, not an ATHECS report. */
   '.fmt th{background:#DCEAF7 !important;color:#000 !important;font-weight:700;',
   '        text-transform:none !important;letter-spacing:0 !important;position:static !important;',
-  '        font-size:10pt !important;border-bottom:.75pt solid #000 !important}',
+  '        font-size:10pt !important;border-bottom:.75pt solid #000 !important;',
+  '        white-space:normal !important;overflow-wrap:anywhere}',
   '.fmt td{background:#fff !important}',
   '.fmbox{display:inline-block;width:13pt;height:13pt;border:1.1pt solid #000;',
   '       line-height:12.4pt;text-align:center;font-size:8.5pt;overflow:hidden}',
@@ -9707,7 +9812,10 @@ const FM_CSS = [
   '.fmink{position:absolute;left:4pt;bottom:0;height:22pt}',
   '.fmstamp{font-size:7.5pt;color:#444;margin:1pt 0 0 .18in}',
   '@media print{',
-  '  @page{size:letter;margin:0}',
+  /* the margins now come from the page, so every sheet gets them — including
+     one a table has flowed onto */
+  '  @page{size:letter;margin:.65in}',
+  '  .fmpage{padding:0 !important;min-height:0 !important}',
   '  body.fmprinting>*{display:none !important}',
   '  body.fmprinting #fmout{display:block !important}',
   '  body.fmprinting{background:#fff}',
@@ -9719,9 +9827,21 @@ function fmHeadingHTML(text){
   if(i < 0) return esc(text);
   return esc(text.slice(0, i)) + '<span>' + esc(text.slice(i)) + '</span>';
 }
+/* The running header has to appear on EVERY printed sheet, and a sheet that a
+   long table has flowed onto needs the same margins as the first one.
+
+   CSS paged media cannot do either from a plain block: page padding applies to
+   the box, not to each fragment of it, and there is no way to repeat arbitrary
+   content per sheet. A table header group can do both — the browser repeats a
+   thead on every sheet it continues onto, which is exactly what "repeat header
+   row" does in Word. So each site is wrapped in a one-cell table whose head
+   carries the running header, and the printed margins come from @page. */
 function fmPage(rh, inner){
-  return '<section class="fmpage"><p class="fmrh">' + esc(rh) + '</p>' + inner + '</section>';
+  return '<section class="fmpage"><table class="fmwrap">'
+       + '<thead><tr><td><p class="fmrh">' + esc(rh) + '</p></td></tr></thead>'
+       + '<tbody><tr><td>' + inner + '</td></tr></tbody></table></section>';
 }
+
 function fmChecklistHTML(cl, items, data){
   let h = '<table class="fmt"><colgroup><col style="width:59.5%"><col style="width:13.6%">'
         + '<col style="width:26.9%"></colgroup>'
@@ -9729,8 +9849,8 @@ function fmChecklistHTML(cl, items, data){
         + '</th><th>' + esc(cl.columns[2]) + '</th></tr></thead><tbody>';
   items.forEach(it => {
     const a = (data && data[it.k]) || {};
-    h += '<tr><td style="padding:7pt 4pt">' + esc(it.label) + '</td>'
-       + '<td class="fmc" style="padding:5pt 4pt"><span class="fmbox">'
+    h += '<tr><td style="padding:5.5pt 4pt">' + esc(it.label) + '</td>'
+       + '<td class="fmc" style="padding:4pt 4pt"><span class="fmbox">'
        + (a.v ? '&#10005;' : '') + '</span></td>'
        + '<td style="padding:7pt 4pt">' + esc(a.c || '') + '</td></tr>';
   });
@@ -9762,28 +9882,34 @@ function fmStaffTableHTML(st, data, extra){
   });
   return h + '</tbody></table>';
 }
+/* One site is ONE flow, not a stack of fixed sheets.
+
+   It used to be cut into fixed 11in pages with a forced break after item 17,
+   because that is where the Word file breaks. With a short comment that gives
+   exactly the document's two pages — but a long comment pushed one row past
+   the bottom and left a sheet carrying a single line, or, worse, the row was
+   painted away entirely.
+
+   Word does not do that: it repeats the header row and lets the table run on.
+   So this renders the whole site and lets the browser paginate, with the
+   header group repeating on each sheet. Short comments still land on two
+   sheets, breaking in the same place; long ones take the room they need, as
+   they would in Word. */
 function fmSitePagesHTML(L, data){
   const rh = L.runningHeader, cl = L.sections[1], st = L.sections[2];
-  const cut = L.pageBreakAfterItem || 17;
   const extra = (data && data.staffExtra) || [];
-  const p1 = '<p class="fmh">' + fmHeadingHTML(L.sectionHeading) + '</p>'
-           + fmHeadTableHTML(L.sections[0], data || {})
-           + '<div class="fmgap"></div>'
-           + fmChecklistHTML(cl, cl.items.slice(0, cut), data);
-  const rest = fmChecklistHTML(cl, cl.items.slice(cut), data);
-  const staff = '<p class="fmsub">' + esc(st.title) + '</p>'
-              + fmStaffTableHTML(st, (data || {}).staff, extra)
-              + '<p class="fmnote">' + esc(st.note) + '</p>';
-  /* The document says to add rows as needed. Up to eight added posts still fit
-     beside the remainder of the checklist, exactly as the blank form does;
-     beyond that the staffing summary takes a page rather than being cut off. */
-  if(extra.length > 8) return [fmPage(rh, p1), fmPage(rh, rest), fmPage(rh, staff)];
-  return [fmPage(rh, p1), fmPage(rh, rest + '<div class="fmgap"></div>' + staff)];
+  const body =
+      '<p class="fmh">' + fmHeadingHTML(L.sectionHeading) + '</p>'
+    + fmHeadTableHTML(L.sections[0], data || {})
+    + '<div class="fmgap"></div>'
+    + fmChecklistHTML(cl, cl.items, data)
+    + '<div class="fmgap"></div>'
+    + '<p class="fmsub">' + esc(st.title) + '</p>'
+    + fmStaffTableHTML(st, (data || {}).staff, extra)
+    + '<p class="fmnote">' + esc(st.note) + '</p>';
+  return [fmPage(rh, body)];
 }
-/* The four lines are printed exactly as the document has them — the label and
-   its run of underscores, character for character. What is typed or drawn sits
-   ON the line rather than replacing it, so an unsigned copy is the blank form
-   and a signed copy is the same form with a signature on it. */
+
 function fmCertPageHTML(L, sig){
   const ce = L.sections[3];
   let h = '<p class="fmh">' + esc(ce.title) + '</p>'
@@ -9852,14 +9978,25 @@ function fmPrint(formId, siteId, mode){
   if(mode === true)  mode = 'end';
   if(mode === false || mode === undefined) mode = 'none';
 
+  /* Downloading the submission belongs to the regional team. A facility
+     account fills its page and submits it; it does not assemble what goes
+     to CDC. */
+  if(!isSuper()){ toast('Downloading belongs to the regional team.', 3000); return; }
+
   const f = fmForms().filter(x => x.id === formId)[0];
   if(!f || !f.layout){ toast('This request is not available on this device.', 3000); return; }
   const L = f.layout;
 
-  const sites = siteId
-    ? (DB.d.sites || []).filter(s => s.id === siteId)
-    : fmSitesFor().filter(s => fmEntry(formId, s.id));
-  if(!sites.length){ toast('Nothing has been filled in yet.', 3000); return; }
+  /* ONLY submitted sites. "All" is not the 84 of the register: a download that
+     quietly carried blank pages for sites nobody has filled would go to CDC
+     looking complete. */
+  const subs = fmSubmitted(formId);
+  const sites = siteId ? subs.filter(s => s.id === siteId) : subs;
+  if(!sites.length){
+    toast(siteId ? 'This site has not been submitted yet.'
+                 : 'No site has been submitted yet.', 3500);
+    return;
+  }
 
   let pages = [], unsigned = 0;
   sites.forEach(s => {
@@ -9898,15 +10035,25 @@ function fmPrint(formId, siteId, mode){
      used to wipe the second one's pages while the browser was still laying
      them out — printing the site pages with no certification page at all.
      Each render carries a token; only the newest one is allowed to clear. */
+  /* The browser names a "Save as PDF" file after the document title, so the
+     file arrives called something a person can file, not "index". */
+  const stamp = new Date().toISOString().slice(0, 10);
+  const safe = x => String(x || '').replace(/[^\w\-]+/g, '-').replace(/^-|-$/g, '');
+  const name = 'FM-FY27_' + (siteId ? safe(sites[0].facility)
+                                    : 'All-' + sites.length + '-sites') + '_' + stamp;
+  const oldTitle = document.title;
+
   const token = ++FM_PRINT_SEQ;
   out.innerHTML = '<div class="fmdoc">' + pages.join('') + '</div>';
   document.body.classList.add('fmprinting');
+  document.title = name;
   setTimeout(() => {
-    if(token !== FM_PRINT_SEQ) return;
+    if(token !== FM_PRINT_SEQ){ document.title = oldTitle; return; }
     window.print();
     setTimeout(() => {
       if(token !== FM_PRINT_SEQ) return;
       document.body.classList.remove('fmprinting'); out.innerHTML = '';
+      document.title = oldTitle;
     }, 800);
   }, 120);
 }
@@ -10000,6 +10147,136 @@ async function refreshNow(){
     REFRESHING = false;
     render();                      /* redraws the top bar, restoring the icon */
   }
+}
+
+/* =====================================================================
+   SUBMITTING, AND KNOWING THAT YOU DID                       (v4.7.0)
+
+   "the submit button when click..should clearly indicate to the user you
+    are about submitting..after that, they can see edit submitted copy..
+    Now the click on submit does [not] indicate if the copy has been
+    submitted or not, also it can cause the user to keep clicking"
+
+   Three separate failures in one sentence, and each needs its own answer:
+   say what is about to happen, make the button unusable while it happens,
+   and leave the screen visibly changed afterwards.
+   ===================================================================== */
+
+/* Every site that has actually been submitted — the only ones that may be
+   downloaded. Not the 84 of the register. */
+function fmSubmitted(formId){
+  return fmSitesFor().filter(s => {
+    const st = fmStatus(fmEntry(formId, s.id));
+    return st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED';
+  });
+}
+
+/* How much of a site page is answered, for the progress bar and for the
+   warning before submitting an incomplete one. */
+function fmProgress(formId, siteId){
+  const f = fmForms().filter(x => x.id === formId)[0];
+  if(!f || !f.layout) return {done:0, total:0, pct:0, missing:[]};
+  const d = (fmEntry(formId, siteId) || {}).data || {};
+  const cl = f.layout.sections[1], hd = f.layout.sections[0];
+  let total = 0, done = 0;
+  const missing = [];
+  hd.fields.forEach(fl => {
+    if(fl.readonly) return;
+    total++;
+    if(String(d[fl.k] === undefined ? '' : d[fl.k]).trim() !== '') done++;
+    else missing.push(fl.label);
+  });
+  cl.items.forEach(it => {
+    total++;
+    const a = d[it.k];
+    /* An untouched item and an item answered "not available" look the same in
+       a tick box. `t` records that somebody actually decided. */
+    if(a && (a.v === true || a.t === true)) done++;
+    else missing.push(it.label);
+  });
+  return {done, total, pct: total ? Math.round(done / total * 100) : 0, missing};
+}
+
+let FM_BUSY = false;
+async function fmSubmit(formId, siteId){
+  if(FM_BUSY) return;
+  const site = (DB.d.sites || []).filter(x => x.id === siteId)[0] || {};
+  const p = fmProgress(formId, siteId);
+  const short = p.total - p.done;
+
+  modal('Submit this site',
+    `<p style="margin:0 0 10px">You are about to submit
+       <b>${esc(site.facility || '')}</b> to the regional team.</p>
+     <div class="fmbar" style="margin:0 0 10px"><i style="width:${p.pct}%"></i></div>
+     <p class="small" style="margin:0 0 10px">${p.done} of ${p.total} answered.</p>
+     ${short > 0
+       ? `<div class="banner b-warn" style="margin:0 0 10px"><b>${short} item${short===1?' is':'s are'}
+          still unanswered.</b><br>You can submit anyway and finish later — the page stays
+          yours to edit until it is verified.</div>`
+       : '<div class="banner b-ok" style="margin:0 0 10px">Everything on this page is answered.</div>'}
+     <p class="xs muted" style="margin:0">After submitting you will still see
+       <b>Edit the submitted copy</b> on this screen, until a super user verifies it.</p>`,
+    `<button class="btn sec" onclick="closeModal()">Not yet</button>
+     <button class="btn" id="fm-go" onclick="fmSubmitDo('${formId}','${siteId}')">Submit</button>`);
+}
+
+async function fmSubmitDo(formId, siteId){
+  if(FM_BUSY) return;
+  /* FM_BUSY alone is not enough: this function's body is synchronous, so its
+     `finally` releases the flag within the same tick and three quick taps all
+     get through. The state of the page is the real guard — once it is
+     submitted there is nothing left to submit. */
+  if(fmStatus(fmEntry(formId, siteId)) !== 'DRAFT' && fmEntry(formId, siteId)) return;
+  FM_BUSY = true;
+  const btn = $('#fm-go');
+  if(btn){ btn.disabled = true; btn.textContent = 'Submitting…'; }
+  try{
+    fmSave(formId, siteId, 'SUBMITTED', true);
+    closeModal();
+    const site = (DB.d.sites || []).filter(x => x.id === siteId)[0] || {};
+    toast('✓ ' + (site.facility || 'Site') + ' submitted'
+          + (ONLINE ? '' : ' — it will go up at the next connection'), 4000);
+  }finally{
+    FM_BUSY = false;
+    render();
+  }
+}
+
+/* =====================================================================
+   DOWNLOAD — every combination CDC might ask for
+   ===================================================================== */
+function fmDownloadDialog(formId, siteId){
+  if(!isSuper()){ toast('Downloading belongs to the regional team.', 3000); return; }
+  const subs = fmSubmitted(formId);
+  const one = siteId ? ((DB.d.sites || []).filter(x => x.id === siteId)[0] || {}) : null;
+  if(!siteId && !subs.length){ toast('No site has been submitted yet.', 3000); return; }
+
+  modal('Download',
+    `<p class="small muted" style="margin:0 0 12px">
+       ${siteId ? 'One site: <b>' + esc(one.facility || '') + '</b>.'
+                : '<b>' + subs.length + '</b> submitted site' + (subs.length===1?'':'s')
+                  + ' — sites that have not been submitted are not included.'}</p>
+
+     <label class="f"><span>Certification page</span>
+       <select id="fm-dl-cert">
+         <option value="end">Once, at the end — one page covering the whole submission</option>
+         <option value="each">On every site — a certification page after each one</option>
+         <option value="none">None — leave the signature lines blank, to sign by hand</option>
+       </select></label>
+
+     <div class="banner b-info" style="margin:10px 0 0">
+       Your browser will offer to save this as a PDF. Choose
+       <b>Save as PDF</b> as the destination; the file is already named for you.
+     </div>`,
+    `<button class="btn sec" onclick="closeModal()">Cancel</button>
+     <button class="btn" onclick="fmDownloadDo('${formId}',${siteId ? "'" + siteId + "'" : 'null'})">
+       ⬇ Download</button>`);
+}
+
+function fmDownloadDo(formId, siteId){
+  const cert = ($('#fm-dl-cert') || {}).value || 'end';
+  closeModal();
+  setTimeout(() => fmPrint(formId, siteId, cert), 120);
 }
 
 </script>
