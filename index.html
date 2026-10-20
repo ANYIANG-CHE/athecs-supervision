@@ -1022,7 +1022,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.12.1';
+const APP_VERSION = '4.12.2';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -2208,8 +2208,12 @@ function switchAccount(){
         ? 'Tout a été envoyé au serveur. Rien n\'est en attente.'
         : 'Everything has reached the server. Nothing is waiting.'}</div>`}`,
     `<button class="btn sec" onclick="closeModal()">${L ? 'Annuler' : 'Cancel'}</button>
-     <button class="btn" onclick="closeModal();logout();setPath('choose')">${
+     <button class="btn" onclick="closeModal();logout();landingSignIn()">${
        L ? 'Se déconnecter' : 'Sign out'}</button>`);
+  /* landingSignIn, not setPath: somebody who just asked to sign out as
+     somebody else must land on the sign-in screen. Without passing the front
+     step first, the gate simply redraws it and they have to press Sign in
+     again to get where they already said they were going. */
 }
 
 /* =====================================================================
@@ -2344,7 +2348,7 @@ function passLanding(){
   LANDED = true;
   try{ sessionStorage.setItem('ath_landed', '1'); }catch(e){}
 }
-function landingGo(){ passLanding(); goHome(); }
+function landingGo(){ passLanding(); goHome(); maybeTour(); }
 /* Choosing a door is passing the front step — otherwise the gate above would
    draw it again on the very next render and nobody could ever sign in. */
 function landingSignIn(){ passLanding(); setPath('choose'); }
@@ -3400,6 +3404,13 @@ function closeTour(markSeen){
   $('#modal-root').innerHTML='';
 }
 function maybeTour(){
+  /* Never over the front step. The guide used to open the moment a signed-in
+     person reached a screen — which, now that the front step comes first, meant
+     it landed on top of the two doors before they had read either, and on top
+     of "Continue as …" the instant it was pressed. The front step carries its
+     own Navigation guide button; the automatic one waits until somebody has
+     actually gone through a door. */
+  if(typeof LANDED !== 'undefined' && !LANDED) return;
   let seen=null; try{ seen=localStorage.getItem(TOUR_KEY); }catch(e){}
   if(!seen && me()) setTimeout(()=>openTour(0), 350);
 }
