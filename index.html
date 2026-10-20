@@ -148,7 +148,13 @@ h1{font-size:1.5rem} h2{font-size:1.17rem} h3{font-size:.98rem} h4{font-size:.86
   background:linear-gradient(180deg,#0A3565,#0B3C71); } }
 
 .topbar-in{display:flex;align-items:center;gap:9px;padding:11px 16px;max-width:1200px;margin:0 auto}
-.brand{display:flex;flex-direction:column;line-height:1.16;min-width:0;flex:1}
+/* The title is also the way home: an installed app has no address bar, so
+   every way back has to be something the app itself offers. */
+.brand{display:flex;flex-direction:column;line-height:1.16;min-width:0;flex:1;
+  color:inherit;text-decoration:none;cursor:pointer;border-radius:var(--r-xs);
+  padding:2px 4px;margin:-2px -4px;transition:background var(--fast) var(--ease)}
+a.brand:hover{background:rgba(255,255,255,.10)}
+a.brand:focus-visible{outline:2px solid rgba(255,255,255,.65);outline-offset:1px}
 .brand b{font-size:.83rem;font-weight:680;letter-spacing:.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff}
 .brand span{font-size:.62rem;opacity:.72;letter-spacing:.13em;font-weight:600}
 
@@ -763,7 +769,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.6.1';
+const APP_VERSION = '4.6.2';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -1823,11 +1829,11 @@ function shell(inner, navKey){
   const pend = DB.d.outbox.length;
   const nav = !u ? '' : (isSite() ? `
    <div class="nav">
-     <a href="#/home" class="${navKey==='home'?'on':''}">${LANG==='fr'?'Ma formation sanitaire':'My facility'}</a>
+     <a href="#/home" onclick="goHome();return false" class="${navKey==='home'?'on':''}">${LANG==='fr'?'Ma formation sanitaire':'My facility'}</a>
      <a href="#/chat" class="${navKey==='chat'?'on':''}">${T('chat')}${unread()?' <span class="badge">'+unread()+'</span>':''}</a>
    </div>` : `
    <div class="nav">
-     <a href="#/home" class="${navKey==='home'?'on':''}">${T('home')}</a>
+     <a href="#/home" onclick="goHome();return false" class="${navKey==='home'?'on':''}">${T('home')}</a>
      <a href="#/visits" class="${navKey==='visits'?'on':''}">${T('visits')}</a>
      <a href="#/dash" class="${navKey==='dash'?'on':''}">${T('dash')}</a>
      <a href="#/chat" class="${navKey==='chat'?'on':''}">${T('chat')}${unread()?' <span class="badge">'+unread()+'</span>':''}</a>
@@ -1839,9 +1845,13 @@ function shell(inner, navKey){
       <div class="netdot ${ONLINE?'':'off'}" title="${ONLINE
         ?(LANG==='fr'?'En ligne — les données partent vers le serveur':'Online — data is being sent to the server')
         :(LANG==='fr'?'Hors ligne — tout est enregistré sur l\'appareil':'Offline — everything is saved on this device')}"></div>
-      <div class="brand"><b>${T('app')} · ${T('region')}</b><span>ATHECS</span></div>
+      <a class="brand" href="#/home" title="${LANG==='fr'
+        ?'Retour à l\'accueil':'Back to the home screen'}"><b>${T('app')} · ${T('region')}</b><span>ATHECS</span></a>
       ${spaceSwitch()}
       ${pend?`<span class="chip a" title="${LANG==='fr'?pend+' élément(s) en attente d\'envoi au serveur':pend+' item(s) waiting to be sent to the server'}">${pend} ⇅</span>`:''}
+      ${u?`<button class="tb-btn" id="tb-ref" ${ONLINE?'':'disabled'} onclick="refreshNow()" title="${LANG==='fr'
+        ?'Actualiser — envoyer et recevoir, puis redessiner cet écran'
+        :'Refresh — send and receive, then redraw this screen'}">⟳</button>`:''}
       ${u?`<button class="tb-btn" onclick="openTour(0)" title="${LANG==='fr'?'Guide de navigation — comment utiliser l\'application':'Navigation guide — how to use the app'}">?</button>`:''}
       <span class="seg">
         <button class="tb-btn ${LANG==='fr'?'on':''}" onclick="setLang('fr')" title="Français">FR</button>
@@ -9937,6 +9947,59 @@ function fmOtherHand(e){
   return '<div class="banner b-warn"><b>' + esc(e.by) + '</b> filled this page'
        + (e.at ? ' on ' + esc(fmtDT(e.at)) : '')
        + '. There is one page per site: if you save, your answers replace theirs.</div>';
+}
+
+/* =====================================================================
+   GETTING BACK, AND GETTING FRESH                            (v4.6.2)
+
+   Two things the field asked for, in the same breath:
+
+     "Home page should take one to the landing page"
+     "in each page one should be able to refresh"
+
+   An installed app has no address bar, so there is no browser Reload and
+   no Back. Whatever the app does not offer simply cannot be done. These
+   two controls are in the top bar, which is on every screen.
+   ===================================================================== */
+
+/* Home means the home screen, from wherever you are — including from a
+   screen that belongs to the other space. Clicking the nav link when the
+   hash is already #/home does nothing at all in a hash router, which is
+   exactly the "I press Home and nothing happens" complaint. */
+function goHome(){
+  closeModal();
+  if(location.hash === '#/home') render();     // already there: redraw it
+  else go('#/home');
+  try{ window.scrollTo(0, 0); }catch(e){}
+}
+
+/* Refresh: send what is waiting, receive what is new, redraw this screen.
+   It is deliberately the same two actions as the Send and Receive buttons
+   on the home screen — one control, on every page, doing the thing people
+   were scrolling home to do. */
+let REFRESHING = false;
+async function refreshNow(){
+  if(REFRESHING) return;
+  const L = LANG === 'fr';
+  if(!ONLINE){ toast(T('offline'), 2500); return; }
+  REFRESHING = true;
+  const btn = $('#tb-ref');
+  if(btn){ btn.disabled = true; btn.textContent = '…'; }
+  try{
+    if(DB.d.outbox.length && typeof syncNow === 'function') await syncNow(true);
+    let r = {changed:0};
+    if(typeof pullData === 'function') r = await pullData(true) || {};
+    if(r.error) toast((L?'Échec : ':'Failed: ') + r.error, 3500);
+    else if(r.badToken) toast(L?'Le serveur refuse cet appareil':'The server is refusing this device', 3500);
+    else toast(r.changed ? (L ? '✓ ' + r.changed + ' élément(s) reçu(s)'
+                              : '✓ ' + r.changed + ' item(s) received')
+                         : (L ? 'Rien de nouveau' : 'Nothing new'), 2200);
+  }catch(e){
+    toast((L?'Échec : ':'Failed: ') + String(e), 3500);
+  }finally{
+    REFRESHING = false;
+    render();                      /* redraws the top bar, restoring the icon */
+  }
 }
 
 </script>
