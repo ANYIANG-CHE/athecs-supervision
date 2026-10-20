@@ -192,6 +192,11 @@ a.brand:focus-visible{outline:2px solid rgba(255,255,255,.65);outline-offset:1px
 }
 .nav a:hover{color:rgba(255,255,255,.92);text-decoration:none}
 .nav a.on{color:#fff;border-bottom-color:var(--brand-3)}
+/* the one entry that leaves the app: pushed to the end, never "on", because
+   the app never lands on it — it opens a separate page */
+.nav a.navout{margin-left:auto;color:rgba(255,255,255,.56);font-weight:600}
+.nav a.navout:hover{color:rgba(255,255,255,.9)}
+@media(max-width:620px){ .nav a.navout{margin-left:0} }
 
 /* ---------- layout ---------- */
 .wrap{padding:16px}
@@ -1017,7 +1022,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.11.0';
+const APP_VERSION = '4.12.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -2072,13 +2077,52 @@ function route(){ return (location.hash||'#/home').slice(2).split('/'); }
 function go(h){ location.hash = h; }
 window.addEventListener('hashchange', render);
 
+/* The national dashboard is a separate page on the open internet, so it is the
+   one entry in this bar that leaves the app — the arrow says so, and it never
+   takes the "on" state because the app never lands on it. The app's own
+   "Tableau de bord" tab keeps its name; this one is "National". */
+/* The same door, on the home screen, where somebody who is not hunting for it
+   will still meet it. It says plainly that it leaves the app and needs a
+   network, so nobody taps it on a bush road and wonders what went wrong. */
+function dashHomeCard(){
+  const L = LANG === 'fr';
+  const url = (DB.d.config.dashUrl || DASH_URL || '').trim();
+  if(!url) return '';
+  return `
+  <div class="card">
+    <button class="pathcard" onclick="openDashboard()" ${ONLINE ? '' : 'disabled'}>
+      <div class="pico dash">📊</div>
+      <div class="ptxt"><b>${L?'Tableau de bord national ↗':'National dashboard ↗'}</b>
+        <span>${ONLINE
+          ? (L?'Les résultats consolidés de la région — supervision et maladie avancée. Page publique, s\'ouvre à part.'
+              :'The region\'s consolidated results — supervision and advanced HIV disease. Public page, opens separately.')
+          : (L?'Hors ligne. Cette page se lit sur le serveur ; reconnectez-vous pour l\'ouvrir.'
+              :'Offline. This page is read from the server; reconnect to open it.')}</span></div>
+      <span class="parr">›</span>
+    </button>
+  </div>`;
+}
+
+function navDash(){
+  const L = LANG === 'fr';
+  const url = (DB.d.config.dashUrl || DASH_URL || '').trim();
+  if(!url) return '';
+  return '<a href="#" class="navout" onclick="event.preventDefault();openDashboard()" title="'
+    + (L ? 'Tableau de bord national — page publique, en ligne'
+         : 'National dashboard — public page, online')
+    + '">' + (L ? 'National' : 'National') + ' ↗</a>';
+}
+
 function shell(inner, navKey){
   const u = me();
   const pend = DB.d.outbox.length;
-  const nav = !u ? '' : (isSite() ? `
+  /* 'none' is the front step: a screen that asks which door you want should
+     not also carry the app's own tabs, which are the inside of one of them. */
+  const nav = (!u || navKey === 'none') ? '' : (isSite() ? `
    <div class="nav">
      <a href="#/home" onclick="goHome();return false" class="${navKey==='home'?'on':''}">${LANG==='fr'?'Ma formation sanitaire':'My facility'}</a>
      <a href="#/chat" class="${navKey==='chat'?'on':''}">${T('chat')}${unread()?' <span class="badge">'+unread()+'</span>':''}</a>
+     ${navDash()}
    </div>` : `
    <div class="nav">
      <a href="#/home" onclick="goHome();return false" class="${navKey==='home'?'on':''}">${T('home')}</a>
@@ -2086,6 +2130,7 @@ function shell(inner, navKey){
      <a href="#/dash" class="${navKey==='dash'?'on':''}">${T('dash')}</a>
      <a href="#/chat" class="${navKey==='chat'?'on':''}">${T('chat')}${unread()?' <span class="badge">'+unread()+'</span>':''}</a>
      ${isSuper()?`<a href="#/admin" class="${navKey==='admin'?'on':''}">${T('admin')}</a>`:''}
+     ${navDash()}
    </div>`);
   return `
   <div class="topbar">
@@ -2146,6 +2191,26 @@ function spaceSwitch(){
 }
 function setLang(l){ LANG=l; localStorage.setItem('ath_lang',l); render(); }
 function logout(){ DB.d.session=null; DB.save(); go('#/home'); render(); }
+
+/* From the front step, with someone already signed in. Unsent work belongs to
+   the device, not to the session, so it survives — but a person about to hand
+   the phone over should be told that in so many words rather than guess. */
+function switchAccount(){
+  const L = LANG === 'fr', n = DB.d.outbox.length;
+  modal(L ? 'Se connecter avec un autre compte' : 'Sign in as someone else',
+    `<p class="small">${L
+      ? 'La session en cours sera fermée sur cet appareil.'
+      : 'The session on this device will be closed.'}</p>
+     ${n ? `<div class="banner b-warn">${n} ${L
+        ? 'élément(s) ne sont pas encore partis vers le serveur. Ils restent sur cet appareil et partiront à la prochaine connexion — mais ils partiront sous le compte qui les a saisis, pas sous le nouveau.'
+        : 'item(s) have not reached the server yet. They stay on this device and will be sent at the next connection — under the account that entered them, not the new one.'}</div>`
+       : `<div class="banner b-ok">${L
+        ? 'Tout a été envoyé au serveur. Rien n\'est en attente.'
+        : 'Everything has reached the server. Nothing is waiting.'}</div>`}`,
+    `<button class="btn sec" onclick="closeModal()">${L ? 'Annuler' : 'Cancel'}</button>
+     <button class="btn" onclick="closeModal();logout();setPath('choose')">${
+       L ? 'Se déconnecter' : 'Sign out'}</button>`);
+}
 
 /* =====================================================================
    PAINTING THE SCREEN WITHOUT THROWING THE USER OFF IT
@@ -2257,10 +2322,35 @@ function paint(html, key, r){
   if(typeof afterRender==='function') afterRender(r, p.same);
 }
 
+/* ---------------------------------------------------------------------------
+   THE FRONT STEP                                                   (v4.12.0)
+
+   The landing page used to be shown only while nobody was signed in. Since
+   almost nobody signs out, almost nobody ever saw it again — and the national
+   dashboard, which is one of the two doors on it, was left reachable only from
+   inside the ? guide. A page everybody passes once and never again is not a
+   landing page; it is a login screen with an extra card on it.
+
+   So it is shown at every launch, and a person already signed in gets a
+   Continue button with their own name on it: one tap, straight back to work.
+   The flag lives in sessionStorage, so a reload in the middle of a supervision
+   does not send anybody back to the front step — only closing the app and
+   opening it again does.
+   --------------------------------------------------------------------------- */
+var LANDED = (function(){
+  try{ return sessionStorage.getItem('ath_landed') === '1'; }catch(e){ return false; }
+})();
+function passLanding(){
+  LANDED = true;
+  try{ sessionStorage.setItem('ath_landed', '1'); }catch(e){}
+}
+function landingGo(){ passLanding(); goHome(); }
+
 function render(){
   const r = route(); const u = me();
   if(!u)          return paint(viewLogin(), undefined, r);
   if(!canWork(u)) return paint(viewGate(u), undefined, r);
+  if(!LANDED)     return paint(viewWelcome(), 'none', r);
   let html='', key=r[0];
   if(isSite()){
     // facility staff: their own site only
@@ -2330,10 +2420,22 @@ function viewLogin(){
    Once signed in, the dashboard lives in the ? guide. */
 function viewWelcome(){
   const L=LANG==='fr';
+  const u = me();
+  /* Already signed in: their own name, first, and one tap back to work. */
+  const resume = (u && canWork(u)) ? `
+    <button class="pathcard instcard" onclick="landingGo()" style="border-left-color:var(--brand-2)">
+      <div class="pico sup">↩</div>
+      <div class="ptxt"><b>${L?'Continuer comme':'Continue as'} ${esc(u.name||'')}</b>
+        <span>${L?'Revenir à l\'application, là où vous étiez.'
+                 :'Back into the app, where you left off.'}</span></div>
+      <span class="parr">›</span>
+    </button>
+    <hr>` : '';
   return `
   <div class="card" style="max-width:470px;margin:24px auto">
     ${loginHeader()}
     <hr>
+    ${resume}
     <button class="pathcard" onclick="openDashboard()">
       <div class="pico dash">📊</div>
       <div class="ptxt"><b>${L?'Tableau de bord national':'National dashboard'}</b>
@@ -2342,11 +2444,15 @@ function viewWelcome(){
       <span class="parr">›</span>
     </button>
 
-    <button class="pathcard" onclick="setPath('choose')">
+    <button class="pathcard" onclick="${resume ? 'switchAccount()' : "setPath('choose')"}">
       <div class="pico adm">🔐</div>
-      <div class="ptxt"><b>${L?'Se connecter':'Sign in'}</b>
-        <span>${L?'Pour conduire une supervision, suivre votre formation sanitaire, ou administrer la région. Fonctionne hors réseau.'
-                 :'To run a supervision, follow your facility, or administer the region. Works with no network.'}</span></div>
+      <div class="ptxt"><b>${resume ? (L?'Se connecter avec un autre compte':'Sign in as someone else')
+                                    : (L?'Se connecter':'Sign in')}</b>
+        <span>${resume
+          ? (L?'Ferme la session en cours sur cet appareil. Rien de ce qui est enregistré n\'est perdu.'
+              :'Closes the session on this device. Nothing already saved is lost.')
+          : (L?'Pour conduire une supervision, suivre votre formation sanitaire, ou administrer la région. Fonctionne hors réseau.'
+              :'To run a supervision, follow your facility, or administer the region. Works with no network.')}</span></div>
       <span class="parr">›</span>
     </button>
 
@@ -2373,7 +2479,79 @@ function openDashboard(){
       ?'Le tableau de bord est en ligne uniquement : il lit les résultats consolidés sur le serveur. Reconnectez-vous au réseau et réessayez.'
       :'The dashboard is online only: it reads consolidated results from the server. Reconnect to a network and try again.'}</div>`,
     `<button class="btn sec" onclick="closeModal()">${L?'Fermer':'Close'}</button>`);
-  try{ window.open(url,'_blank','noopener'); }catch(e){ location.href=url; }
+  dashGo(url);
+}
+
+/* ---------------------------------------------------------------------------
+   OPENING IT WITHOUT THE RISK OF STRANDING ANYONE
+
+   The old line was `window.open(...)` with `location.href = url` behind it.
+   In an installed app that fallback is a trap: the window has no address bar
+   and no back button, so if the page does not come back the person is left on
+   a browser error screen with no way home but closing the app.
+
+   So the page is asked whether it is there BEFORE anyone is sent to it. The
+   check is same-origin, costs a few hundred bytes, and is given twelve
+   seconds — long enough for a slow connection, since being told "not
+   responding" when it would have loaded is its own kind of wrong. If it does
+   not answer, nobody goes anywhere: the address is put on screen to copy, and
+   Open anyway is there for the person who knows better than the check.
+   --------------------------------------------------------------------------- */
+function dashGo(url){
+  const L = LANG === 'fr';
+  DASH_PENDING = url;
+  const open = () => {
+    const w = (() => { try{ return window.open(url, '_blank', 'noopener'); }catch(e){ return null; } })();
+    if(w) return true;
+    /* A blocked popup is not a reason to navigate this window away. */
+    modal(L ? 'Tableau de bord national' : 'National dashboard',
+      `<p class="small">${L ? 'Votre navigateur a bloqué l\'ouverture. Ouvrez ce lien :'
+                            : 'Your browser blocked the new window. Open this link:'}</p>
+       <p class="small" style="word-break:break-all"><a href="${esc(url)}"
+          target="_blank" rel="noopener">${esc(url)}</a></p>`,
+      `<button class="btn sec" onclick="closeModal()">${L ? 'Fermer' : 'Close'}</button>`);
+    return false;
+  };
+
+  toast(L ? 'Ouverture du tableau de bord…' : 'Opening the dashboard…', 2500);
+  let done = false;
+  const ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+  const timer = setTimeout(() => { if(!done && ctrl) try{ ctrl.abort(); }catch(e){} }, 12000);
+
+  fetch(url, {method:'GET', cache:'no-store', signal:ctrl ? ctrl.signal : undefined})
+    .then(r => { done = true; clearTimeout(timer); if(!r.ok) throw new Error('HTTP ' + r.status); open(); })
+    .catch(() => {
+      done = true; clearTimeout(timer);
+      modal(L ? 'Tableau de bord national' : 'National dashboard',
+        `<div class="banner b-warn">${L
+          ? 'La page du tableau de bord n\'a pas répondu. Le réseau est peut-être lent, ou la page n\'a pas encore été déposée en ligne. Rien n\'est perdu : le tableau de bord est une page séparée et l\'application n\'en dépend pas.'
+          : 'The dashboard page did not answer. The network may be slow, or the page may not be online yet. Nothing is lost: the dashboard is a separate page and the app does not depend on it.'}</div>
+         <p class="xs muted" style="margin:10px 0 4px">${L ? 'Adresse :' : 'Address:'}</p>
+         <p class="small" style="word-break:break-all">${esc(url)}</p>`,
+        `<button class="btn sec" onclick="closeModal()">${L ? 'Fermer' : 'Close'}</button>
+         <button class="btn sec" onclick="closeModal();dashCopy()">${
+           L ? 'Copier l\'adresse' : 'Copy the address'}</button>
+         <button class="btn" onclick="closeModal();dashAnyway()">${
+           L ? 'Ouvrir quand même' : 'Open anyway'}</button>`);
+    });
+}
+
+/* The address is held here rather than interpolated into an onclick: a URL is
+   user-supplied configuration, and quoting it into a JavaScript attribute is
+   how a stray apostrophe becomes a broken button. */
+var DASH_PENDING = '';
+function dashAnyway(){
+  if(!DASH_PENDING) return;
+  try{ window.open(DASH_PENDING, '_blank', 'noopener'); }catch(e){}
+}
+function dashCopy(){
+  const url = DASH_PENDING, L = LANG === 'fr';
+  const ok = () => toast(L ? '✓ Adresse copiée' : '✓ Address copied', 2500);
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText)
+      return navigator.clipboard.writeText(url).then(ok).catch(() => prompt(url));
+  }catch(e){}
+  try{ prompt(L ? 'Copiez cette adresse :' : 'Copy this address:', url); }catch(e){}
 }
 
 function viewLoginChooser(){
@@ -2603,7 +2781,7 @@ async function doLoginAdmin(){
       ?'Code refusé. Il est valable 24 heures et une seule fois — demandez-en un nouveau.'
       :'Code refused. It is valid for 24 hours and once only — ask for a new one.', 4500);
     u.claimed=true; u.pin=''; if(r.name) u.name=r.name; if(r.role) u.role=r.role;
-    DB.d.session=u.id; DB.save();
+    DB.d.session=u.id; DB.save(); passLanding();
     audit('SLOT_CLAIM','user', u.name+' — '+roleLabel(u.role));
     try{ localStorage.setItem('ath_path','adm'); }catch(e){}
     LG_PATH='adm'; go('#/home'); render();
@@ -2611,7 +2789,7 @@ async function doLoginAdmin(){
   }
 
   if((u.pin||'') !== typed) return toast(L?'Code PIN incorrect':'Wrong PIN');
-  DB.d.session=u.id; DB.save(); audit('LOGIN','user',u.name);
+  DB.d.session=u.id; DB.save(); passLanding(); audit('LOGIN','user',u.name);
   try{ localStorage.setItem('ath_path','adm'); }catch(e){}
   LG_PATH='adm'; go('#/home'); render();
   /* A privileged account may not sit on an obvious code. The old sign-in enforced this
@@ -2653,7 +2831,7 @@ async function doLogin(){
      door lands in the facility space, whatever it used last time */
   if(isDual(u) && path!=='adm'){ SPACE = path;
     try{ localStorage.setItem('ath_space', path); }catch(e){} }
-  DB.d.session=u.id; DB.save(); audit('LOGIN','user',u.name); go('#/home'); render();
+  DB.d.session=u.id; DB.save(); passLanding(); audit('LOGIN','user',u.name); go('#/home'); render();
   if(temp){
     u.pinResetCode=''; u.pinResetAt=null; u.pinHelp=null; DB.save();
     audit('PIN_RESET_USED','user',u.name); forcePinChange(u.id,'reset'); return;
@@ -4358,6 +4536,7 @@ function viewHome(){
   </div>
   ${conflictBanner()}
   ${typeof fmHomeCard==='function' ? fmHomeCard() : ''}
+  ${dashHomeCard()}
   ${typeof roleRequestCard==='function' ? roleRequestCard() : ''}
 
   <div class="grid g3 always" style="margin-bottom:12px">
@@ -6162,6 +6341,7 @@ function viewSiteHome(){
       ${L?'Dernière supervision':'Last supervision'} : <b>${esc(last.date||'')}</b> · ${pc((last.scores||visitScores(last)).overall.pct)}</div>`:''}
   </div>
   ${typeof fmHomeCard==='function' ? fmHomeCard() : ''}
+  ${dashHomeCard()}
 
   ${typeof roleRequestCard==='function' ? roleRequestCard() : ''}
 
