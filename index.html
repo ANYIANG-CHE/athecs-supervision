@@ -1022,7 +1022,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.12.0';
+const APP_VERSION = '4.12.1';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -2345,12 +2345,22 @@ function passLanding(){
   try{ sessionStorage.setItem('ath_landed', '1'); }catch(e){}
 }
 function landingGo(){ passLanding(); goHome(); }
+/* Choosing a door is passing the front step — otherwise the gate above would
+   draw it again on the very next render and nobody could ever sign in. */
+function landingSignIn(){ passLanding(); setPath('choose'); }
 
 function render(){
   const r = route(); const u = me();
+  /* THE FRONT STEP COMES FIRST, SIGNED IN OR NOT.
+     The gate used to sit below the `if(!u)` line, so it only ever met people
+     who were signed in. Everyone else went through viewLogin(), which reads
+     LG_PATH out of local storage — and anybody who had once pressed Sign in
+     had 'choose' sitting there for ever, so they landed on the three role
+     cards and never saw the front step at all. That is why the page looked
+     nothing like the one I showed. */
+  if(!LANDED && (!u || canWork(u))) return paint(viewWelcome(), 'none', r);
   if(!u)          return paint(viewLogin(), undefined, r);
   if(!canWork(u)) return paint(viewGate(u), undefined, r);
-  if(!LANDED)     return paint(viewWelcome(), 'none', r);
   let html='', key=r[0];
   if(isSite()){
     // facility staff: their own site only
@@ -2396,7 +2406,13 @@ function setPath(p){ LG_PATH=p; try{localStorage.setItem('ath_path',p);}catch(e)
 /* « Changer d'espace » goes back to the three cards, not out to the welcome page:
    somebody who took the wrong door wants the other doors, not the front step. */
 function clearPath(){ setPath('choose'); }
-function backToWelcome(){ LG_PATH=''; try{localStorage.removeItem('ath_path');}catch(e){} render(); }
+/* "‹ Retour" from the role cards means the front step, so the gate has to be
+   re-armed or render() would walk straight past it again. */
+function backToWelcome(){
+  LG_PATH=''; try{localStorage.removeItem('ath_path');}catch(e){}
+  LANDED=false; try{sessionStorage.removeItem('ath_landed');}catch(e){}
+  render();
+}
 
 function loginHeader(){
   return `<div class="logos" style="margin-bottom:16px">
@@ -2444,7 +2460,7 @@ function viewWelcome(){
       <span class="parr">›</span>
     </button>
 
-    <button class="pathcard" onclick="${resume ? 'switchAccount()' : "setPath('choose')"}">
+    <button class="pathcard" onclick="${resume ? 'switchAccount()' : 'landingSignIn()'}">
       <div class="pico adm">🔐</div>
       <div class="ptxt"><b>${resume ? (L?'Se connecter avec un autre compte':'Sign in as someone else')
                                     : (L?'Se connecter':'Sign in')}</b>
@@ -2499,41 +2515,40 @@ function openDashboard(){
    --------------------------------------------------------------------------- */
 function dashGo(url){
   const L = LANG === 'fr';
-  DASH_PENDING = url;
-  const open = () => {
-    const w = (() => { try{ return window.open(url, '_blank', 'noopener'); }catch(e){ return null; } })();
-    if(w) return true;
-    /* A blocked popup is not a reason to navigate this window away. */
-    modal(L ? 'Tableau de bord national' : 'National dashboard',
-      `<p class="small">${L ? 'Votre navigateur a bloqué l\'ouverture. Ouvrez ce lien :'
-                            : 'Your browser blocked the new window. Open this link:'}</p>
-       <p class="small" style="word-break:break-all"><a href="${esc(url)}"
-          target="_blank" rel="noopener">${esc(url)}</a></p>`,
-      `<button class="btn sec" onclick="closeModal()">${L ? 'Fermer' : 'Close'}</button>`);
-    return false;
-  };
+  /* Show the whole address, never "dashboard.html". A person who has to type
+     it into another browser cannot type a relative path. */
+  const abs = (function(){ try{ return new URL(url, location.href).href; }
+                           catch(e){ return url; } })();
+  DASH_PENDING = abs;
 
-  toast(L ? 'Ouverture du tableau de bord…' : 'Opening the dashboard…', 2500);
-  let done = false;
-  const ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
-  const timer = setTimeout(() => { if(!done && ctrl) try{ ctrl.abort(); }catch(e){} }, 12000);
+  /* OPEN IT ON THE CLICK ITSELF.
+     The previous version asked the server whether the page was there first and
+     opened it afterwards. That was wrong twice over. A browser only allows a
+     new window while it is still handling the tap that asked for one, and by
+     the time a fetch has come back the tap is long over — so the open was
+     fighting the popup blocker every time. And it passed 'noopener', which by
+     specification makes window.open return NULL EVEN WHEN IT SUCCEEDS, so the
+     result was tested against a value that could never be anything else: every
+     single open reported "your browser blocked the new window", whether it had
+     or not. That is the message you saw.
 
-  fetch(url, {method:'GET', cache:'no-store', signal:ctrl ? ctrl.signal : undefined})
-    .then(r => { done = true; clearTimeout(timer); if(!r.ok) throw new Error('HTTP ' + r.status); open(); })
-    .catch(() => {
-      done = true; clearTimeout(timer);
-      modal(L ? 'Tableau de bord national' : 'National dashboard',
-        `<div class="banner b-warn">${L
-          ? 'La page du tableau de bord n\'a pas répondu. Le réseau est peut-être lent, ou la page n\'a pas encore été déposée en ligne. Rien n\'est perdu : le tableau de bord est une page séparée et l\'application n\'en dépend pas.'
-          : 'The dashboard page did not answer. The network may be slow, or the page may not be online yet. Nothing is lost: the dashboard is a separate page and the app does not depend on it.'}</div>
-         <p class="xs muted" style="margin:10px 0 4px">${L ? 'Adresse :' : 'Address:'}</p>
-         <p class="small" style="word-break:break-all">${esc(url)}</p>`,
-        `<button class="btn sec" onclick="closeModal()">${L ? 'Fermer' : 'Close'}</button>
-         <button class="btn sec" onclick="closeModal();dashCopy()">${
-           L ? 'Copier l\'adresse' : 'Copy the address'}</button>
-         <button class="btn" onclick="closeModal();dashAnyway()">${
-           L ? 'Ouvrir quand même' : 'Open anyway'}</button>`);
-    });
+     So: open on the gesture, with no flag whose return value lies, and blank
+     the opener afterwards instead. Stranding is no longer a reason to delay —
+     the service worker no longer invents a 504, and the dashboard carries a
+     link back to the app. */
+  let w = null;
+  try{ w = window.open(abs, '_blank'); }catch(e){ w = null; }
+  if(w){ try{ w.opener = null; }catch(e){} return; }
+
+  /* Genuinely blocked. Give them a link to press, which is a gesture again. */
+  modal(L ? 'Tableau de bord national' : 'National dashboard',
+    `<p class="small">${L ? 'Votre navigateur a bloqué la nouvelle fenêtre. Ouvrez ce lien :'
+                          : 'Your browser blocked the new window. Open this link:'}</p>
+     <p class="small" style="word-break:break-all"><a href="${esc(abs)}"
+        target="_blank" rel="noopener noreferrer">${esc(abs)}</a></p>`,
+    `<button class="btn sec" onclick="closeModal()">${L ? 'Fermer' : 'Close'}</button>
+     <button class="btn sec" onclick="dashCopy()">${
+       L ? 'Copier l\'adresse' : 'Copy the address'}</button>`);
 }
 
 /* The address is held here rather than interpolated into an onclick: a URL is
@@ -2542,7 +2557,9 @@ function dashGo(url){
 var DASH_PENDING = '';
 function dashAnyway(){
   if(!DASH_PENDING) return;
-  try{ window.open(DASH_PENDING, '_blank', 'noopener'); }catch(e){}
+  var w = null;
+  try{ w = window.open(DASH_PENDING, '_blank'); }catch(e){}
+  if(w) try{ w.opener = null; }catch(e){}
 }
 function dashCopy(){
   const url = DASH_PENDING, L = LANG === 'fr';

@@ -33,7 +33,7 @@
    Nothing here ever touches localStorage, where enrolment, PINs and
    every unsent supervision live. A cache purge is not a data loss. */
 
-const CACHE   = 'athecs-v4-9-0';
+const CACHE   = 'athecs-v4-12-1';
 const VKEY    = './__athecs_version__';  /* not a real file: a marker kept in the cache */
 const DOC     = './index.html';          /* the ONE key every document is stored under */
 const NET_MS  = 7000;                    /* a stalled connection gets this long, no more */
@@ -57,6 +57,30 @@ function verOf(text){
    A path that names a FILE is that file, whoever asked for it. Everything
    else — a bare path, a folder, an .html — is the application, so deep
    links still open offline. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE STANDALONE PAGES ARE NOT THIS WORKER'S TO ANSWER        (v4.12.0)
+
+   reset.html and dashboard.html live beside index.html but are separate
+   pages. isDoc() has always refused to serve the app shell in their place —
+   correctly — but that left them on the ASSET path, and the asset path ends:
+
+       if(!doc) return got || new Response('', {status:504, ...});
+
+   Neither page is precached, so there is nothing in the cache. The network
+   half is raced against NET_MS. Seven seconds is a long time in an office
+   and no time at all on a phone in Bafang, so on a slow link the race was
+   lost and THIS WORKER SYNTHESISED THE 504 — "took too long to respond,
+   HTTP ERROR 504" — for a page that was sitting on the server perfectly
+   well. In an installed app there is no address bar and no back button, so
+   that error page was the end of the road.
+
+   The worker now stands aside for them entirely: no respondWith, so the
+   browser fetches them itself with its own timeout, its own cache and its
+   own error page — and reset.html, whose whole job is to work when this
+   worker is the problem, is no longer touched by it at all.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const STANDALONE = /(^|\/)(reset|dashboard)\.html$/i;
+
 function isDoc(req){
   let p;
   try{ p = new URL(req.url).pathname; }catch(e){ return req.mode === 'navigate'; }
@@ -74,7 +98,7 @@ function isDoc(req){
        · dashboard.html — opening it from an installed phone would otherwise
                           show the application again, which looks exactly like
                           a broken link. */
-  if(/(^|\/)(reset|dashboard)\.html$/i.test(p)) return false;
+  if(STANDALONE.test(p)) return false;
   const last = p.split('/').pop();
   if(last && last.indexOf('.') >= 0 && !/\.html?$/i.test(last)) return false;
   if(req.mode === 'navigate') return true;
@@ -183,6 +207,7 @@ self.addEventListener('fetch', e => {
   let url;
   try { url = new URL(e.request.url); } catch (err) { return; }
   if (url.origin !== self.location.origin) return;
+  if (STANDALONE.test(url.pathname)) return;     /* see the note above isDoc() */
   const job = revalidate(e.request);
   e.waitUntil(job);
   e.respondWith(serve(e.request, job));
@@ -224,7 +249,14 @@ async function serve(req, job){
      back to the app shell here was the other half of the v4.3.7 fault: a
      404 for icon-512.png was answered with index.html, so a file that had
      never been uploaded returned HTTP 200 and looked perfectly fine. */
-  if(!doc) return got || new Response('', {status:504, statusText:'no answer'});
+  /* A missing ASSET must come back missing — that is the v4.3.7 lesson. But a
+     NAVIGATION is a person looking at a screen, and a 504 invented here would
+     put them on an error page with nothing to press. Let the browser own that
+     failure: it has a reload button and knows how to say "no network". */
+  if(!doc){
+    if(req.mode === 'navigate') return got || Response.error();
+    return got || new Response('', {status:504, statusText:'no answer'});
+  }
 
   return (await cache.match(DOC))
       || (await cache.match('./'))

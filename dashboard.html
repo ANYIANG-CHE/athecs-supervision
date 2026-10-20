@@ -78,6 +78,8 @@ select,.tb{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.1
      color:#fff;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:600}
 select option{color:#0F1723}
 .tb{cursor:pointer}.tb.on{background:#fff;color:#0B3C71}
+a.tb{text-decoration:none;font-size:1.05rem;line-height:1;padding:7px 12px}
+a.tb:hover{background:rgba(255,255,255,.26)}
 
 h2{font-size:.95rem;margin:26px 0 3px;letter-spacing:-.01em}
 .sub{font-size:.8rem;color:var(--ink-2);margin:0 0 12px}
@@ -162,6 +164,10 @@ tbody tr:hover{background:var(--surface-2)}
 <body>
 <header>
   <div class="hin">
+    <!-- An installed app opens an in-scope page inside its own window, where
+         there is no address bar and no back button. Whatever brought a person
+         here, there is always a way back to the application from here. -->
+    <a class="tb" id="back" href="index.html" title="ATHECS">‹</a>
     <div>
       <h1 id="t-title">Supervision Intégrée — Tableau de bord</h1>
       <p>ATHECS · <span id="t-region">Région de l'Ouest</span></p>
