@@ -796,7 +796,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.7.0';
+const APP_VERSION = '4.8.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -8162,7 +8162,8 @@ async function pullData(full, deep){
     if(i < 0){ DB.d.formEntries.push(re); changed++; return; }
     const mine = DB.d.formEntries[i];
     if(mine.status === 'DRAFT' && mine.dirty) return;
-    DB.d.formEntries[i] = re; changed++;
+    /* the server does not carry the send-back note; keep the local one */
+    DB.d.formEntries[i] = Object.assign({sentBack: mine.sentBack}, re); changed++;
   });
   if(Array.isArray(j.formSignatures)) DB.d.formSignatures = j.formSignatures.slice();
   /* Who may sign is the workbook's answer. Without it no phone would ever show
@@ -9160,8 +9161,7 @@ function copyAddr(){
    from the .docx itself. Nothing is retyped, reworded or translated.
    ===================================================================== */
 
-var FM_SIGPAD = null;                 /* the pad currently open, if any */
-var FM_PRINT_SEQ = 0;                 /* which print render is the current one */
+
 
 function fmForms(){ return (DB.d.forms || []).filter(f => f && f.id); }
 
@@ -9221,7 +9221,7 @@ function fmSitesFor(){
   const sort = arr => arr.sort((a, b) =>
     (a.district + a.facility).localeCompare(b.district + b.facility));
 
-  if(isSuper() || fmRoleOf()) return sort(live.slice());
+  if(isSuper()) return sort(live.slice());
 
   const granted = {};
   mySiteIds().forEach(id => { granted[id] = true; });
@@ -9233,24 +9233,11 @@ function fmEntry(formId, siteId){
   return (DB.d.formEntries || []).filter(e =>
     e.formId === formId && e.siteId === siteId)[0] || null;
 }
-function fmSigs(formId, siteId){
-  return (DB.d.formSignatures || []).filter(s =>
-    s.formId === formId && String(s.siteId || '') === String(siteId) &&
-    String(s.status || 'VALID') !== 'VOID');
-}
-function fmRoleOf(){
-  const u = me(); if(!u) return '';
-  const cfg = DB.d.config || {};
-  if(String(cfg.fmBoUid || '') === u.id) return 'BO';
-  if(String(cfg.fmPiUid || '') === u.id) return 'PI';
-  return '';
-}
-
 /* ---------------------------------------------------------------- status */
 function fmStatus(e){ return e ? String(e.status || 'DRAFT') : ''; }
 function fmChip(st){
   const map = {DRAFT:'c-grey', SUBMITTED:'c-blue', APPROVED:'c-amber', SIGNED:'c-green'};
-  const lbl = {DRAFT:'Draft', SUBMITTED:'Submitted', APPROVED:'Verified', SIGNED:'Signed'};
+  const lbl = {DRAFT:'Draft', SUBMITTED:'Submitted', APPROVED:'Verified', SIGNED:'Verified'};
   if(!st) return '<span class="fmchip c-none">Not started</span>';
   return '<span class="fmchip ' + (map[st] || 'c-grey') + '">' + (lbl[st] || st) + '</span>';
 }
@@ -9264,14 +9251,14 @@ function viewForms(){
   FM_PICK = f.id;
 
   const sites = fmSitesFor();
-  const wide = isSuper() || !!fmRoleOf();
+  const wide = isSuper();
   const u = me() || {};
 
   /* Three situations, and the screen must leave nobody guessing which. */
   const scopeNote =
     wide
       ? '<p class="xs muted" style="margin:0 0 8px">You see every facility of the '
-        + 'region, because you verify and certify them.</p>'
+        + 'region, because you verify them and assemble the submission.</p>'
       : sites.length
       ? '<p class="xs muted" style="margin:0 0 8px">These are the facilities granted to '
         + 'your account — the same ones you already follow. Nothing was assigned for '
@@ -9306,9 +9293,6 @@ function viewForms(){
      included blank pages for the rest would be worse than useless. */
   const nSub = fmSubmitted(f.id).length;
 
-  const mySig = fmRoleOf();
-  const sub = fmSigs(f.id, '');
-  const signedBy = r => sub.filter(x => x.role === r)[0];
 
   return `
   <div class="card">
@@ -9324,7 +9308,7 @@ function viewForms(){
       <span>${started}/${sites.length} started</span>
       <span>${n('SUBMITTED')} submitted</span>
       <span>${n('APPROVED')} verified</span>
-      <span>${n('SIGNED')} signed</span>
+
     </div>
   </div>
 
@@ -9343,20 +9327,6 @@ function viewForms(){
     <p class="xs muted" style="margin:8px 0 0">
       You choose which sites and where the certification goes. CDC may ask for
       the sites one by one or all together — both come out of the same screen.</p>
-  </div>` : ''}
-
-  ${mySig ? `
-  <div class="card">
-    <h4 style="margin:0 0 4px">Certification — ${mySig === 'BO' ? 'Business Official' : 'Principal Investigator'}</h4>
-    <p class="small muted" style="margin:0 0 10px">
-      You may sign every verified site in one action, or one site at a time
-      from its own page. Only verified sites can be signed.</p>
-    <div class="row">
-      <button class="btn sm" onclick="fmSignPad('${f.id}','${mySig}',null)">
-        Sign all verified (${n('APPROVED') + n('SIGNED')})</button>
-    </div>
-    ${signedBy(mySig) ? '<p class="small" style="margin:10px 0 0">Last signed '
-      + esc(fmtDT(signedBy(mySig).at)) + '</p>' : ''}
   </div>` : ''}
 
   <div class="card">
@@ -9453,8 +9423,6 @@ function viewFormFill(formId, siteId){
     + '<td>' + (locked ? '' : '<button class="btn sec sm" onclick="fmExtraDel(\'' + formId
         + '\',\'' + siteId + '\',' + i + ')">✕</button>') + '</td></tr>').join('');
 
-  const sigs = fmSigs(formId, siteId);
-  const mine = fmRoleOf();
 
   return `
   <div class="card tight fmhead">
@@ -9471,6 +9439,11 @@ function viewFormFill(formId, siteId){
       <b id="fm-barlab">${prog.done} / ${prog.total}</b> answered on this page</p>
   </div>
 
+  ${(e.sentBack && st === 'DRAFT') ? `<div class="banner b-warn">
+      <b>Sent back by ${esc(e.sentBack.by || 'the regional team')}</b>${
+        e.sentBack.at ? ' · ' + esc(fmtDT(e.sentBack.at)) : ''}
+      ${e.sentBack.why ? '<br>' + esc(e.sentBack.why) : ''}
+      <br><span class="xs">Correct it and submit again.</span></div>` : ''}
   ${fmMayFill(f) && (st === 'APPROVED' || st === 'SIGNED')
       ? '<div class="banner b-ok">This page has been verified. Reopen it to change '
       + 'an answer — any signature given on it will be withdrawn.</div>' : ''}
@@ -9519,13 +9492,8 @@ function viewFormFill(formId, siteId){
            <button class="btn" id="fm-sub" onclick="fmSubmit('${formId}','${siteId}')">Submit this site</button>`}
       ${(isSuper() && st === 'SUBMITTED')
         ? `<button class="btn" onclick="fmApprove('${formId}','${siteId}',true)">Verify and approve</button>` : ''}
-      ${(isSuper() && st === 'SUBMITTED' && mine)
-        ? `<p class="xs muted" style="flex:1 1 100%;margin:6px 0 0">You are the ${
-            mine === 'BO' ? 'Business Official' : 'Principal Investigator'} for this request.
-           Verifying a page and then certifying it puts both in one pair of hands — if
-           another super user can verify it, let them.</p>` : ''}
-      ${(mine && (st === 'APPROVED' || st === 'SIGNED'))
-        ? `<button class="btn" onclick="fmSignPad('${formId}','${mine}','${siteId}')">Sign this site</button>` : ''}
+      ${(isSuper() && (st === 'SUBMITTED' || st === 'APPROVED'))
+        ? `<button class="btn sec" onclick="fmRevert('${formId}','${siteId}')">Send back to the site</button>` : ''}
     </div>
 
     ${isSuper() ? `<div class="row" style="margin-top:10px">
@@ -9534,9 +9502,7 @@ function viewFormFill(formId, siteId){
       ${st==='DRAFT'||!st ? '<span class="xs muted">A site can be downloaded once it has been submitted.</span>' : ''}
     </div>` : ''}
 
-    ${sigs.length ? '<p class="small" style="margin:10px 0 0">Signed: '
-      + sigs.map(x => esc(x.role + ' · ' + (x.name || '') + ' · ' + fmtDT(x.at))).join(' — ')
-      + '</p>' : ''}
+
   </div>`;
 }
 
@@ -9619,9 +9585,7 @@ function fmSave(formId, siteId, status, quiet){
 }
 function fmReopen(formId, siteId){
   const e = fmEntry(formId, siteId); if(!e) return;
-  if(fmSigs(formId, siteId).length && !confirm(
-    'This page has been signed. Reopening it withdraws the signature, and it will '
-    + 'have to be verified and signed again. Continue?')) return;
+
   e.status = 'DRAFT'; e.dirty = true; DB.save(); render();
 }
 function fmApprove(formId, siteId, on){
@@ -9634,429 +9598,15 @@ function fmApprove(formId, siteId, on){
   render();
 }
 
-/* ------------------------------------------------------- drawing a signature */
-function fmSignPad(formId, role, siteId){
-  const u = me() || {};
-  const who = role === 'BO' ? 'Business Official' : 'Principal Investigator';
-  const n = siteId ? 1 : fmSitesFor().filter(s => {
-    const st = fmStatus(fmEntry(formId, s.id)); return st === 'APPROVED' || st === 'SIGNED';
-  }).length;
-  if(!n){ toast('There is no verified site to sign yet.', 3000); return; }
+/* The app no longer collects signatures.
 
-  modal(who,
-    `<p class="small">You are about to certify <b>${n}</b> site page${n > 1 ? 's' : ''}.</p>
-     <label class="f"><span>Name</span>
-       <input id="fmsn" value="${esc(u.name || '')}"></label>
-     <label class="f"><span>Title</span>
-       <input id="fmst" value="${esc(who)}"></label>
-     <p class="small" style="margin:10px 0 4px">Sign below with your finger.</p>
-     <canvas id="fmsc" class="fmpad"></canvas>
-     <div class="row" style="margin-top:6px">
-       <button class="btn sec sm" onclick="fmPadClear()">Clear</button></div>
-     <p class="xs muted" style="margin:8px 0 0">
-       The printed page keeps the blank signature line as well, so the document is
-       valid whether it is accepted electronically or signed by hand.</p>`,
-    `<button class="btn sec" onclick="closeModal()">Cancel</button>
-     <button class="btn" onclick="fmSignDo('${formId}','${role}',${siteId ? "'" + siteId + "'" : 'null'})">Sign</button>`);
-  setTimeout(fmPadInit, 50);
-}
-
-function fmPadInit(){
-  const c = $('#fmsc'); if(!c) return;
-  const r = c.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
-  const g = c.getContext('2d');
-  g.scale(dpr, dpr); g.lineWidth = 2.2; g.lineCap = 'round'; g.lineJoin = 'round';
-  g.strokeStyle = '#111';
-  let drawing = false, ink = false;
-  const pt = ev => {
-    const b = c.getBoundingClientRect();
-    const t = ev.touches ? ev.touches[0] : ev;
-    return {x:t.clientX - b.left, y:t.clientY - b.top};
-  };
-  const down = ev => { ev.preventDefault(); drawing = true; ink = true;
-    const p = pt(ev); g.beginPath(); g.moveTo(p.x, p.y); };
-  const move = ev => { if(!drawing) return; ev.preventDefault();
-    const p = pt(ev); g.lineTo(p.x, p.y); g.stroke(); };
-  const up = () => { drawing = false; };
-  c.addEventListener('mousedown', down); c.addEventListener('mousemove', move);
-  window.addEventListener('mouseup', up);
-  c.addEventListener('touchstart', down, {passive:false});
-  c.addEventListener('touchmove', move, {passive:false});
-  c.addEventListener('touchend', up);
-  FM_SIGPAD = {canvas:c, ctx:g, hasInk:() => ink, clear:() => {
-    g.clearRect(0, 0, c.width, c.height); ink = false; }};
-}
-function fmPadClear(){ if(FM_SIGPAD) FM_SIGPAD.clear(); }
-
-/* Trim the blank margin off the drawing so the signature sits on the line at a
-   sensible size, whatever part of the pad was used. */
-function fmPadImage(){
-  if(!FM_SIGPAD || !FM_SIGPAD.hasInk()) return '';
-  const c = FM_SIGPAD.canvas, g = FM_SIGPAD.ctx;
-  const w = c.width, h = c.height;
-  const px = g.getImageData(0, 0, w, h).data;
-  let x0 = w, y0 = h, x1 = -1, y1 = -1;
-  for(let y = 0; y < h; y++) for(let x = 0; x < w; x++){
-    if(px[(y * w + x) * 4 + 3] > 24){
-      if(x < x0) x0 = x; if(x > x1) x1 = x;
-      if(y < y0) y0 = y; if(y > y1) y1 = y;
-    }
-  }
-  if(x1 < 0) return '';
-  const pad = 6;
-  x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad);
-  x1 = Math.min(w - 1, x1 + pad); y1 = Math.min(h - 1, y1 + pad);
-  const sw = x1 - x0 + 1, sh = y1 - y0 + 1;
-  const out = document.createElement('canvas');
-  const H = 110, W = Math.max(40, Math.round(sw * (H / sh)));
-  out.width = Math.min(W, 900); out.height = H;
-  out.getContext('2d').drawImage(c, x0, y0, sw, sh, 0, 0, out.width, out.height);
-  return out.toDataURL('image/png');
-}
-
-function fmSignDo(formId, role, siteId){
-  const ink = fmPadImage();
-  if(!ink){ toast('Please sign in the box first.', 2500); return; }
-  const u = me() || {};
-  const name = ($('#fmsn') || {}).value || u.name || '';
-  const title = ($('#fmst') || {}).value || '';
-  const targets = siteId ? [siteId] : fmSitesFor().filter(s => {
-    const st = fmStatus(fmEntry(formId, s.id)); return st === 'APPROVED' || st === 'SIGNED';
-  }).map(s => s.id);
-
-  const at = Date.now();
-  const put = sid => {
-    DB.d.formSignatures = (DB.d.formSignatures || []).filter(x =>
-      !(x.formId === formId && x.role === role && String(x.siteId || '') === String(sid)));
-    DB.d.formSignatures.push({id:formId + '|' + role + '|' + (sid || 'SUBMISSION'),
-      formId, role, siteId:sid, name, title, at, status:'VALID', ink});
-  };
-  targets.forEach(sid => {
-    put(sid);
-    const e = fmEntry(formId, sid);
-    if(e && fmSigs(formId, sid).length >= 2) e.status = 'SIGNED';
-  });
-  put('');
-  DB.save();
-  queue('formSign', {formId, role, uid:u.id, name, title, ink,
-                     siteIds:siteId ? [siteId] : 'ALL'});
-  closeModal();
-  toast('Signed ' + targets.length + ' site page' + (targets.length > 1 ? 's' : ''), 3000);
-  render();
-}
-
-/* ====================================================================
-   PRINTING — the document's own pages
-
-   Letter, 0.65in margins, Arial 10pt, the running header on every page,
-   the checklist broken after the item the Word file breaks after, one
-   site over two pages, and a single certification page at the end.
-   ==================================================================== */
-const FM_CSS = [
-  '#fmout{display:none}',
-  '.fmdoc{background:#fff;color:#000;font:10pt/1.25 Arial,Helvetica,sans-serif}',
-  '.fmdoc *{box-sizing:border-box}',
-  /* min-height, NOT height, and nothing hidden.
-     With a fixed height and overflow:hidden, a long comment or an added
-     staffing row pushed the end of the page past the bottom edge and it was
-     simply painted away — the instruction line vanished and nothing said so.
-     A document that loses a row silently is worse than one that runs to an
-     extra sheet, which is what the Word file does in the same situation. */
-  '.fmpage{width:8.5in;min-height:11in;padding:.65in;background:#fff;',
-  '        position:relative;overflow:visible;page-break-after:always;break-after:page}',
-
-  '.fmt tr{page-break-inside:avoid;break-inside:avoid}',
-  '.fmt thead{display:table-header-group}',
-  '.fmwrap{width:100%;border-collapse:collapse;table-layout:fixed}',
-  '.fmwrap>thead{display:table-header-group}',
-  '.fmwrap>thead>tr>td,.fmwrap>tbody>tr>td{padding:0 !important;border:0 !important;',
-  '                                        background:transparent !important;vertical-align:top}',
-  '.fmt tfoot{display:table-footer-group}',
-  '.fmsub,.fmh{page-break-after:avoid;break-after:avoid}',
-  '.fmpage:last-child{page-break-after:auto;break-after:auto}',
-  '.fmrh{font-size:10pt;color:#191919;margin:0 0 2pt}',
-  '.fmh{font-size:10pt;font-weight:700;color:#1F4E79;margin:0 0 10pt}',
-  '.fmh span{font-weight:400}',
-  '.fmsub{font-size:10pt;font-weight:700;color:#1F4E79;margin:14pt 0 4pt}',
-  '.fmt{width:100%;border-collapse:collapse;table-layout:fixed}',
-  /* The app's own table rule sets `white-space:nowrap` on every th, for the
-     sticky headers of the supervision screens. On these pages that made the
-     long header cells — "Available Now or Will be Available by Nov 30, 2026",
-     "Expected Fill Date For Vacant Position(s)" — run straight across the
-     column beside them and off the sheet. Every cell here wraps inside its
-     own column, as it does in the Word file. */
-  '.fmt td,.fmt th{border:.75pt solid #000;padding:3pt 4pt;font-size:10pt;',
-  '                vertical-align:top;text-align:left;color:#000;',
-  '                white-space:normal !important;word-wrap:break-word;',
-  '                overflow-wrap:anywhere;word-break:normal;hyphens:auto}',
-  /* The app's own print rules paint every th dark blue with !important.
-     These pages are the CDC document, not an ATHECS report. */
-  '.fmt th{background:#DCEAF7 !important;color:#000 !important;font-weight:700;',
-  '        text-transform:none !important;letter-spacing:0 !important;position:static !important;',
-  '        font-size:10pt !important;border-bottom:.75pt solid #000 !important;',
-  '        white-space:normal !important;overflow-wrap:anywhere}',
-  '.fmt td{background:#fff !important}',
-  '.fmbox{display:inline-block;width:13pt;height:13pt;border:1.1pt solid #000;',
-  '       line-height:12.4pt;text-align:center;font-size:8.5pt;overflow:hidden}',
-  '.fmc{text-align:center}',
-  '.fmnote{font-size:10pt;margin:4pt 0 0}',
-  '.fmgap{height:14pt}',
-  '.fmsg{margin:0 0 0 .18in}',
-  '.fmsg p{margin:0 0 4pt;font-size:10pt;white-space:nowrap}',
-  '.fmsg p.inked{margin-top:15pt}',
-  '.fmwho{font-weight:700;font-style:italic;font-size:10pt;margin:16pt 0 6pt}',
-  '.fmrule{position:relative;white-space:pre}',
-  '.fmval{position:absolute;left:4pt;bottom:2pt;white-space:nowrap;background:#fff;padding:0 2pt}',
-  '.fmink{position:absolute;left:4pt;bottom:0;height:22pt}',
-  '.fmstamp{font-size:7.5pt;color:#444;margin:1pt 0 0 .18in}',
-  '@media print{',
-  /* the margins now come from the page, so every sheet gets them — including
-     one a table has flowed onto */
-  '  @page{size:letter;margin:.65in}',
-  '  .fmpage{padding:0 !important;min-height:0 !important}',
-  '  body.fmprinting>*{display:none !important}',
-  '  body.fmprinting #fmout{display:block !important}',
-  '  body.fmprinting{background:#fff}',
-  '}'
-].join('');
-
-function fmHeadingHTML(text){
-  const i = String(text || '').indexOf('[');
-  if(i < 0) return esc(text);
-  return esc(text.slice(0, i)) + '<span>' + esc(text.slice(i)) + '</span>';
-}
-/* The running header has to appear on EVERY printed sheet, and a sheet that a
-   long table has flowed onto needs the same margins as the first one.
-
-   CSS paged media cannot do either from a plain block: page padding applies to
-   the box, not to each fragment of it, and there is no way to repeat arbitrary
-   content per sheet. A table header group can do both — the browser repeats a
-   thead on every sheet it continues onto, which is exactly what "repeat header
-   row" does in Word. So each site is wrapped in a one-cell table whose head
-   carries the running header, and the printed margins come from @page. */
-function fmPage(rh, inner){
-  return '<section class="fmpage"><table class="fmwrap">'
-       + '<thead><tr><td><p class="fmrh">' + esc(rh) + '</p></td></tr></thead>'
-       + '<tbody><tr><td>' + inner + '</td></tr></tbody></table></section>';
-}
-
-function fmChecklistHTML(cl, items, data){
-  let h = '<table class="fmt"><colgroup><col style="width:59.5%"><col style="width:13.6%">'
-        + '<col style="width:26.9%"></colgroup>'
-        + '<thead><tr><th>' + esc(cl.columns[0]) + '</th><th>' + esc(cl.columns[1])
-        + '</th><th>' + esc(cl.columns[2]) + '</th></tr></thead><tbody>';
-  items.forEach(it => {
-    const a = (data && data[it.k]) || {};
-    h += '<tr><td style="padding:5.5pt 4pt">' + esc(it.label) + '</td>'
-       + '<td class="fmc" style="padding:4pt 4pt"><span class="fmbox">'
-       + (a.v ? '&#10005;' : '') + '</span></td>'
-       + '<td style="padding:7pt 4pt">' + esc(a.c || '') + '</td></tr>';
-  });
-  return h + '</tbody></table>';
-}
-function fmHeadTableHTML(sec, data){
-  let h = '<table class="fmt"><colgroup><col style="width:40.5%"><col></colgroup><tbody>';
-  sec.fields.forEach(f => {
-    h += '<tr><td>' + esc(f.label) + '</td><td>' + esc(data[f.k]) + '</td></tr>';
-  });
-  return h + '</tbody></table>';
-}
-function fmStaffTableHTML(st, data, extra){
-  const w = ['36.1%', '13.0%', '9.1%', '9.1%', '15.7%', '17.0%'];
-  let h = '<table class="fmt"><colgroup>'
-        + w.map(x => '<col style="width:' + x + '">').join('')
-        + '</colgroup><thead><tr><th>' + esc(st.rowHeader) + '</th>'
-        + st.columns.map(c => '<th>' + esc(c.label) + '</th>').join('')
-        + '</tr></thead><tbody>';
-  st.rows.forEach(r => {
-    const v = (data && data[r.k]) || {};
-    const label = (r.describe && v.label) ? v.label : r.label;
-    h += '<tr><td>' + esc(label) + '</td>'
-       + st.columns.map(c => '<td>' + esc(v[c.k]) + '</td>').join('') + '</tr>';
-  });
-  (extra || []).forEach(x => {
-    h += '<tr><td>' + esc(x.label) + '</td>'
-       + st.columns.map(c => '<td>' + esc(x[c.k]) + '</td>').join('') + '</tr>';
-  });
-  return h + '</tbody></table>';
-}
-/* One site is ONE flow, not a stack of fixed sheets.
-
-   It used to be cut into fixed 11in pages with a forced break after item 17,
-   because that is where the Word file breaks. With a short comment that gives
-   exactly the document's two pages — but a long comment pushed one row past
-   the bottom and left a sheet carrying a single line, or, worse, the row was
-   painted away entirely.
-
-   Word does not do that: it repeats the header row and lets the table run on.
-   So this renders the whole site and lets the browser paginate, with the
-   header group repeating on each sheet. Short comments still land on two
-   sheets, breaking in the same place; long ones take the room they need, as
-   they would in Word. */
-function fmSitePagesHTML(L, data){
-  const rh = L.runningHeader, cl = L.sections[1], st = L.sections[2];
-  const extra = (data && data.staffExtra) || [];
-  const body =
-      '<p class="fmh">' + fmHeadingHTML(L.sectionHeading) + '</p>'
-    + fmHeadTableHTML(L.sections[0], data || {})
-    + '<div class="fmgap"></div>'
-    + fmChecklistHTML(cl, cl.items, data)
-    + '<div class="fmgap"></div>'
-    + '<p class="fmsub">' + esc(st.title) + '</p>'
-    + fmStaffTableHTML(st, (data || {}).staff, extra)
-    + '<p class="fmnote">' + esc(st.note) + '</p>';
-  return [fmPage(rh, body)];
-}
-
-function fmCertPageHTML(L, sig){
-  const ce = L.sections[3];
-  let h = '<p class="fmh">' + esc(ce.title) + '</p>'
-        + '<p style="margin:0 0 6pt">' + esc(ce.text) + '</p>';
-  ce.signers.forEach(s => {
-    const v = (sig && sig[s.k]) || {};
-    h += '<p class="fmwho">' + esc(s.label) + '</p><div class="fmsg">';
-    ce.lines.forEach(line => {
-      const cut = String(line).indexOf('_');
-      const head = cut < 0 ? String(line) : String(line).slice(0, cut);
-      const rule = cut < 0 ? '' : String(line).slice(cut);
-      const key  = /^Name/i.test(head) ? 'name' : /^Title/i.test(head) ? 'title'
-                 : /^Signature/i.test(head) ? 'sig' : 'date';
-      if(!rule){                                   /* Date: has no rule in the document */
-        h += '<p>' + esc(line) + ' ' + esc(v.date || '') + '</p>';
-        return;
-      }
-      const val = key === 'name' ? (v.name || '') : key === 'title' ? (v.title || '') : '';
-      const ink = (key === 'sig' && v.ink)
-        ? '<img class="fmink" src="' + esc(v.ink) + '" alt="">' : '';
-      h += '<p' + (ink ? ' class="inked"' : '') + '>' + esc(head)
-         + '<span class="fmrule">' + esc(rule)
-         + (val ? '<span class="fmval">' + esc(val) + '</span>' : '') + ink + '</span></p>';
-    });
-    h += '</div>';
-    if(v.at) h += '<p class="fmstamp">Signed electronically in ATHECS'
-                + (v.account ? ' &middot; ' + esc(v.account) : '')
-                + ' &middot; ' + esc(v.at) + '</p>';
-  });
-  return fmPage(L.runningHeader, h);
-}
-
-/* Build the signature block the certification page prints, from the signature
-   rows held for one site — or, with siteId '', for the submission as a whole. */
-function fmSigBlock(formId, siteId){
-  const rows = fmSigs(formId, siteId === null ? '' : siteId);
-  const sig = {};
-  [['bo', 'BO'], ['pi', 'PI']].forEach(([k, role]) => {
-    const r = rows.filter(x => x.role === role)[0];
-    if(!r || !r.ink) return;
-    sig[k] = {name:r.name, title:r.title, ink:r.ink,
-              date:new Date(r.at).toISOString().slice(0, 10),
-              account:'', at:fmtDT(r.at)};
-  });
-  return (sig.bo || sig.pi) ? sig : null;
-}
-
-/* ---------------------------------------------------------------------------
-   fmPrint — three ways to lay the certification out, because a submission is
-   assembled differently depending on what CDC is given.
-
-     mode 'each'  a signed certification page after EVERY site
-                  → 3 pages per site
-     mode 'none'  nothing signed anywhere: the site pages, then ONE blank
-                  certification page with the Name, Title, Signature and Date
-                  lines as the Word file has them, to be signed by hand
-                  → 2 pages per site + 1
-     mode 'end'   the site pages, then ONE signed certification page covering
-                  the whole submission — what the document itself instructs,
-                  "Complete Section 4 once for the recipient"
-                  → 2 pages per site + 1
-
-   `true` and `false` are still accepted so nothing that calls this breaks.
-   --------------------------------------------------------------------------- */
-function fmPrint(formId, siteId, mode){
-  if(mode === true)  mode = 'end';
-  if(mode === false || mode === undefined) mode = 'none';
-
-  /* Downloading the submission belongs to the regional team. A facility
-     account fills its page and submits it; it does not assemble what goes
-     to CDC. */
-  if(!isSuper()){ toast('Downloading belongs to the regional team.', 3000); return; }
-
-  const f = fmForms().filter(x => x.id === formId)[0];
-  if(!f || !f.layout){ toast('This request is not available on this device.', 3000); return; }
-  const L = f.layout;
-
-  /* ONLY submitted sites. "All" is not the 84 of the register: a download that
-     quietly carried blank pages for sites nobody has filled would go to CDC
-     looking complete. */
-  const subs = fmSubmitted(formId);
-  const sites = siteId ? subs.filter(s => s.id === siteId) : subs;
-  if(!sites.length){
-    toast(siteId ? 'This site has not been submitted yet.'
-                 : 'No site has been submitted yet.', 3500);
-    return;
-  }
-
-  let pages = [], unsigned = 0;
-  sites.forEach(s => {
-    const e = fmEntry(formId, s.id) || {};
-    const d = Object.assign({}, e.data || {});
-    /* the register's own words for the three fields nobody types */
-    d.region = d.region || 'Ouest'; d.district = s.district; d.site = s.facility;
-    pages = pages.concat(fmSitePagesHTML(L, d));
-    if(mode === 'each'){
-      const sig = fmSigBlock(formId, s.id);
-      if(!sig) unsigned++;
-      pages.push(fmCertPageHTML(L, sig));
-    }
-  });
-
-  if(mode !== 'each'){
-    const sig = mode === 'end' ? fmSigBlock(formId, null) : null;
-    if(mode === 'end' && !sig)
-      toast('No signature is held on this device — printing the blank lines instead.', 4000);
-    pages.push(fmCertPageHTML(L, sig));
-  }else if(unsigned){
-    /* Saying so matters: a stack in which some pages are certified and some are
-       not is exactly the stack that goes to CDC with a gap nobody noticed. */
-    toast(unsigned + ' of ' + sites.length + ' site pages are not signed yet — '
-          + 'their certification pages print blank.', 5000);
-  }
-
-  let out = $('#fmout');
-  if(!out){
-    out = document.createElement('div'); out.id = 'fmout';
-    document.body.appendChild(out);
-    const st = document.createElement('style'); st.textContent = FM_CSS;
-    document.head.appendChild(st);
-  }
-  /* Press two print buttons in quick succession and the first one's tidy-up
-     used to wipe the second one's pages while the browser was still laying
-     them out — printing the site pages with no certification page at all.
-     Each render carries a token; only the newest one is allowed to clear. */
-  /* The browser names a "Save as PDF" file after the document title, so the
-     file arrives called something a person can file, not "index". */
-  const stamp = new Date().toISOString().slice(0, 10);
-  const safe = x => String(x || '').replace(/[^\w\-]+/g, '-').replace(/^-|-$/g, '');
-  const name = 'FM-FY27_' + (siteId ? safe(sites[0].facility)
-                                    : 'All-' + sites.length + '-sites') + '_' + stamp;
-  const oldTitle = document.title;
-
-  const token = ++FM_PRINT_SEQ;
-  out.innerHTML = '<div class="fmdoc">' + pages.join('') + '</div>';
-  document.body.classList.add('fmprinting');
-  document.title = name;
-  setTimeout(() => {
-    if(token !== FM_PRINT_SEQ){ document.title = oldTitle; return; }
-    window.print();
-    setTimeout(() => {
-      if(token !== FM_PRINT_SEQ) return;
-      document.body.classList.remove('fmprinting'); out.innerHTML = '';
-      document.title = oldTitle;
-    }, 800);
-  }, 120);
-}
+   It carried a finger-drawn signature pad, a designated Business Official and
+   Principal Investigator, and a signed certification page. That has been taken
+   out at the field's request: the sites fill, the console verifies or sends
+   back, and the certification page is printed with its lines blank for ink.
+   The workbook keeps FORM_SIGNATURES and the server still accepts a signature,
+   so nothing already signed is lost and the feature can come back without a
+   migration — but no screen offers it. */
 
 /* The one place a coordinator will look. It appears only while a request is
    open for this account, and disappears with the request — nothing to undo,
@@ -10276,7 +9826,446 @@ function fmDownloadDialog(formId, siteId){
 function fmDownloadDo(formId, siteId){
   const cert = ($('#fm-dl-cert') || {}).value || 'end';
   closeModal();
-  setTimeout(() => fmPrint(formId, siteId, cert), 120);
+  setTimeout(() => fmDownload(formId, siteId, cert), 80);
+}
+
+/* The file itself. No print dialogue: the bytes are built here and handed to
+   the browser as a download, which is what was asked for and what the field
+   actually needs — a phone's print dialogue is not a way to produce a document
+   for CDC. */
+function fmDownload(formId, siteId, cert){
+  if(!isSuper()){ toast('Downloading belongs to the regional team.', 3000); return; }
+  const f = fmForms().filter(x => x.id === formId)[0];
+  if(!f || !f.layout){ toast('This request is not available on this device.', 3000); return; }
+
+  const subs = fmSubmitted(formId);
+  const sites = siteId ? subs.filter(s => s.id === siteId) : subs;
+  if(!sites.length){
+    toast(siteId ? 'This site has not been submitted yet.'
+                 : 'No site has been submitted yet.', 3500);
+    return;
+  }
+
+  const entries = sites.map(s => {
+    const e = fmEntry(formId, s.id) || {};
+    return {district:s.district, facility:s.facility, data:e.data || {}};
+  });
+
+  let bytes;
+  try{
+    bytes = fmBuildPdf(f.layout, entries, {cert: cert || 'end'});
+  }catch(err){
+    toast('The file could not be built: ' + err, 5000);
+    return;
+  }
+
+  const stamp = new Date().toISOString().slice(0, 10);
+  const safe = x => String(x || '').replace(/[^\w\-]+/g, '-').replace(/^-+|-+$/g, '');
+  const name = safe(formId) + '_' + (siteId ? safe(sites[0].facility)
+                                            : 'All-' + sites.length + '-sites') + '_' + stamp + '.pdf';
+  fmpdfSave(bytes, name);
+  toast('✓ ' + name + ' downloaded', 4000);
+}
+
+
+/* Sending a page back is not the same as withdrawing an approval: the site has
+   to be able to edit it again, and has to be told why. */
+function fmRevert(formId, siteId){
+  const e = fmEntry(formId, siteId); if(!e) return;
+  const site = (DB.d.sites || []).filter(x => x.id === siteId)[0] || {};
+  modal('Send back to the site',
+    `<p style="margin:0 0 10px"><b>${esc(site.facility || '')}</b> goes back to
+       whoever filled it, and becomes editable again.</p>
+     <label class="f"><span>What should they correct?</span>
+       <textarea id="fm-why" rows="3"
+         placeholder="e.g. TX_CURR does not match the DAMA figure for June"></textarea></label>
+     <p class="xs muted" style="margin:0">They see this on the page itself.</p>`,
+    `<button class="btn sec" onclick="closeModal()">Cancel</button>
+     <button class="btn" onclick="fmRevertDo('${formId}','${siteId}')">Send back</button>`);
+}
+function fmRevertDo(formId, siteId){
+  const e = fmEntry(formId, siteId); if(!e) return;
+  const u = me() || {};
+  e.status = 'DRAFT';
+  e.sentBack = {by:u.name || '', uid:u.id || '', at:Date.now(),
+                why:(($('#fm-why') || {}).value || '').trim()};
+  e.dirty = true;
+  DB.save();
+  queue('formEntry', {id:e.id, formId, siteId, status:'DRAFT', by:e.by, uid:e.uid,
+                      at:e.at, data:e.data, sentBack:e.sentBack});
+  closeModal();
+  toast('Sent back to the site', 3000);
+  render();
+}
+
+/* =====================================================================
+   A PDF, written by the app itself                           (v4.8.0)
+
+   The browser's "Save as PDF" was a print dialogue wearing a download's
+   clothes, and the field said so. This writes the file.
+
+   Why not a library: the app is offline-first and single-file, so a PDF
+   library would have to be bundled into index.html — jsPDF with tables is
+   about 400 KB, pdfmake about 2 MB, and the rasterising ones turn the
+   document's text into a picture. This is roughly 20 KB, needs no network,
+   and lays the pages out itself, so the page count, the margins and the
+   repeated header are exact rather than whatever the print engine decides.
+
+   Helvetica is one of the fourteen fonts every PDF reader already has, so
+   nothing is embedded, and it is metrically identical to the Arial the
+   Word document is set in — the same text occupies the same width.
+   ===================================================================== */
+const FMPDF_W  = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584,350,556,350,222,556,333,1000,556,556,333,1000,667,333,1000,350,611,350,350,222,222,333,333,350,556,1000,333,1000,500,333,944,350,500,667,278,333,556,556,556,556,260,556,333,737,370,556,584,333,737,333,400,584,333,333,333,556,537,278,333,333,365,556,834,834,834,611,667,667,667,667,667,667,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,500,556,556,556,556,278,278,278,278,556,556,556,556,556,556,556,584,611,556,556,556,556,500,556,500];
+const FMPDF_WB = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584,350,556,350,278,556,500,1000,556,556,333,1000,667,333,1000,350,611,350,350,278,278,500,500,350,556,1000,333,1000,556,333,944,350,500,667,278,333,556,556,556,556,280,556,333,737,370,556,584,333,737,333,400,584,333,333,333,611,556,278,333,333,365,556,834,834,834,611,722,722,722,722,722,722,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,556,556,556,556,556,278,278,278,278,611,611,611,611,611,611,611,584,611,611,611,611,611,556,611,556];
+
+/* Windows-1252 is what WinAnsiEncoding is, so the bytes a PDF wants are the
+   code points for everything below 0x80 and a short table above it. The
+   document's curly apostrophes live here — "Patients’ folders" would
+   otherwise reach CDC as "Patients? folders". */
+const FMPDF_CP = {0x20AC:128, 0x201A:130, 0x0192:131, 0x201E:132, 0x2026:133,
+  0x2020:134, 0x2021:135, 0x02C6:136, 0x2030:137, 0x0160:138, 0x2039:139,
+  0x0152:140, 0x017D:142, 0x2018:145, 0x2019:146, 0x201C:147, 0x201D:148,
+  0x2022:149, 0x2013:150, 0x2014:151, 0x02DC:152, 0x2122:153, 0x0161:154,
+  0x203A:155, 0x0153:156, 0x017E:158, 0x0178:159};
+
+function fmpdfByte(ch){
+  const c = ch.charCodeAt(0);
+  if(c < 0x80) return c;
+  if(FMPDF_CP[c] !== undefined) return FMPDF_CP[c];
+  if(c <= 0xFF) return c;
+  return 63;                                   /* '?' — never silently dropped */
+}
+function fmpdfWidth(str, size, bold){
+  const t = bold ? FMPDF_WB : FMPDF_W;
+  let w = 0;
+  for(let i = 0; i < str.length; i++) w += t[fmpdfByte(str[i])] || 0;
+  return w * size / 1000;
+}
+/* Greedy wrap, breaking inside a word only when the word itself is wider than
+   the column — a site code or a long URL must not run into the next column,
+   which is exactly what went wrong on the printed version. */
+function fmpdfWrap(str, size, bold, max){
+  const out = [];
+  String(str == null ? '' : str).split(/\n/).forEach(para => {
+    const words = para.split(/\s+/).filter(x => x.length);
+    if(!words.length){ out.push(''); return; }
+    let line = '';
+    words.forEach(w => {
+      const t = line ? line + ' ' + w : w;
+      if(fmpdfWidth(t, size, bold) <= max){ line = t; return; }
+      if(line){ out.push(line); line = ''; }
+      if(fmpdfWidth(w, size, bold) <= max){ line = w; return; }
+      let chunk = '';
+      for(const ch of w){
+        if(fmpdfWidth(chunk + ch, size, bold) > max && chunk){ out.push(chunk); chunk = ''; }
+        chunk += ch;
+      }
+      line = chunk;
+    });
+    if(line) out.push(line);
+  });
+  return out.length ? out : [''];
+}
+
+/* ---------------------------------------------------------------- the file */
+function fmpdfDoc(opts){
+  opts = opts || {};
+  const PW = 612, PH = 792;                    /* US Letter, in points */
+  const M  = opts.margin === undefined ? 46.8 : opts.margin;   /* 0.65in */
+  const pages = [];
+  let buf = null, y = 0;
+
+  const esc = s => { let o = '';
+    for(let i = 0; i < s.length; i++){
+      const b = fmpdfByte(s[i]);
+      o += (b === 40 || b === 41 || b === 92) ? '\\' + String.fromCharCode(b)
+         : (b < 32 || b > 126) ? '\\' + ('00' + b.toString(8)).slice(-3)
+         : String.fromCharCode(b);
+    }
+    return o; };
+
+  const api = {
+    get y(){ return y; },
+    set y(v){ y = v; },
+    get pageCount(){ return pages.length; },
+    width: PW - 2 * M,
+    left: M,
+
+    newPage(){
+      buf = [];
+      pages.push(buf);
+      y = PH - M;
+      if(opts.onPage) opts.onPage(api, pages.length);
+      return api;
+    },
+    room(h){ return y - h >= M; },
+    need(h){ if(!api.room(h)) api.newPage(); return api; },
+
+    text(str, x, size, o){
+      o = o || {};
+      const f = o.bold ? '/F2' : o.italic ? (o.bold ? '/F4' : '/F3') : '/F1';
+      const fn = (o.bold && o.italic) ? '/F4' : o.bold ? '/F2' : o.italic ? '/F3' : '/F1';
+      if(o.color) buf.push(o.color.join(' ') + ' rg');
+      buf.push('BT ' + fn + ' ' + size + ' Tf ' + x.toFixed(2) + ' ' +
+               (y - size * 0.82).toFixed(2) + ' Td (' + esc(String(str)) + ') Tj ET');
+      if(o.color) buf.push('0 0 0 rg');
+      return api;
+    },
+    para(str, x, w, size, o){
+      o = o || {};
+      const lead = o.lead || size * 1.22;
+      fmpdfWrap(str, size, !!o.bold, w).forEach(ln => {
+        api.need(lead);
+        api.text(ln, x, size, o);
+        y -= lead;
+      });
+      return api;
+    },
+    gap(h){ y -= h; return api; },
+    rect(x, yy, w, h, fill, stroke, lw){
+      if(fill){ buf.push(fill.join(' ') + ' rg'); 
+                buf.push(x.toFixed(2)+' '+yy.toFixed(2)+' '+w.toFixed(2)+' '+h.toFixed(2)+' re f');
+                buf.push('0 0 0 rg'); }
+      if(stroke){ buf.push((lw || 0.75) + ' w ' + stroke.join(' ') + ' RG');
+                  buf.push(x.toFixed(2)+' '+yy.toFixed(2)+' '+w.toFixed(2)+' '+h.toFixed(2)+' re S');
+                  buf.push('0 0 0 RG'); }
+      return api;
+    },
+    line(x1, y1, x2, y2, lw){
+      buf.push((lw || 0.75) + ' w ' + x1.toFixed(2)+' '+y1.toFixed(2)+' m '
+               + x2.toFixed(2)+' '+y2.toFixed(2)+' l S');
+      return api;
+    },
+    /* an empty or crossed ballot box, drawn rather than typed, so it does not
+       depend on a symbol font being present in the reader */
+    box(x, yy, s, on){
+      api.rect(x, yy, s, s, null, [0, 0, 0], 1.1);
+      if(on){ const p = s * 0.26;
+        api.line(x + p, yy + p, x + s - p, yy + s - p, 1.1);
+        api.line(x + p, yy + s - p, x + s - p, yy + p, 1.1); }
+      return api;
+    },
+
+    build(){
+      const objs = [];
+      const put = s => { objs.push(s); return objs.length; };    /* 1-based */
+      const fonts = ['Helvetica', 'Helvetica-Bold', 'Helvetica-Oblique', 'Helvetica-BoldOblique'];
+      const fontIds = fonts.map(f => put('<< /Type /Font /Subtype /Type1 /BaseFont /' + f
+                                       + ' /Encoding /WinAnsiEncoding >>'));
+      const contentIds = pages.map(p => put({stream: p.join('\n')}));
+      const pageIds = [];
+      const pagesId = objs.length + pages.length + 1;
+      pages.forEach((p, i) => {
+        pageIds.push(put('<< /Type /Page /Parent ' + pagesId + ' 0 R /MediaBox [0 0 '
+          + PW + ' ' + PH + '] /Resources << /Font << '
+          + fontIds.map((id, k) => '/F' + (k + 1) + ' ' + id + ' 0 R').join(' ')
+          + ' >> >> /Contents ' + contentIds[i] + ' 0 R >>'));
+      });
+      put('<< /Type /Pages /Kids [' + pageIds.map(i => i + ' 0 R').join(' ')
+          + '] /Count ' + pageIds.length + ' >>');
+      const catId = put('<< /Type /Catalog /Pages ' + pagesId + ' 0 R >>');
+
+      const bytes = [];
+      const push = s => { for(let i = 0; i < s.length; i++) bytes.push(s.charCodeAt(i) & 0xFF); };
+      push('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+      const offs = [];
+      objs.forEach((o, i) => {
+        offs.push(bytes.length);
+        if(typeof o === 'object' && o.stream !== undefined){
+          const st = o.stream;
+          push((i + 1) + ' 0 obj\n<< /Length ' + st.length + ' >>\nstream\n');
+          push(st);
+          push('\nendstream\nendobj\n');
+        }else{
+          push((i + 1) + ' 0 obj\n' + o + '\nendobj\n');
+        }
+      });
+      const xref = bytes.length;
+      push('xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n');
+      offs.forEach(o => push(('0000000000' + o).slice(-10) + ' 00000 n \n'));
+      push('trailer\n<< /Size ' + (objs.length + 1) + ' /Root ' + catId
+           + ' 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+      return new Uint8Array(bytes);
+    }
+  };
+  return api;
+}
+
+/* ------------------------------------------------------------------ tables */
+/* cols: [{w, bold, align}]  rows: [{cells:[string], head:bool, box:index}] */
+function fmpdfTable(doc, cols, rows, o){
+  o = o || {};
+  const size = o.size || 10, pad = o.pad === undefined ? 4 : o.pad;
+  const lead = size * 1.18;
+  const head = rows.filter(r => r.head);
+
+  const heightOf = r => {
+    let h = 0;
+    cols.forEach((c, i) => {
+      if(r.box !== undefined && i === r.box){ h = Math.max(h, size + 4); return; }
+      const lines = fmpdfWrap(r.cells[i], size, r.head || c.bold, c.w - 2 * pad).length;
+      h = Math.max(h, lines * lead);
+    });
+    return h + 2 * pad;
+  };
+
+  const drawRow = r => {
+    const h = heightOf(r);
+    const top = doc.y, bottom = top - h;
+    let x = doc.left;
+    cols.forEach((c, i) => {
+      if(r.head && o.headFill) doc.rect(x, bottom, c.w, h, o.headFill, null);
+      doc.rect(x, bottom, c.w, h, null, [0, 0, 0], 0.75);
+      if(r.box !== undefined && i === r.box){
+        const s = size + 3;
+        doc.box(x + (c.w - s) / 2, top - pad - s, s, !!r.boxOn);
+      }else{
+        const lines = fmpdfWrap(r.cells[i], size, r.head || c.bold, c.w - 2 * pad);
+        let ty = top - pad;
+        lines.forEach(ln => {
+          const save = doc.y; doc.y = ty;
+          const tw = fmpdfWidth(ln, size, r.head || c.bold);
+          const tx = c.align === 'center' ? x + (c.w - tw) / 2
+                   : c.align === 'right'  ? x + c.w - pad - tw : x + pad;
+          doc.text(ln, tx, size, {bold: r.head || c.bold});
+          doc.y = save; ty -= lead;
+        });
+      }
+      x += c.w;
+    });
+    doc.y = bottom;
+  };
+
+  rows.forEach(r => {
+    const h = heightOf(r);
+    if(!doc.room(h)){
+      doc.newPage();
+      /* the header row travels with the table, as "repeat header row" does in
+         Word — a column of ticks with no heading above it is unreadable */
+      head.forEach(hr => drawRow(hr));
+    }
+    drawRow(r);
+  });
+  return doc;
+}
+
+function fmpdfSave(bytes, filename){
+  const blob = new Blob([bytes], {type: 'application/pdf'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+}
+
+/* =====================================================================
+   THE FOUNDATIONAL MILESTONE AS A PDF FILE
+
+   Same geometry as the Word document: US Letter, 0.65in margins,
+   Helvetica 10pt, the running header on every page, the checklist's
+   column headings repeated whenever the table runs on, and the
+   certification page laid out line for line.
+   ===================================================================== */
+function fmBuildPdf(L, entries, opts){
+  opts = opts || {};
+  const RH = L.runningHeader;
+  const BLUE = [31/255, 78/255, 121/255];
+  const FILL = [220/255, 234/255, 247/255];
+
+  const doc = fmpdfDoc({
+    onPage(d){
+      /* every sheet carries it, not only the first of each site */
+      d.text(RH, d.left, 10, {color:[0.1, 0.1, 0.1]});
+      d.y -= 13;
+    }
+  });
+
+  const heading = () => {
+    const t = L.sectionHeading, i = t.indexOf('[');
+    const a = i < 0 ? t : t.slice(0, i), b = i < 0 ? '' : t.slice(i);
+    doc.need(16);
+    doc.text(a, doc.left, 10, {bold:true, color:BLUE});
+    if(b) doc.text(' ' + b, doc.left + fmpdfWidth(a, 10, true), 10, {color:BLUE});
+    doc.y -= 16;
+  };
+
+  const sitePages = (data) => {
+    heading();
+
+    /* Region / District / Site Name / TX_CURR */
+    fmpdfTable(doc,
+      [{w: doc.width * 0.405}, {w: doc.width * 0.595}],
+      L.sections[0].fields.map(f => ({cells:[f.label, String(data[f.k] === undefined ? '' : data[f.k])]})),
+      {});
+
+    doc.gap(14);
+
+    /* the checklist: item | box | comments */
+    const cl = L.sections[1];
+    const cols = [{w: doc.width * 0.595}, {w: doc.width * 0.136, align:'center'},
+                  {w: doc.width * 0.269}];
+    const rows = [{head:true, cells:[cl.columns[0], cl.columns[1], cl.columns[2]]}];
+    cl.items.forEach(it => {
+      const a = data[it.k] || {};
+      rows.push({cells:[it.label, '', a.c || ''], box:1, boxOn: !!a.v});
+    });
+    fmpdfTable(doc, cols, rows, {headFill: FILL});
+
+    doc.gap(14);
+
+    /* Site-Level Staffing Summary */
+    const st = L.sections[2];
+    doc.need(30);
+    doc.text(st.title, doc.left, 10, {bold:true, color:BLUE});
+    doc.y -= 14;
+
+    const sw = [0.361, 0.130, 0.091, 0.091, 0.157, 0.170].map(f => ({w: doc.width * f}));
+    const srows = [{head:true, cells:[st.rowHeader].concat(st.columns.map(c => c.label))}];
+    const staff = data.staff || {};
+    st.rows.forEach(r => {
+      const v = staff[r.k] || {};
+      const label = (r.describe && v.label) ? v.label : r.label;
+      srows.push({cells:[label].concat(st.columns.map(c => String(v[c.k] === undefined ? '' : v[c.k])))});
+    });
+    (data.staffExtra || []).forEach(x => {
+      srows.push({cells:[x.label || ''].concat(st.columns.map(c => String(x[c.k] === undefined ? '' : x[c.k])))});
+    });
+    fmpdfTable(doc, sw, srows, {headFill: FILL});
+
+    doc.gap(6);
+    doc.para(st.note, doc.left, doc.width, 10);
+  };
+
+  const certPage = () => {
+    const ce = L.sections[3];
+    doc.newPage();
+    doc.text(ce.title, doc.left, 10, {bold:true, color:BLUE});
+    doc.y -= 16;
+    doc.para(ce.text, doc.left, doc.width, 10);
+    ce.signers.forEach(s => {
+      doc.gap(14);
+      doc.need(70);
+      doc.text(s.label, doc.left, 10, {bold:true, italic:true});
+      doc.y -= 16;
+      ce.lines.forEach(line => {
+        doc.need(15);
+        doc.text(line, doc.left + 13, 10);
+        doc.y -= 15;
+      });
+    });
+  };
+
+  (entries || []).forEach((e, i) => {
+    doc.newPage();
+    const d = Object.assign({}, e.data || {});
+    d.region = d.region || 'Ouest';
+    d.district = e.district; d.site = e.facility;
+    sitePages(d);
+    if(opts.cert === 'each') certPage();
+  });
+  if(opts.cert === 'end') certPage();
+
+  return doc.build();
 }
 
 </script>
