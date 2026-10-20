@@ -406,6 +406,150 @@ select[multiple] option{padding:6px 8px;border-radius:6px}
 .fmchip.c-blue{background:#DCEAF7;color:#1F4E79}
 .fmchip.c-amber{background:#FDF0D5;color:#845B10}
 .fmchip.c-green{background:#DCF3E3;color:#17603A}
+/* ═══════════════════════════════════════════════════════════════════════
+   THE TWO INSTRUMENTS HAVE THEIR OWN COLOUR                     (v4.10.0)
+
+   A supervision, a CDC document and a clinical readiness assessment are
+   three different kinds of work, and a person should know which one they
+   are in before reading a word. Each carries an accent.
+
+   The three were chosen by running them through the palette validator
+   rather than by eye: app blue #1B6EC2, AHD teal #1baf7a, Foundational
+   Milestone orange #eb6834 — all pairs clear the colourblind separation
+   (worst ΔE 9.2) and the normal-vision floor (worst 24.8) in light mode,
+   and their dark steps clear both again on the dark surface.
+
+   The accent is used on CHROME only — the header band, the tab underline,
+   a card's edge, an icon. Never inside a data cell, where the status
+   colours live: an orange accent beside an amber "gap" cell would be two
+   different meanings in one hue.
+   ═══════════════════════════════════════════════════════════════════════ */
+.inst{--inst:var(--brand-2);--inst-ink:var(--brand);--inst-soft:rgba(27,110,194,.10)}
+.inst[data-inst="ahd"]{--inst:#1baf7a;--inst-ink:#107953;--inst-soft:rgba(27,175,122,.12)}
+.inst[data-inst="fm"] {--inst:#eb6834;--inst-ink:#A8431B;--inst-soft:rgba(235,104,52,.12)}
+:root[data-theme="dark"] .inst{--inst:#3987e5;--inst-ink:#9CC6F3;--inst-soft:rgba(57,135,229,.16)}
+:root[data-theme="dark"] .inst[data-inst="ahd"]{--inst:#199e70;--inst-ink:#7FD9B4;--inst-soft:rgba(25,158,112,.18)}
+:root[data-theme="dark"] .inst[data-inst="fm"] {--inst:#d95926;--inst-ink:#F2A985;--inst-soft:rgba(217,89,38,.18)}
+
+/* the band that says which instrument this is */
+.instbar{display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:var(--r-sm);
+  background:linear-gradient(135deg,var(--inst),color-mix(in srgb,var(--inst) 72%,#000));
+  color:#fff;margin-bottom:12px}
+.instbar .ico{flex:0 0 auto;width:34px;height:34px;border-radius:9px;display:flex;
+  align-items:center;justify-content:center;background:rgba(255,255,255,.18);font-size:1.05rem}
+.instbar b{display:block;font-size:.92rem;line-height:1.25}
+.instbar span{font-size:.72rem;opacity:.9}
+.inst .fmhead{border-top:3px solid var(--inst)}
+.inst .ahdtabs button.on{color:var(--inst-ink);border-bottom-color:var(--inst)}
+.inst .btn:not(.sec){background:var(--inst);border-color:var(--inst)}
+.inst .ahddom.on{background:var(--inst);border-color:var(--inst)}
+.inst .fmbar>i{background:linear-gradient(90deg,var(--inst),color-mix(in srgb,var(--inst) 70%,#000))}
+.inst .fmrow.seen{background:linear-gradient(90deg,var(--inst-soft),transparent 60%)}
+.inst .ahditem.answered{background:linear-gradient(90deg,var(--inst-soft),transparent 65%)}
+/* the chooser: two open requests, each already wearing its own colour */
+.pathcard.instcard{border-left:3px solid var(--inst)}
+.pathcard.instcard:hover{border-color:var(--inst);border-left-color:var(--inst)}
+.pico.pinst{background:var(--inst-soft);border-color:var(--inst)}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TABLES THAT CAN BE READ ON A PHONE
+
+   A table of sixteen domains across twenty-eight sites does not fit on any
+   screen, so it scrolls — and the moment it scrolls, a column of figures
+   with the heading gone off the top, or a row with the facility name gone
+   off the left, is unreadable. Both stay put.
+   ═══════════════════════════════════════════════════════════════════════ */
+.tw.pin{max-height:min(70vh,620px);overflow:auto;position:relative;
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.tw.pin table{border-collapse:separate;border-spacing:0;table-layout:fixed}
+.tw.pin thead th{position:sticky;top:0;z-index:3}
+.tw.pin tbody th,.tw.pin tbody td.stick{position:sticky;left:0;z-index:2;
+  background:var(--surface);box-shadow:1px 0 0 var(--line)}
+.tw.pin thead th:first-child{left:0;z-index:4}
+.tw.pin tbody tr:nth-child(even) td.stick{background:var(--surface-2)}
+
+/* A heading grows DOWN, never across. Fixed width, wrapped, bottom-aligned,
+   so eighteen columns of figures line up under eighteen readable labels. */
+.tw.pin thead th{white-space:normal !important;vertical-align:bottom;
+  line-height:1.2;font-size:.64rem;padding:7px 6px;hyphens:auto;overflow-wrap:anywhere;
+  text-transform:none;letter-spacing:.005em}
+.thsub{display:block;font-weight:400;font-size:.57rem;line-height:1.15;
+  opacity:.74;margin-top:2px;text-transform:none;letter-spacing:0}
+/* D1 to D16 can only be initials in a 62px column, so the names are spelled
+   out once underneath — readable on a phone, where a tooltip is not. */
+.dkey{display:flex;flex-wrap:wrap;gap:3px 14px;margin-top:9px;
+  font-size:.68rem;line-height:1.5;color:var(--ink-2)}
+.dkey span{white-space:nowrap;max-width:100%}
+@media(max-width:620px){ .dkey span{white-space:normal} }
+.dkey b{color:var(--ink);font-weight:680}
+.col-name{width:150px;min-width:150px}
+.col-num{width:62px;min-width:62px}
+.col-mid{width:96px;min-width:96px}
+.col-in{width:86px;min-width:86px}      /* a cell holding a number input */
+.col-top{width:106px;min-width:106px}   /* a cell holding a Yes/Partial/No */
+.col-date{width:168px;min-width:168px}  /* a cell holding a date input */
+@media(min-width:900px){ .col-name{width:200px;min-width:200px} }
+/* fixed layout clips nothing, so what sits in a cell must fit the cell */
+.tw.pin td>input,.tw.pin td>select{max-width:100%}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CONTROLS THAT ARE THE SIZE OF WHAT THEY HOLD
+   A Yes/No dropdown stretched across a phone is not a bigger target, it is
+   a bigger mistake: it looks like a text field and it wastes the row.
+   ═══════════════════════════════════════════════════════════════════════ */
+select.fit{width:auto;min-width:92px;max-width:100%;padding-right:30px}
+select.fit.xs{min-width:78px;font-size:.78rem;padding:7px 26px 7px 9px}
+.grid2{display:grid;grid-template-columns:1fr;gap:9px}
+@media(min-width:560px){ .grid2{grid-template-columns:1fr 1fr;gap:10px 16px} }
+@media(min-width:1000px){ .grid2{grid-template-columns:1fr 1fr 1fr} }
+.yn-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--surface);transition:border-color var(--fast) var(--ease)}
+.yn-row:focus-within{border-color:var(--inst,var(--brand-2))}
+.yn-row>span{flex:1 1 auto;min-width:0;font-size:.82rem;line-height:1.3}
+.span-all{grid-column:1/-1}
+/* in a grid the row gap does the spacing; the field's own margin double-counts */
+.fgrid label.f,.fgrid .f{margin-bottom:0}
+.fgrid>div{min-width:0}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   A NOTE WHERE A NOTE IS NEEDED
+   Tapped, not hovered: a phone has no hover, and guidance nobody can reach
+   is guidance nobody reads.
+   ═══════════════════════════════════════════════════════════════════════ */
+.info{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;
+  border-radius:50%;border:1px solid var(--line);background:var(--surface-3);
+  color:var(--ink-2);font-size:.64rem;font-weight:700;cursor:pointer;
+  vertical-align:middle;margin-left:5px;flex:0 0 auto;padding:0;line-height:1}
+.info:hover{border-color:var(--brand-3);color:var(--brand)}
+.infonote{margin:7px 0 0;padding:9px 11px;border-radius:var(--r-sm);
+  background:var(--surface-3);border:1px solid var(--line);
+  font-size:.75rem;line-height:1.5;color:var(--ink-2)}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   THINGS THAT FEEL LIKE THINGS
+   A control should answer the finger before the network does.
+   ═══════════════════════════════════════════════════════════════════════ */
+.btn,.seg-b,.ahddom,.pathcard,.info,.tb-btn{
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.btn:active,.seg-b:active,.ahddom:active,.pathcard:active{transform:scale(.975)}
+.btn,.seg-b{transition:transform 90ms var(--spring),background var(--fast) var(--ease),
+  border-color var(--fast) var(--ease),box-shadow var(--fast) var(--ease)}
+.btn:focus-visible,.seg-b:focus-visible,.info:focus-visible,.ahddom:focus-visible,
+select:focus-visible,input:focus-visible,textarea:focus-visible{
+  outline:2px solid var(--inst,var(--brand-2));outline-offset:2px}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+  .btn:active,.seg-b:active,.ahddom:active,.pathcard:active{transform:none}
+}
+/* a finger is about 9mm: nothing tappable is smaller than 44px on a phone */
+@media(max-width:620px){
+  .seg-b{min-height:44px}
+  .btn{min-height:44px}
+  .btn.sm{min-height:38px}   /* a secondary action, but still a finger */
+  .ahdtabs button{min-height:44px}
+}
+
 /* ---- AHD readiness: a 141-line clinical instrument on a phone ----------
    The things that must read at a glance: which of four answers is given,
    how critical the line is, and which domain you are in. */
@@ -457,11 +601,16 @@ select[multiple] option{padding:6px 8px;border-radius:6px}
 .ahdchk{padding:11px 0;border-bottom:1px solid var(--line)}
 .ahdchk:last-child{border-bottom:0}
 .ahdchk-l{font-size:.82rem;line-height:1.4;margin-bottom:7px}
+/* Yes and No are two words, not half a laptop each */
+.ahdchk .seg-b{flex:0 0 auto;min-width:96px;max-width:150px}
+@media(max-width:620px){ .ahdchk .seg-b{flex:1 1 0;max-width:none} }
 .ahdgap{padding:11px;margin-bottom:9px;border-radius:var(--r-sm);
   border:1px solid var(--line);background:var(--surface-2)}
 .ahdmx td,.ahdmx th{padding:5px 6px;font-size:.74rem}
 .ahdmx select,.ahdmx input{padding:5px 6px !important;font-size:.74rem !important;
   min-width:78px}
+/* the arrow needs its own room, and the cell is only as wide as the heading */
+.ahdmx select.fit{padding:5px 22px 5px 8px !important;min-width:0;width:100%}
 table.dash td,table.dash th{padding:6px 8px;font-size:.74rem;white-space:nowrap}
 table.dash td:first-child,table.dash th:first-child{white-space:normal;min-width:130px}
 .dcell{text-align:center;font-weight:650}
@@ -868,7 +1017,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.9.1';
+const APP_VERSION = '4.10.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -9345,6 +9494,42 @@ function fmChip(st){
   return '<span class="fmchip ' + (map[st] || 'c-grey') + '">' + (lbl[st] || st) + '</span>';
 }
 
+/* ---------------------------------------------------------------- guidance */
+/* A note beside a question, reachable by a finger. It is rendered with the
+   question and hidden, and opening it touches one element — not the screen —
+   so a person reading a note two thirds of the way down a 141-line checklist
+   does not get thrown back to the top of it. */
+function iBtn(id){
+  return '<button class="info" type="button" id="ib-' + id + '" aria-expanded="false"'
+    + ' aria-controls="note-' + id + '" title="What this means"'
+    + ' onclick="infoTog(\'' + id + '\')">i</button>';
+}
+function iNote(id, text){
+  return '<p class="infonote" id="note-' + id + '" hidden>' + text + '</p>';
+}
+function infoTog(id){
+  try{
+    const n = document.getElementById('note-' + id);
+    if(!n) return;
+    const opening = n.hasAttribute('hidden');
+    if(opening) n.removeAttribute('hidden'); else n.setAttribute('hidden', '');
+    const b = document.getElementById('ib-' + id);
+    if(b) b.setAttribute('aria-expanded', opening ? 'true' : 'false');
+  }catch(e){}
+}
+
+/* The band at the top of an instrument. Two temporary requests run beside the
+   mentorship, and a person who has just opened one should not have to read a
+   title to know which. Teal is the readiness tool, orange the milestone, and
+   the app's own blue stays the app's own. */
+function instBar(f){
+  const ahd = ahdIs(f);
+  return '<div class="instbar"><div class="ico">' + (ahd ? '🩺' : '📋') + '</div>'
+    + '<div style="min-width:0"><b>' + esc(f.title) + '</b>'
+    + '<span>' + esc(f.subtitle || (ahd ? 'Site readiness assessment'
+        : 'Foundational milestone declaration')) + '</span></div></div>';
+}
+
 /* ================================================================ screens */
 function viewForms(){
   const forms = fmVisible();
@@ -9392,7 +9577,7 @@ function viewForms(){
        it must be able to see that somebody else already has. */
     const held = e && e.by ? '<div class="xs muted">' + esc(e.by)
                + (e.at ? ' · ' + esc(fmtDT(e.at)) : '') + '</div>' : '';
-    return '<tr><td>' + esc(s.district) + '</td><td>' + esc(s.facility) + held + '</td>'
+    return '<tr><td class="stick">' + esc(s.district) + '</td><td>' + esc(s.facility) + held + '</td>'
       + '<td>' + fmChip(st) + '</td>'
       + '<td style="text-align:right;white-space:nowrap">'
       + '<button class="btn sec sm" onclick="go(\'#/fm/' + f.id + '/' + s.id + '\')">'
@@ -9408,10 +9593,10 @@ function viewForms(){
 
 
   return `
+  <div class="inst" data-inst="${ahdIs(f) ? 'ahd' : 'fm'}">
+  ${instBar(f)}
   <div class="card">
-    <h3 style="margin:0">${esc(f.title)}</h3>
-    ${f.subtitle ? '<p class="small muted" style="margin:2px 0 0">' + esc(f.subtitle) + '</p>' : ''}
-    <p class="small muted" style="margin:6px 0 0">
+    <p class="small muted" style="margin:0">
       ${esc((f.layout && f.layout.sectionHeading) || '')}</p>
     ${f.closes ? '<p class="small" style="margin:6px 0 0"><b>Due:</b> ' + esc(f.closes) + '</p>' : ''}
     ${String(f.status) === 'CLOSED'
@@ -9448,14 +9633,22 @@ function viewForms(){
   ${ahdIs(f) ? viewAhdDash(f.id) : ''}
 
   <div class="card">
-    <h4 style="margin:0 0 4px">My facilities</h4>
+    <h4 style="margin:0 0 4px">${wide ? 'Facilities started' : 'My facilities'}${iBtn('fm-scope')}</h4>
+    ${iNote('fm-scope', wide
+      ? 'Only the facilities that have opened this request are listed. The register '
+        + 'holds 84; about 28 are expected to send one in, so a list of 84 would be '
+        + 'mostly blank rows.'
+      : 'These are the facilities already granted to your account. Nothing is assigned '
+        + 'for this request on its own &mdash; the access you have is the access it uses.')}
     ${scopeNote}
-    ${sites.length ? `<div class="tw"><table>
-      <thead><tr><th>District</th><th>Facility</th><th>Status</th><th></th></tr></thead>
+    ${sites.length ? `<div class="tw pin"><table>
+      <thead><tr><th class="col-mid">District</th><th class="col-name">Facility</th>
+        <th class="col-mid">Status</th><th class="col-mid"></th></tr></thead>
       <tbody>${rows}</tbody></table></div>`
       : '<p class="small muted" style="margin:6px 0 0">'
         + (wide ? 'No facility has been started yet. They appear here as they come in.'
                 : 'Nothing to show here yet.') + '</p>'}
+  </div>
   </div>`;
 }
 
@@ -9530,12 +9723,12 @@ function viewFormFill(formId, siteId){
            ${locked ? 'disabled' : ''}
            oninput="fmStaff('${formId}','${siteId}','${r.k}','label',this.value)">`
       : esc(r.label);
-    return '<tr><td>' + label + '</td>'
+    return '<tr><td class="stick">' + label + '</td>'
       + tb.columns.map(c => cell(r.k, c.k, v[c.k], c.type)).join('') + '</tr>';
   }).join('');
 
   const xrows = extra.map((x, i) =>
-    '<tr><td><input class="fmdesc" placeholder="Describe the post" value="' + esc(x.label || '') + '"'
+    '<tr><td class="stick"><input class="fmdesc" placeholder="Describe the post" value="' + esc(x.label || '') + '"'
     + (locked ? ' disabled' : '') + ' oninput="fmExtra(\'' + formId + '\',\'' + siteId + '\','
     + i + ',\'label\',this.value)"></td>'
     + tb.columns.map(c => '<td><input class="' + (c.k === 'dte' ? 'fmdate' : 'fmnum') + '"'
@@ -9548,6 +9741,8 @@ function viewFormFill(formId, siteId){
 
 
   return `
+  <div class="inst" data-inst="fm">
+  ${instBar(f)}
   <div class="card tight fmhead">
     <button class="btn sec sm" onclick="fmBack()">‹ Back</button>
     <div class="spread" style="margin-top:8px;align-items:flex-start">
@@ -9574,21 +9769,27 @@ function viewFormFill(formId, siteId){
       + 'page. Filling it belongs to the people this request was sent to.</div>' : ''}
   ${fmOtherHand(e)}
 
-  <div class="card">${head}
-    <p class="xs muted" style="margin:6px 0 0">
+  <div class="card"><div class="grid2 fgrid">${head}</div>
+    <p class="xs muted" style="margin:10px 0 0">
       Region, district and facility come from the site register. Only TX_CURR is typed.</p>
   </div>
 
   <div class="card">
-    <h4 style="margin:0 0 2px">${esc(cl.columns[1])}</h4>
+    <h4 style="margin:0 0 2px">${esc(cl.columns[1])}${iBtn('fm-check')}</h4>
+    ${iNote('fm-check', 'Tick the box in front of a line once the facility meets it. '
+      + 'The comment beside it is optional and travels into the PDF exactly as typed.')}
     <div class="fmlist">${items}</div>
   </div>
 
   <div class="card">
-    <h4 style="margin:0 0 8px">${esc(tb.title)}</h4>
-    <div class="tw"><table class="fmstaff">
-      <thead><tr><th>${esc(tb.rowHeader)}</th>
-        ${tb.columns.map(c => '<th>' + esc(c.label) + '</th>').join('')}<th></th></tr></thead>
+    <h4 style="margin:0 0 8px">${esc(tb.title)}${iBtn('fm-staff')}</h4>
+    ${iNote('fm-staff', 'Scroll the table sideways and the post stays on the left; '
+      + 'scroll it down and the column headings stay on top. The expected fill date '
+      + 'for a vacant post can only be today or later.')}
+    <div class="tw pin"><table class="fmstaff">
+      <thead><tr><th class="col-name">${esc(tb.rowHeader)}</th>
+        ${tb.columns.map(c => '<th class="' + (c.k === 'dte' ? 'col-date' : 'col-in')
+            + '">' + esc(c.label) + '</th>').join('')}<th class="col-num"></th></tr></thead>
       <tbody>${srows}${xrows}</tbody></table></div>
     ${locked ? '' : '<button class="btn sec sm" style="margin-top:8px" onclick="fmExtraAdd(\''
       + formId + '\',\'' + siteId + '\')">＋ Add a row</button>'}
@@ -9746,15 +9947,19 @@ function fmHomeCard(){
       return st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED';
     }).length;
     return `
-  <div class="card" style="border-left:4px solid var(--brand-2)">
+  <div class="inst" data-inst="${ahdIs(f) ? 'ahd' : 'fm'}">
+  <div class="card" style="border-left:4px solid var(--inst)">
     <div class="spread">
-      <div style="min-width:0"><b>${esc(f.title)}</b>
-        <div class="small muted">${done}/${sites.length} site page${
-          sites.length === 1 ? '' : 's'} submitted${
+      <div style="min-width:0">
+        <b>${ahdIs(f) ? '🩺' : '📋'} ${esc(f.title)}</b>
+        <div class="small muted">${isSuper() ? done + ' site page'
+            + (done === 1 ? '' : 's') + ' submitted'
+          : done + '/' + sites.length + ' site page'
+            + (sites.length === 1 ? '' : 's') + ' submitted'}${
           f.closes ? ' · due ' + esc(f.closes) : ''}</div></div>
       <button class="btn sm" onclick="fmOpen('${f.id}')">Open</button>
     </div>
-  </div>`;
+  </div></div>`;
   }).join('');
 }
 
@@ -10561,6 +10766,7 @@ function viewAhdFill(formId, siteId){
   /* ---- profile ---- */
   const prof = () => {
     const p = d.profile;
+    const epDone = P.entries.filter(en => p.entries[en.k]).length;
     const field = fl => {
       const known = {site:s.facility, region:'Ouest', district:s.district};
       if(fl.readonly && known[fl.k] !== undefined)
@@ -10578,7 +10784,7 @@ function viewAhdFill(formId, siteId){
           </span></label>`;
       if(fl.type === 'select')
         return `<label class="f"><span>${esc(fl.label)}</span>
-          <select ${dis} onchange="ahdProf('${formId}','${siteId}','${fl.k}',this.value)">
+          <select class="fit" ${dis} onchange="ahdProf('${formId}','${siteId}','${fl.k}',this.value)">
             <option value=""></option>
             ${(fl.options || []).map(o => `<option ${p[fl.k] === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
           </select></label>`;
@@ -10602,20 +10808,36 @@ function viewAhdFill(formId, siteId){
           oninput="ahdProf('${formId}','${siteId}','${fl.k}',this.value)"></label>`;
     };
 
-    return `<div class="card">${P.fields.map(field).join('')}</div>
+    /* Ten short facts. One per line leaves two thirds of a tablet empty and
+       makes the assessor scroll past the fold to reach TX_CURR. */
+    return `<div class="card"><div class="grid2 fgrid">${
+      P.fields.map(fl => '<div class="' + (fl.type === 'people' ? 'span-all' : '') + '">'
+        + field(fl) + '</div>').join('')}</div></div>
 
     <div class="card">
-      <h4 style="margin:0 0 8px">${esc(P.entryTitle).replace(' (drop-down)', '')}</h4>
-      <div class="fmlist">${P.entries.map(en => `<label class="fmrow${
-          p.entries[en.k] ? ' seen' : ''}${p.entries[en.k] === 'YES' ? ' yes' : ''}">
-        <input type="checkbox" ${p.entries[en.k] === 'YES' ? 'checked' : ''} ${dis}
-          onchange="ahdEntry('${formId}','${siteId}','${en.k}',this.checked)">
-        <span class="fmlab">${esc(en.label)}</span></label>`).join('')}</div>
-      <p class="xs muted" style="margin:8px 0 0">Ticked means this entry point was assessed.</p>
+      <div class="spread">
+        <h4 style="margin:0">${esc(P.entryTitle).replace(' (drop-down)', '')}${iBtn('ahd-ep')}</h4>
+        <span class="fmchip ${epDone ? 'c-blue' : 'c-none'}">${epDone}/${P.entries.length}</span>
+      </div>
+      ${iNote('ahd-ep', '<b>Yes</b> — you reached this service point and assessed it. '
+        + '<b>No</b> — the facility has it but it was not assessed. Leave it blank if the '
+        + 'service does not exist here. These are the workbook&rsquo;s own drop-downs and '
+        + 'go into it word for word.')}
+      <div class="grid2" style="margin-top:10px">${P.entries.map(en => `<label class="yn-row">
+        <span>${esc(en.label)}</span>
+        <select class="fit xs" ${dis} aria-label="${esc(en.label)}"
+          onchange="ahdEntry('${formId}','${siteId}','${en.k}',this.value)">
+          <option value="" ${p.entries[en.k] ? '' : 'selected'}>—</option>
+          ${(P.entryOptions || ['YES','NO']).map(o =>
+            `<option ${p.entries[en.k] === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+        </select></label>`).join('')}</div>
     </div>
 
     <div class="card">
-      <h4 style="margin:0 0 8px">${esc(P.checkTitle)}</h4>
+      <h4 style="margin:0 0 8px">${esc(P.checkTitle)}${iBtn('ahd-hp')}</h4>
+      ${iNote('ahd-hp', 'These five decide the verdict on the regional dashboard. '
+        + 'A site is <b>ready</b> only when all five are Yes; one No makes it a gap, '
+        + 'whatever the overall percentage says. Write what you saw in the box beside it.')}
       ${P.checks.map(c => {
         const v = p.checks[c.k] || {};
         return `<div class="ahdchk">
@@ -10682,7 +10904,17 @@ function viewAhdFill(formId, siteId){
       </div>`;
     }).join('');
 
-    return `<div class="card tight"><div class="ahddoms">${nav}</div></div>
+    return `<div class="card tight">
+        <div class="spread" style="margin-bottom:7px">
+          <span class="xs muted">16 domains · tap one to open it${iBtn('ahd-dom')}</span>
+          <span class="fmchip ${sc.missing ? 'c-amber' : 'c-green'}">${
+            sc.missing ? sc.missing + ' left' : 'all answered'}</span>
+        </div>
+        ${iNote('ahd-dom', 'The figure on a domain is its own readiness, or how many of its '
+          + 'lines are still unanswered. <b>P1</b> is a minimum standard, <b>P2</b> important, '
+          + '<b>P3</b> desirable. <b>N/A</b> takes a line out of the score altogether; '
+          + '<b>Partial</b> does not &mdash; it counts as zero.')}
+        <div class="ahddoms">${nav}</div></div>
       <div class="card"><h4 style="margin:0 0 4px">${esc(
         (C.domains.filter(x => String(x.n) === String(open))[0] || {}).name || '')}</h4>
         ${rows}</div>`;
@@ -10691,21 +10923,26 @@ function viewAhdFill(formId, siteId){
   /* ---- staff training ---- */
   const training = () => `
     <div class="card">
-      <h4 style="margin:0 0 2px">${esc(T.title)}</h4>
-      <p class="xs muted" style="margin:0 0 10px">${esc(T.note)}</p>
-      <div class="tw"><table class="ahdmx">
-        <thead><tr><th>${esc(T.rowHeader)}</th>
-          ${T.topics.map(t => '<th>' + esc(t.label) + '</th>').join('')}
-          <th>${esc(T.dateLabel)}</th></tr></thead>
+      <h4 style="margin:0 0 2px">${esc(T.title)}${iBtn('ahd-tr')}</h4>
+      <p class="xs muted" style="margin:0 0 6px">${esc(T.note)}</p>
+      ${iNote('ahd-tr', 'One row per cadre, one column per topic. Scroll sideways and the '
+        + 'cadre stays on the left. Anything not marked <b>Yes</b> is counted as still to '
+        + 'be trained on the regional dashboard, so leaving a cell blank and marking it '
+        + '<b>No</b> have the same effect there.')}
+      <div class="tw pin"><table class="ahdmx">
+        <thead><tr><th class="col-name">${esc(T.rowHeader)}</th>
+          ${T.topics.map(t => '<th class="col-top">' + esc(t.label) + '</th>').join('')}
+          <th class="col-date">${esc(T.dateLabel)}</th></tr></thead>
         <tbody>${T.cadres.map(c => {
           const r = d.train[c.k] || {};
-          return '<tr><td>' + esc(c.label) + '</td>'
-            + T.topics.map(t => `<td><select ${dis}
+          return '<tr><td class="stick">' + esc(c.label) + '</td>'
+            + T.topics.map(t => `<td><select class="fit xs" ${dis}
+                aria-label="${esc(c.label)} — ${esc(t.label)}"
                 onchange="ahdTrain('${formId}','${siteId}','${c.k}','${t.k}',this.value)">
-                <option value=""></option>
+                <option value="" ${r[t.k] ? '' : 'selected'}>—</option>
                 ${T.options.map(o => `<option ${r[t.k] === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
               </select></td>`).join('')
-            + `<td><input type="date" value="${esc(r.date || '')}" ${dis}
+            + `<td><input class="fmdate" type="date" value="${esc(r.date || '')}" ${dis}
                  oninput="ahdTrain('${formId}','${siteId}','${c.k}','date',this.value)"></td></tr>`;
         }).join('')}</tbody></table></div>
     </div>`;
@@ -10748,12 +10985,14 @@ function viewAhdFill(formId, siteId){
                 ['train','Training'], ['act','Action plan'], ['dash','Readiness']];
 
   return `
+  <div class="inst" data-inst="ahd">
+  ${instBar(f)}
   <div class="card tight fmhead">
     <button class="btn sec sm" onclick="fmBack()">‹ Back</button>
     <div class="spread" style="margin-top:8px;align-items:flex-start">
       <div style="min-width:0"><h3 style="margin:0 0 2px">${esc(s.facility)}</h3>
-        <p class="small muted" style="margin:0">${esc(s.district)} · ${esc(L.title)}</p></div>
-      ${chip(sc.band)}
+        <p class="small muted" style="margin:0">${esc(s.district)}</p></div>
+      <span style="display:flex;align-items:center;flex:0 0 auto">${chip(sc.band)}${iBtn('ahd-score')}</span>
     </div>
     <div class="ahdstat">
       <span><b>${sc.pct === null ? '—' : sc.pct + '%'}</b> readiness</span>
@@ -10761,6 +11000,10 @@ function viewAhdFill(formId, siteId){
       <span><b>${sc.p1}</b> P1 gap${sc.p1 === 1 ? '' : 's'}</span>
       <span><b>${sc.completeness}%</b> complete</span>
     </div>
+    ${iNote('ahd-score', 'Readiness is Yes &divide; (Yes + Partial + No), with N/A left out '
+      + 'and <b>Partial counted as zero</b> &mdash; CDC&rsquo;s own rule, so this figure and '
+      + 'the exported workbook always agree. One unresolved P1 gap makes the site Critical '
+      + 'whatever the percentage. A score with blanks in it is reported as Incomplete.')}
     <div class="ahdtabs">${tabs.map(t => `<button class="${tab === t[0] ? 'on' : ''}"
       onclick="ahdTab('${t[0]}')">${t[1]}</button>`).join('')}</div>
   </div>
@@ -10776,7 +11019,8 @@ function viewAhdFill(formId, siteId){
     : tab === 'train' ? training() : tab === 'act' ? actions()
     : viewAhdDash(formId, siteId)}
 
-  ${fmActionBar(f, formId, siteId, e, st, settled)}`;
+  ${fmActionBar(f, formId, siteId, e, st, settled)}
+  </div>`;
 }
 
 /* The suggested date: the assessment date plus the days the priority carries —
@@ -10798,9 +11042,13 @@ function ahdProf(formId, siteId, k, v){
   const e = fmTouch(formId, siteId); e.data.profile[k] = v; DB.save();
   if(k === 'txcurr') render();            /* the tier is computed from it */
 }
-function ahdEntry(formId, siteId, k, on){
+/* YES, NO, or not answered — the workbook's own three states, and the reason
+   this is a drop-down and not a tick: a tick cannot say "not answered". */
+function ahdEntry(formId, siteId, k, v){
   const e = fmTouch(formId, siteId);
-  e.data.profile.entries[k] = on ? 'YES' : 'NO'; DB.save();
+  const s = v === true ? 'YES' : v === false ? 'NO' : String(v || '');
+  if(s) e.data.profile.entries[k] = s; else delete e.data.profile.entries[k];
+  DB.save();
 }
 function ahdCheck(formId, siteId, k, v){
   const e = fmTouch(formId, siteId);
@@ -11328,11 +11576,15 @@ async function ahdDownload(formId, siteId){
    ===================================================================== */
 /* A column heading has to fit a column. The full wording is on the cell's
    title, so nothing is lost — it is one hover or long-press away. */
-function ahdShort(label){
+/* A heading that fits the column. It grows down, not across: the first few
+   words of the real label, wrapped over as many lines as it needs, with the
+   whole sentence on the cell's title for anyone who wants it. */
+function ahdShort(label, cap){
+  const lim = cap || 26;
   const head = String(label || '').split(':')[0];
   const words = head.split(/[\s/&]+/).filter(Boolean);
   const out = words.slice(0, 3).join(' ');
-  return out.length > 26 ? out.slice(0, 24) + '…' : out;
+  return out.length > lim ? out.slice(0, lim - 2) + '…' : out;
 }
 
 function ahdAssessed(formId){
@@ -11365,19 +11617,22 @@ function viewAhdDash(formId, onlySite){
 
   /* ---- 1 · the five minimum high-priority checks ---- */
   const t1 = `<div class="card">
-    <h4 style="margin:0 0 2px">${esc(P.checkTitle)}</h4>
-    <p class="xs muted" style="margin:0 0 9px">Ready on every one of the five, or not.</p>
-    <div class="tw"><table class="dash">
-      <thead><tr><th>Facility</th>
-        ${P.checks.map(c => '<th title="' + esc(c.label) + '">'
+    <h4 style="margin:0 0 2px">${esc(P.checkTitle)}${iBtn('dash-hp')}</h4>
+    <p class="xs muted" style="margin:0 0 7px">Ready on every one of the five, or not.</p>
+    ${iNote('dash-hp', 'The five minimum high-priority checks, as the facility page records '
+      + 'them. A verdict of <b>ready</b> needs all five; a single No is a gap. Scroll the '
+      + 'table and the facility stays on the left, the headings on top.')}
+    <div class="tw pin"><table class="dash">
+      <thead><tr><th class="col-name">Facility</th>
+        ${P.checks.map(c => '<th class="col-num" title="' + esc(c.label) + '">'
             + esc(ahdShort(c.label)) + '</th>').join('')}
-        <th>Verdict</th></tr></thead>
+        <th class="col-mid">Verdict</th></tr></thead>
       <tbody>${data.map(x => {
         const ch = (x.d.profile || {}).checks || {};
         const vals = P.checks.map(c => String((ch[c.k] || {}).v || ''));
         const allYes = vals.every(v => v === 'Yes');
         const anyNo = vals.some(v => v === 'No');
-        return '<tr><td>' + esc(x.s.facility) + '</td>'
+        return '<tr><td class="stick">' + esc(x.s.facility) + '</td>'
           + vals.map(v => cell(v || '—', v === 'Yes' ? 'green' : v === 'No' ? 'red' : 'none')).join('')
           + cell(allYes ? 'All five ready' : anyNo ? 'Gap' : 'Incomplete',
                  allYes ? 'green' : anyNo ? 'red' : 'grey')
@@ -11386,14 +11641,18 @@ function viewAhdDash(formId, onlySite){
 
   /* ---- 2 · readiness by domain ---- */
   const t2 = `<div class="card">
-    <h4 style="margin:0 0 2px">Readiness by domain</h4>
-    <p class="xs muted" style="margin:0 0 9px">Yes ÷ (Yes + Partial + No), N/A excluded —
+    <h4 style="margin:0 0 2px">Readiness by domain${iBtn('dash-dom')}</h4>
+    <p class="xs muted" style="margin:0 0 7px">Yes ÷ (Yes + Partial + No), N/A excluded —
       the workbook's own rule, so these are the figures the exported file shows.</p>
-    <div class="tw"><table class="dash">
-      <thead><tr><th>Facility</th>
-        ${C.domains.map(dm => '<th title="' + esc(dm.name) + '">D' + esc(dm.n) + '</th>').join('')}
-        <th>Overall</th><th>Band</th></tr></thead>
-      <tbody>${data.map(x => '<tr><td>' + esc(x.s.facility) + '</td>'
+    ${iNote('dash-dom', 'D1 to D16 are the sixteen domains — the full name is on the heading. '
+      + 'A cell is green at 90% and over, yellow from 80, amber from 60, red below it. '
+      + '<b>Partial counts as zero</b> and N/A is left out of both sides of the division.')}
+    <div class="tw pin"><table class="dash">
+      <thead><tr><th class="col-name">Facility</th>
+        ${C.domains.map(dm => '<th class="col-num" title="' + esc(dm.name)
+            + '">D' + esc(dm.n) + '</th>').join('')}
+        <th class="col-num">Overall</th><th class="col-mid">Band</th></tr></thead>
+      <tbody>${data.map(x => '<tr><td class="stick">' + esc(x.s.facility) + '</td>'
         + C.domains.map(dm => {
             const d2 = x.sc.dom[dm.n] || {};
             const v = d2.pct;
@@ -11403,21 +11662,28 @@ function viewAhdDash(formId, onlySite){
           }).join('')
         + cell('<b>' + pc(x.sc.pct) + '</b>', 'none')
         + '<td><span class="fmchip c-' + x.sc.band.c + '">' + esc(x.sc.band.label) + '</span></td>'
-        + '</tr>').join('')}</tbody></table></div></div>`;
+        + '</tr>').join('')}</tbody></table></div>
+    <div class="dkey">${C.domains.map(dm =>
+      '<span><b>D' + esc(dm.n) + '</b> ' + esc(dm.name) + '</span>').join('')}</div></div>`;
 
   /* ---- 3 · gaps, and who still needs training ---- */
   const t3 = `<div class="card">
-    <h4 style="margin:0 0 2px">Gaps and training still needed</h4>
-    <p class="xs muted" style="margin:0 0 9px">Training counts the cadres not yet
+    <h4 style="margin:0 0 2px">Gaps and training still needed${iBtn('dash-gap')}</h4>
+    <p class="xs muted" style="margin:0 0 7px">Training counts the cadres not yet
       marked Yes on that topic — out of ${T.cadres.length}.</p>
-    <div class="tw"><table class="dash">
-      <thead><tr><th>Facility</th><th>All gaps</th><th>P1</th><th>Unanswered</th>
-        ${T.topics.map(t => '<th title="' + esc(t.label) + '">'
-            + esc(ahdShort(t.label)) + '</th>').join('')}
+    ${iNote('dash-gap', '<b>All gaps</b> is every line answered Partial or No. <b>P1</b> is '
+      + 'how many of those are minimum standards. <b>Unanswered</b> is what is still blank, '
+      + 'so a site with a high percentage and a large number here is not finished. The six '
+      + 'training columns count the cadres not yet marked Yes, out of ' + T.cadres.length + '.')}
+    <div class="tw pin"><table class="dash">
+      <thead><tr><th class="col-name">Facility</th><th class="col-num">All gaps</th>
+        <th class="col-num">P1</th><th class="col-num">Un­answered</th>
+        ${T.topics.map(t => '<th class="col-num" title="' + esc(t.label) + '">'
+            + esc(ahdShort(t.label, 20)) + '</th>').join('')}
       </tr></thead>
       <tbody>${data.map(x => {
         const tr = x.d.train || {};
-        return '<tr><td>' + esc(x.s.facility) + '</td>'
+        return '<tr><td class="stick">' + esc(x.s.facility) + '</td>'
           + cell(x.sc.gaps, x.sc.gaps ? 'amber' : 'green')
           + cell(x.sc.p1, x.sc.p1 ? 'red' : 'green')
           + cell(x.sc.missing, x.sc.missing ? 'grey' : 'green')
@@ -11451,12 +11717,17 @@ function viewFormChoose(forms){
         const st = fmStatus(fmEntry(f.id, s.id));
         return st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED';
       }).length;
-      return `<button class="pathcard" onclick="fmOpen('${f.id}')">
-        <div class="pico ${ahdIs(f) ? 'dash' : 'adm'}">${ahdIs(f) ? '🩺' : '📋'}</div>
+      /* A super user holds the whole register, and "3/84 submitted" reads as a
+         failure when only 28 were ever asked. Count what came in, not what did not. */
+      const count = isSuper() ? done + ' submitted'
+                              : done + '/' + sites.length + ' submitted';
+      return `<div class="inst" data-inst="${ahdIs(f) ? 'ahd' : 'fm'}">
+        <button class="pathcard instcard" onclick="fmOpen('${f.id}')">
+        <div class="pico pinst">${ahdIs(f) ? '🩺' : '📋'}</div>
         <div class="ptxt"><b>${esc(f.title)}</b>
-          <span>${esc(f.subtitle || '')}${f.subtitle ? ' · ' : ''}${done}/${sites.length}
-            submitted${f.closes ? ' · due ' + esc(f.closes) : ''}</span></div>
-        <span class="parr">›</span></button>`;
+          <span>${esc(f.subtitle || '')}${f.subtitle ? ' · ' : ''}${count}${
+            f.closes ? ' · due ' + esc(f.closes) : ''}</span></div>
+        <span class="parr">›</span></button></div>`;
     }).join('')}`;
 }
 
