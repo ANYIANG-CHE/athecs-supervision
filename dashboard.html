@@ -95,6 +95,9 @@ h2{font-size:.95rem;margin:26px 0 3px;letter-spacing:-.01em}
 .row{display:grid;grid-template-columns:minmax(96px,150px) 1fr auto;gap:10px;
      align-items:center;padding:5px 0}
 .row .lab{font-size:.82rem;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* one headline row whose label is a sentence, not a category */
+.row.wide{grid-template-columns:minmax(150px,240px) 1fr auto}
+.row.wide .lab{color:var(--ink);font-weight:650}
 .bar{height:15px;background:var(--track);border-radius:4px;overflow:hidden;position:relative}
 .bar i{display:block;height:100%;border-radius:4px}
 .row .val{font-size:.82rem;font-variant-numeric:tabular-nums;min-width:74px;text-align:right}
@@ -105,9 +108,40 @@ table{width:100%;border-collapse:collapse;font-size:.85rem}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
 th{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);
    font-weight:640;cursor:pointer;white-space:nowrap}
-td.num{text-align:right;font-variant-numeric:tabular-nums}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* A band must never be knowable only by a column that a phone hides. On a
+   narrow screen it moves under the facility name instead of disappearing. */
+.s-only{display:none}
+@media (max-width:560px){ .s-only{display:block;font-size:.72rem;color:var(--ink-2);margin-top:2px} }
 tbody tr:hover{background:var(--surface-2)}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:-1px}
+
+/* ---------- two sections, one page ----------
+   The mentorship runs every quarter; the AHD readiness assessment is a
+   one-off. They answer different questions and are never added together,
+   so they are two tabs rather than one long scroll — and only the tab you
+   are looking at is drawn, which matters on a phone on a weak connection.
+   The teal is the readiness tool's colour in the app, carried over so the
+   two agree. It marks the tab and nothing else: no bar, no cell, no dot
+   is ever drawn in it, because that is where the status colours live. */
+.tabs{display:flex;gap:6px;width:100%;margin-top:4px}
+.tabs button{flex:0 0 auto;background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:999px;
+  padding:7px 15px;font-size:.78rem;font-weight:650;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;min-height:38px;
+  transition:background .14s ease,color .14s ease}
+.tabs button.on{background:#fff;color:#0B3C71}
+.tabs button.on.ahd{color:#0F6B4C;box-shadow:inset 0 -3px 0 #1baf7a}
+.tabs button.on.sup{box-shadow:inset 0 -3px 0 #1B6EC2}
+.ahdline{border-top:3px solid #1baf7a}
+:root[data-theme="dark"] .ahdline,
+:root:where(:not([data-theme="light"])) .ahdline{border-top-color:#199e70}
+
+/* a small matrix: cadres down, topics across — headings wrap, never spread */
+.mx th{white-space:normal;vertical-align:bottom;font-size:.66rem;line-height:1.2;
+  cursor:default;letter-spacing:0;text-transform:none}
+.mx th:first-child{width:38%}
+.mx td.num{font-weight:640}
 
 .note{font-size:.78rem;color:var(--ink-2);background:var(--surface-2);
       border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-top:12px}
@@ -137,6 +171,10 @@ tbody tr:hover{background:var(--surface-2)}
     <button class="tb on" id="fr" onclick="setLang('fr')">FR</button>
     <button class="tb" id="en" onclick="setLang('en')">EN</button>
     <button class="tb" id="th" onclick="cycleTheme()" title="Thème / Theme">☀</button>
+    <div class="tabs" id="tabs">
+      <button class="on sup" id="tab-sup" onclick="setView('sup')">—</button>
+      <button id="tab-ahd" onclick="setView('ahd')">—</button>
+    </div>
   </div>
 </header>
 
@@ -165,8 +203,8 @@ tbody tr:hover{background:var(--surface-2)}
 
    Only supervisions the coordination team has APPROVED are shown.
    ═══════════════════════════════════════════════════════════════════════ */
-var API    = '__DASH_API__';
-var RTOKEN = '__DASH_TOKEN__';
+var API    = 'https://script.google.com/macros/s/AKfycbyAjaQ1yALvefsUxZhvQbUFPo-yXXuDguqV0ni2Iz0UQXENF-uBRNU1I4zrhtQeK-ESbQ/exec';
+var RTOKEN = 'ATHECS-DASH-2026';
 
 /* The app's own bands — not a new scale invented for this page. */
 var GREEN = 100, AMBER = 90;
@@ -199,7 +237,26 @@ var T = {
        of:'sur', gen:'Données au', legend:'Lecture :',
        priv:'Cette page ne publie que des agrégats de supervisions validées. Elle ne contient aucun nom de superviseur, aucun commentaire, aucune analyse SWOT et aucune donnée sur un patient.',
        err:'Le tableau de bord n’a pas pu charger les données.',
-       errWhat:'Le serveur n’a pas répondu, ou l’adresse n’est pas encore configurée. Réessayez dans un moment.' },
+       errWhat:'Le serveur n’a pas répondu, ou l’adresse n’est pas encore configurée. Réessayez dans un moment.',
+       tabSup:'Supervision', tabAhd:'Maladie avancée (AHD)',
+       aNone:'Aucune évaluation AHD vérifiée pour l’instant. Chaque site apparaît ici dès que la coordination l’a vérifié.',
+       aOff:'Aucune évaluation AHD n’est ouverte sur cette région.',
+       aAssessed:'Sites évalués', aAssessedSub:'Évaluations vérifiées par la coordination.',
+       aScore:'Préparation régionale', aScoreSub:'Oui ÷ (Oui + Partiel + Non), N/A exclu, Partiel compté zéro.',
+       aFive:'Prêts sur les cinq', aFiveSub:'Sites remplissant les cinq contrôles prioritaires.',
+       aP1:'Écarts P1 non levés', aP1Sub:'Éléments P1 répondus Partiel ou Non.',
+       aChecks:'Les cinq contrôles minimaux prioritaires',
+       aChecksSub:'Nombre de sites évalués répondant Oui à chaque contrôle.',
+       aDom:'Préparation par domaine',
+       aDomSub:'Ratio groupé sur tous les sites publiés : somme des Oui ÷ somme des (Oui + Partiel + Non). Les pourcentages ne sont jamais moyennés.',
+       aTrain:'Formation du personnel',
+       aTrainSub:'Part des couples cadre × thème marqués Oui, sur l’ensemble des sites évalués. Partiel, Non et non renseigné comptent comme non encore formés.',
+       aTrainAll:'Couverture globale de formation',
+       aByTopic:'Par thème', aByCadre:'Par cadre',
+       aFacs:'Sites évalués', aFacsSub:'Évaluations vérifiées, de la meilleure préparation à la plus faible. Les niveaux portent les termes de l’outil CDC et ne sont pas traduits, pour que la page et le fichier Excel disent la même chose.',
+       aGaps:'Écarts', aP1c:'P1', aBand:'Niveau', aTrained:'Formés', aSlots:'sur',
+       aPriv:'Cette section ne publie que des agrégats d’évaluations vérifiées. Elle ne contient aucun nom d’évaluateur, aucune preuve écrite, aucun plan d’action, aucun code DAMA, aucun effectif TX_CURR et aucune donnée sur un patient.',
+       aUnits:'éléments notés' },
   en:{ title:'Integrated Supervision — Dashboard',
        cover:'Coverage', covSub:'Facilities supervised and validated, out of all active facilities.',
        score:'Regional score', scoreSub:'All sections, weighted.',
@@ -216,7 +273,26 @@ var T = {
        of:'of', gen:'Data as of', legend:'Reading it:',
        priv:'This page publishes aggregates of validated supervisions only. It carries no supervisor name, no comment, no SWOT analysis and no patient data.',
        err:'The dashboard could not load its data.',
-       errWhat:'The server did not answer, or the address is not configured yet. Try again in a moment.' }
+       errWhat:'The server did not answer, or the address is not configured yet. Try again in a moment.',
+       tabSup:'Supervision', tabAhd:'Advanced HIV disease (AHD)',
+       aNone:'No AHD assessment has been verified yet. Each site appears here as soon as the coordination team has verified it.',
+       aOff:'No AHD assessment is open in this region.',
+       aAssessed:'Sites assessed', aAssessedSub:'Assessments verified by the coordination team.',
+       aScore:'Regional readiness', aScoreSub:'Yes ÷ (Yes + Partial + No), N/A excluded, Partial counted as zero.',
+       aFive:'Ready on all five', aFiveSub:'Sites meeting every one of the five high-priority checks.',
+       aP1:'Unresolved P1 gaps', aP1Sub:'P1 items answered Partial or No.',
+       aChecks:'The five minimum high-priority checks',
+       aChecksSub:'How many of the assessed sites answer Yes to each one.',
+       aDom:'Readiness by domain',
+       aDomSub:'Pooled across every published site: sum of Yes ÷ sum of (Yes + Partial + No). Percentages are never averaged.',
+       aTrain:'Staff training',
+       aTrainSub:'Share of cadre × topic pairs marked Yes, across every assessed site. Partial, No and blank all count as not yet trained.',
+       aTrainAll:'Overall training coverage',
+       aByTopic:'By topic', aByCadre:'By cadre',
+       aFacs:'Sites assessed', aFacsSub:'Verified assessments, best readiness first. The level carries the CDC tool\u2019s own wording, so the page and the exported workbook say the same thing.',
+       aGaps:'Gaps', aP1c:'P1', aBand:'Level', aTrained:'Trained', aSlots:'of',
+       aPriv:'This section publishes aggregates of verified assessments only. It carries no assessor name, no written evidence, no action plan, no DAMA code, no TX_CURR count and no patient data.',
+       aUnits:'scored items' }
 };
 function t(k){ return T[L ? 'fr' : 'en'][k]; }
 
@@ -319,17 +395,28 @@ function sortFac(k){
   draw(DATA);
 }
 
-function draw(j){
-  var cov = j.coverage || {planned:0, done:0, byDistrict:[]};
-  var act = j.actions || {};
-  var covPct = cov.planned ? (cov.done / cov.planned) * 100 : null;
-  var regional = null;
-  if(j.trend && j.cycle){
-    var me = j.trend.filter(function(x){ return x.cycle === (j.cycle.name || ''); })[0];
-    if(me) regional = me.pct;
-  }
+/* ---------------------------------------------------------------------
+   Two sections on one page. draw() owns the chrome — the title, the two
+   tabs, the cycle picker — and then hands over to whichever section is
+   being looked at. Only that one is built, so a phone draws one screen
+   rather than two.
+   --------------------------------------------------------------------- */
+var VIEW = 'sup';
+try{ if(localStorage.getItem('ath_dash_view') === 'ahd') VIEW = 'ahd'; }catch(e){}
 
-  /* cycle picker */
+function setView(v){
+  VIEW = v;
+  try{ localStorage.setItem('ath_dash_view', v); }catch(e){}
+  if(DATA){ draw(DATA); try{ window.scrollTo(0, 0); }catch(e){} }
+}
+
+function draw(j){
+  document.getElementById('t-title').textContent = t('title');
+  document.getElementById('t-region').textContent = j.region || '';
+
+  /* cycle picker — it belongs to the supervision section and means nothing
+     on the other, so it goes away there rather than sitting on top of a
+     screen it does not steer. */
   var sel = document.getElementById('cyc');
   sel.innerHTML = (j.cycles || []).map(function(c){
     return '<option value="' + esc(c.id) + '"' + (j.cycle && c.id === j.cycle.id ? ' selected' : '')
@@ -339,8 +426,37 @@ function draw(j){
     document.getElementById('app').innerHTML = '<div class="card" style="margin-top:18px"><div class="skl"></div></div>';
     fetchData(); };
 
-  document.getElementById('t-title').textContent = t('title');
-  document.getElementById('t-region').textContent = j.region || '';
+  /* The AHD request is temporary. When it is archived the endpoint stops
+     sending it and the tab disappears by itself — nothing to take down. */
+  var ahdOn = !!(j.ahd && j.ahd.present);
+  if(!ahdOn) VIEW = 'sup';
+  var ts = document.getElementById('tab-sup'), ta = document.getElementById('tab-ahd');
+  ts.textContent = t('tabSup'); ta.textContent = t('tabAhd');
+  ts.className = (VIEW === 'sup' ? 'on sup' : '');
+  ta.className = (VIEW === 'ahd' ? 'on ahd' : '');
+  ts.setAttribute('aria-pressed', VIEW === 'sup' ? 'true' : 'false');
+  ta.setAttribute('aria-pressed', VIEW === 'ahd' ? 'true' : 'false');
+  document.getElementById('tabs').style.display = ahdOn ? 'flex' : 'none';
+  sel.style.display = (VIEW === 'sup' && (j.cycles || []).length) ? '' : 'none';
+
+  document.getElementById('app').innerHTML =
+    (VIEW === 'ahd' ? ahdHtml(j.ahd || {}) : supHtml(j))
+    + '<p class="foot">' + esc(t('gen')) + ' '
+    + esc(new Date(j.generated || Date.now()).toLocaleString(L ? 'fr-FR' : 'en-GB'))
+    + '<br>ATHECS — Projet Attending Epidemic Control and Sustainability'
+    + '<br>NACC powered by ICAP Global Health © 2025–2026</p>';
+  hookTips();
+}
+
+function supHtml(j){
+  var cov = j.coverage || {planned:0, done:0, byDistrict:[]};
+  var act = j.actions || {};
+  var covPct = cov.planned ? (cov.done / cov.planned) * 100 : null;
+  var regional = null;
+  if(j.trend && j.cycle){
+    var me = j.trend.filter(function(x){ return x.cycle === (j.cycle.name || ''); })[0];
+    if(me) regional = me.pct;
+  }
 
   var h = '';
 
@@ -409,7 +525,10 @@ function draw(j){
      + '</tr></thead><tbody>';
   h += fs.map(function(f){
     var b = band(f.pct);
-    return '<tr><td>' + esc(f.name) + '</td><td>' + esc(f.district) + '</td>'
+    return '<tr><td>' + esc(f.name)
+      + '<span class="s-only"><span class="dot" style="background:' + bandColor(b)
+        + '"></span>' + esc(bandWord(b)) + '</span></td>'
+      + '<td>' + esc(f.district) + '</td>'
       + '<td class="num" style="font-weight:640">' + pc(f.pct) + '</td>'
       + '<td class="hide-s"><span class="dot" style="background:' + bandColor(b) + '"></span>'
       + esc(bandWord(b)) + '</td>'
@@ -418,13 +537,169 @@ function draw(j){
   h += '</tbody></table></div>';
 
   h += '<div class="note">' + esc(t('priv')) + '</div>';
-  h += '<p class="foot">' + esc(t('gen')) + ' '
-     + esc(new Date(j.generated || Date.now()).toLocaleString(L ? 'fr-FR' : 'en-GB'))
-     + '<br>ATHECS — Projet Attending Epidemic Control and Sustainability'
-     + '<br>NACC powered by ICAP Global Health © 2025–2026</p>';
+  return h;
+}
 
-  document.getElementById('app').innerHTML = h;
-  hookTips();
+/* ═══════════════════════════════════════════════════════════════════════
+   THE AHD SECTION
+
+   Same rules as the rest of the page. Every figure here is an aggregate
+   of assessments the coordination team has VERIFIED; nothing is drawn
+   from an assessment still waiting to be checked.
+
+   The score is CDC's own, not a softer one: Yes ÷ (Yes + Partial + No),
+   N/A excluded, PARTIAL COUNTS AS ZERO. One unresolved P1 gap makes a
+   site Critical whatever its percentage, and a site with unanswered lines
+   is reported as Incomplete rather than as a number that looks finished.
+
+   Four band labels, three colours. The workbook separates "Substantially
+   ready" from "Partially ready"; a fourth hue between amber and red
+   cannot be told apart by someone with normal colour vision, let alone a
+   protan reader — it was measured and it failed. So both wear amber and
+   the exact label is printed beside every dot. Nothing on this page is
+   knowable by its colour alone.
+   ═══════════════════════════════════════════════════════════════════════ */
+function ahdBandColour(code){
+  return code === 'green'  ? 'var(--good)'
+       : code === 'yellow' ? 'var(--warn)'
+       : code === 'amber'  ? 'var(--warn)'
+       : code === 'red' || code === 'critical' ? 'var(--crit)'
+       : 'var(--ink-3)';
+}
+
+var ASORT = {k:'pct', dir:-1};
+function sortAhd(k){
+  ASORT = (ASORT.k === k) ? {k:k, dir:-ASORT.dir} : {k:k, dir:(k === 'name' ? 1 : -1)};
+  draw(DATA);
+}
+
+function ahdHtml(a){
+  if(!a.present) return '<div class="card" style="margin-top:18px"><p class="sub" style="margin:0">'
+    + esc(t('aOff')) + '</p></div>';
+
+  var h = '<div class="card ahdline" style="margin-top:18px">'
+    + '<b>' + esc(a.title || '') + '</b>'
+    + '<p class="sub" style="margin:4px 0 0">' + esc(t('aScoreSub')) + '</p></div>';
+
+  if(!a.assessed) return h + '<div class="card" style="margin-top:12px">'
+    + '<p class="sub" style="margin:0">' + esc(t('aNone')) + '</p></div>';
+
+  /* ---- four numbers, which is a form, not a failed chart ---- */
+  var bandAll = a.missing > 0 ? 'grey'
+    : a.p1 > 0 ? 'red'
+    : a.pct === null ? 'grey'
+    : a.pct >= 90 ? 'green' : a.pct >= 60 ? 'amber' : 'red';
+  h += '<div class="tiles">'
+    + '<div class="tile"><div class="k">' + esc(t('aAssessed')) + '</div><div class="v">'
+      + a.assessed + ' <span style="font-size:1rem;color:var(--ink-3)">'
+      + esc(t('of')) + ' ' + (a.sites || 0) + '</span></div>'
+      + '<div class="n">' + esc(t('aAssessedSub')) + '</div></div>'
+    + '<div class="tile"><div class="k">' + esc(t('aScore')) + '</div><div class="v" style="color:'
+      + ahdBandColour(bandAll) + '">' + pc(a.pct) + '</div>'
+      + '<div class="n">' + (a.ready || 0) + ' / ' + (a.applicable || 0) + ' · '
+      + (a.units || 0) + ' ' + esc(t('aUnits')) + '</div></div>'
+    + '<div class="tile"><div class="k">' + esc(t('aFive')) + '</div><div class="v">'
+      + (a.allFive || 0) + ' <span style="font-size:1rem;color:var(--ink-3)">'
+      + esc(t('of')) + ' ' + a.assessed + '</span></div>'
+      + '<div class="n">' + esc(t('aFiveSub')) + '</div></div>'
+    + '<div class="tile"><div class="k">' + esc(t('aP1')) + '</div><div class="v" style="color:'
+      + ((a.p1 || 0) > 0 ? 'var(--crit)' : 'var(--ink)') + '">' + (a.p1 || 0) + '</div>'
+      + '<div class="n">' + (a.gaps || 0) + ' ' + esc(t('aGaps')).toLowerCase() + '</div></div>'
+    + '</div>';
+
+  /* ---- the five minimum checks ---- */
+  h += '<h2>' + esc(t('aChecks')) + '</h2><p class="sub">' + esc(t('aChecksSub')) + '</p><div class="card">';
+  h += (a.checks || []).map(function(c){
+    var p = a.assessed ? (c.yes / a.assessed) * 100 : 0;
+    var col = c.yes === a.assessed ? 'var(--good)' : c.no > 0 ? 'var(--crit)' : 'var(--warn)';
+    return barRow(shortLab(c.label), p, col,
+      '<b>' + c.yes + '</b><span style="color:var(--ink-3)"> / ' + a.assessed + '</span>',
+      c.label + ' — ' + c.yes + '/' + a.assessed);
+  }).join('');
+  h += '</div>';
+
+  /* ---- readiness by domain ---- */
+  h += '<h2>' + esc(t('aDom')) + '</h2><p class="sub">' + esc(t('aDomSub')) + '</p><div class="card">';
+  h += (a.domains || []).map(function(d){
+    var col = d.pct === null ? 'var(--ink-3)'
+            : d.pct >= 90 ? 'var(--good)' : d.pct >= 60 ? 'var(--warn)' : 'var(--crit)';
+    return barRow('D' + d.n + ' · ' + shortLab(d.name), d.pct, col,
+      '<span style="font-weight:650">' + pc(d.pct) + '</span>'
+      + '<span class="pill hide-s">' + d.gaps + ' ' + esc(t('aGaps')) + '</span>',
+      'D' + d.n + ' ' + d.name + ' — ' + pc(d.pct) + ' · ' + d.gaps + ' ' + t('aGaps')
+        + (d.p1 ? ' (' + d.p1 + ' P1)' : ''));
+  }).join('');
+  h += '</div>';
+
+  /* ---- training, summarised over the region ---- */
+  var tr = a.training || {byTopic:[], byCadre:[], trained:0, slots:0};
+  var allPct = tr.slots ? (tr.trained / tr.slots) * 100 : null;
+  h += '<h2>' + esc(t('aTrain')) + '</h2><p class="sub">' + esc(t('aTrainSub')) + '</p>';
+  h += '<div class="card"><div class="row wide" data-tip="' + esc(t('aTrainAll')) + ' — '
+    + tr.trained + ' / ' + tr.slots + '">'
+    + '<div class="lab" title="' + esc(t('aTrainAll')) + '">' + esc(t('aTrainAll')) + '</div>'
+    + '<div class="bar"><i style="width:' + Math.max(0, Math.min(100, allPct || 0)).toFixed(1)
+    + '%;background:var(--series-1)"></i></div>'
+    + '<div class="val"><b>' + pc(allPct) + '</b>'
+    + '<span class="pill hide-s">' + tr.trained + '/' + tr.slots + '</span></div></div>';
+  h += '<p class="sub" style="margin:14px 0 6px;font-weight:650;color:var(--ink)">' + esc(t('aByTopic')) + '</p>';
+  h += (tr.byTopic || []).map(function(o){
+    return barRow(shortLab(o.label), o.pct, 'var(--series-1)',
+      '<span style="font-weight:650">' + pc(o.pct) + '</span>'
+      + '<span class="pill hide-s">' + o.trained + '/' + o.slots + '</span>',
+      o.label + ' — ' + o.trained + '/' + o.slots);
+  }).join('');
+  h += '<p class="sub" style="margin:14px 0 6px;font-weight:650;color:var(--ink)">' + esc(t('aByCadre')) + '</p>';
+  h += (tr.byCadre || []).map(function(o){
+    return barRow(shortLab(o.label), o.pct, 'var(--series-1)',
+      '<span style="font-weight:650">' + pc(o.pct) + '</span>'
+      + '<span class="pill hide-s">' + o.trained + '/' + o.slots + '</span>',
+      o.label + ' — ' + o.trained + '/' + o.slots);
+  }).join('');
+  h += '</div>';
+
+  /* ---- the site table, which is also the required table view ---- */
+  var fs = (a.facilities || []).slice().sort(function(x, y){
+    var va = x[ASORT.k], vb = y[ASORT.k];
+    if(typeof va === 'number' || typeof vb === 'number')
+      return ((vb || 0) - (va || 0)) * (ASORT.dir < 0 ? 1 : -1);
+    return String(va || '').localeCompare(String(vb || '')) * (ASORT.dir < 0 ? -1 : 1);
+  });
+  h += '<h2>' + esc(t('aFacs')) + '</h2><p class="sub">' + esc(t('aFacsSub')) + '</p>'
+     + '<div class="card" style="padding:4px 4px 0">';
+  h += '<table><thead><tr>'
+     + '<th onclick="sortAhd(\'name\')">' + esc(t('fac')) + '</th>'
+     + '<th onclick="sortAhd(\'district\')">' + esc(t('dist')) + '</th>'
+     + '<th class="num" onclick="sortAhd(\'pct\')">' + esc(t('sc')) + '</th>'
+     + '<th class="num" onclick="sortAhd(\'gaps\')">' + esc(t('aGaps')) + '</th>'
+     + '<th class="num" onclick="sortAhd(\'p1\')">' + esc(t('aP1c')) + '</th>'
+     + '<th class="hide-s">' + esc(t('aBand')) + '</th>'
+     + '<th class="hide-s num">' + esc(t('dt')) + '</th>'
+     + '</tr></thead><tbody>';
+  h += fs.map(function(f){
+    return '<tr><td>' + esc(f.name)
+      + '<span class="s-only"><span class="dot" style="background:'
+        + ahdBandColour(f.band) + '"></span>' + esc(f.bandLabel || '') + '</span></td>'
+      + '<td>' + esc(f.district) + '</td>'
+      + '<td class="num" style="font-weight:640">' + pc(f.pct) + '</td>'
+      + '<td class="num">' + f.gaps + '</td>'
+      + '<td class="num"' + (f.p1 ? ' style="color:var(--crit);font-weight:640"' : '') + '>'
+        + f.p1 + '</td>'
+      + '<td class="hide-s"><span class="dot" style="background:'
+        + ahdBandColour(f.band) + '"></span>' + esc(f.bandLabel || '') + '</td>'
+      + '<td class="hide-s num">' + esc(f.date || '') + '</td></tr>';
+  }).join('');
+  h += '</tbody></table></div>';
+
+  h += '<div class="note">' + esc(t('aPriv')) + '</div>';
+  return h;
+}
+
+/* A bar label is one line wide. The whole sentence stays on the tooltip
+   and in the table, so nothing is lost by shortening it here. */
+function shortLab(s){
+  s = String(s || '').split(':')[0];
+  return s.length > 46 ? s.slice(0, 44) + '…' : s;
 }
 
 function bandWord(b){
