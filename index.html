@@ -1022,7 +1022,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.12.2';
+const APP_VERSION = '4.13.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -1157,10 +1157,127 @@ function installFlag(k, v){
      · remember the answer in a plain global, so the banner survives a
        re-render even if the worker never speaks again. */
 var NEW_VERSION = '';                     /* '' = this phone is up to date */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UPDATING FROM INSIDE THE APP                                    (v4.13.0)
+
+   reset.html stopped being reachable. Not slowly — at all: Chrome, Chrome
+   incognito, Firefox and a phone all time the connection out on that one
+   address, while index.html on the same host loads normally in Edge seconds
+   later. A browser with no service worker and no cache cannot be failing for
+   any reason inside this application. Something on the road between the
+   region and that URL does not pass it.
+
+   The lesson is not "fix reset.html". It is that THE WAY OUT MUST NOT LIVE
+   AT AN ADDRESS THAT CAN BECOME UNREACHABLE ON ITS OWN. index.html gets
+   through; so the repair now lives there too.
+
+   Three doors to the same routine, all of them at an address that is already
+   working on the day it is needed:
+     · index.html?update=1   — a link, for circulating
+     · the Update button on the front step
+     · update.html           — reset.html under a second name, for the case
+                               where the name itself is what is being filtered
+
+   It runs BEFORE the worker is registered, because registering the thing we
+   are about to remove is a race we would sometimes lose. It touches caches
+   and workers only: the account, the PIN and anything not yet sent live in
+   local storage and are never read, written or cleared here.
+   ═══════════════════════════════════════════════════════════════════════════ */
+var ATHECS_UPDATING = (function(){
+  try{ return /[?&]update=1(&|$)/.test(location.search || '')
+            || /^#\/?update$/.test(location.hash || ''); }
+  catch(e){ return false; }
+})();
+
+/* Removes every worker and every cache for this origin, and says what it did.
+   Nothing else. */
+async function athecsPurge(){
+  var sw = 0, cc = 0, trouble = false;
+  try{
+    if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations){
+      var regs = await navigator.serviceWorker.getRegistrations();
+      for(var i = 0; i < regs.length; i++){
+        try{ if(await regs[i].unregister()) sw++; }catch(e){ trouble = true; }
+      }
+    }
+  }catch(e){ trouble = true; }
+  try{
+    if(window.caches){
+      var keys = await caches.keys();
+      for(var j = 0; j < keys.length; j++){
+        try{ if(await caches.delete(keys[j])) cc++; }catch(e){ trouble = true; }
+      }
+      if((await caches.keys()).length) trouble = true;
+    }
+  }catch(e){ trouble = true; }
+  return {workers: sw, caches: cc, trouble: trouble};
+}
+
+/* The button anyone can press, from anywhere in the app. */
+/* The language WITHOUT touching LANG.
+   `typeof LANG` looks safe and is not: LANG is declared with `let` further
+   down this same script, and reading a `let` binding before its line has run
+   throws a ReferenceError — `typeof` does not shield you from that, the way
+   it does for an undeclared name or a `var`. On ?update=1 this threw before
+   a single cache was cleared, the catch redirected, and the repair silently
+   did nothing at all while appearing to work. */
+function athecsFr(){
+  try{ var v = localStorage.getItem('ath_lang'); if(v) return v !== 'en'; }catch(e){}
+  try{ return String(navigator.language || 'fr').slice(0, 2).toLowerCase() !== 'en'; }
+  catch(e){}
+  return true;
+}
+
+function appUpdateNow(){
+  var fr = athecsFr();
+  var box = document.createElement('div');
+  box.setAttribute('style',
+    'position:fixed;inset:0;z-index:99999;background:rgba(8,14,22,.92);color:#fff;'
+    + 'display:flex;align-items:center;justify-content:center;padding:24px;'
+    + 'font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif');
+  box.innerHTML = '<div style="max-width:380px;text-align:center">'
+    + '<div id="ath-up-spin" style="width:30px;height:30px;margin:0 auto 16px;'
+    + 'border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;'
+    + 'animation:athspin 900ms linear infinite"></div>'
+    + '<h2 id="ath-up-h" style="font-size:1.05rem;margin:0 0 8px">'
+    + (fr ? 'Mise à jour en cours…' : 'Updating…') + '</h2>'
+    + '<p id="ath-up-p" style="margin:0;opacity:.85;font-size:.88rem">'
+    + (fr ? 'Ne fermez pas cette page. Rien de ce qui est enregistré ne sera perdu.'
+          : 'Do not close this page. Nothing already saved will be lost.') + '</p>'
+    + '<p id="ath-up-log" style="margin:12px 0 0;opacity:.6;font-size:.75rem"></p></div>'
+    + '<style>@keyframes athspin{to{transform:rotate(360deg)}}</style>';
+  document.body.appendChild(box);
+  athecsPurge().then(function(r){
+    var log = document.getElementById('ath-up-log');
+    if(log) log.textContent = r.workers + ' worker(s) · ' + r.caches + ' cache(s)';
+    setTimeout(function(){
+      location.replace(location.pathname.replace(/[^/]*$/, '') + 'index.html?fresh=' + Date.now());
+    }, 700);
+  });
+}
+
 (function(){
   try{
     if(!('serviceWorker' in navigator)) return;
     if(location.protocol === 'file:') return;
+
+    /* ?update=1 — do the repair and leave. Registering the worker first would
+       put back the very thing being removed. */
+    if(ATHECS_UPDATING){
+      /* Never during parsing. This script is one file: the head's code and
+         the whole application are in the same <script>, so anything that runs
+         while it is still being parsed sees the half of it that exists so far.
+         Waiting for DOMContentLoaded means the whole script has run first. */
+      var start = function(){
+        try{ appUpdateNow(); }
+        catch(e){ location.replace('index.html?fresh=' + Date.now()); }
+      };
+      if(document.readyState === 'loading')
+        document.addEventListener('DOMContentLoaded', start);
+      else setTimeout(start, 0);
+      return;
+    }
 
     navigator.serviceWorker.addEventListener('message', function(ev){
       var d = (ev && ev.data) || {};
@@ -2479,9 +2596,34 @@ function viewWelcome(){
     <hr>
     ${installBanner()}
     <button class="btn sec blk sm" onclick="openTour(0)">？ ${L?'Guide de navigation':'Navigation guide'}</button>
+    <button class="btn sec blk sm" style="margin-top:8px" onclick="appUpdateAsk()">⟳ ${
+      L?'Mettre à jour l\'application':'Update the app'}</button>
     <p class="xs muted" style="margin-top:12px;text-align:center">
       ${L?'Accès réservé au personnel autorisé.':'Authorised personnel only.'}</p>
   </div>`;
+}
+
+/* The repair, reachable without leaving the app and without a second address.
+   It is asked for rather than done, because it takes the app offline for the
+   few seconds it needs the network to hand index.html back. */
+function appUpdateAsk(){
+  const L = LANG === 'fr', n = (DB.d.outbox || []).length;
+  modal(L ? 'Mettre à jour l\'application' : 'Update the app',
+    `<p class="small">${L
+      ? 'L\'application sera rechargée depuis le serveur dans sa version la plus récente.'
+      : 'The app will be reloaded from the server in its newest version.'}</p>
+     <div class="banner b-ok">${L
+      ? 'Votre compte, votre code PIN et tout ce qui n\'est pas encore parti restent sur cet appareil. Rien n\'est supprimé.'
+      : 'Your account, your PIN and anything not yet sent stay on this device. Nothing is deleted.'}</div>
+     ${n ? `<p class="xs muted" style="margin:10px 0 0">${n} ${L
+        ? 'élément(s) en attente d\'envoi — ils restent en attente et partiront comme d\'habitude.'
+        : 'item(s) waiting to be sent — they stay waiting and will go as usual.'}</p>` : ''}
+     <p class="xs muted" style="margin:10px 0 0">${L
+      ? 'Une connexion internet est nécessaire pendant quelques secondes.'
+      : 'An internet connection is needed for a few seconds.'}</p>`,
+    `<button class="btn sec" onclick="closeModal()">${L ? 'Annuler' : 'Cancel'}</button>
+     <button class="btn" ${ONLINE ? '' : 'disabled'} onclick="closeModal();appUpdateNow()">${
+       L ? 'Mettre à jour' : 'Update'}</button>`);
 }
 
 /* The dashboard is a separate, online-only page. Nothing of it is downloaded to
@@ -3392,6 +3534,8 @@ function openTour(i){
       📲 ${L?'Installer l\'application sur ce téléphone':'Install the app on this phone'}</button>`:''}
     <button class="btn sec blk sm" style="margin-top:8px" onclick="closeTour();openDashboard()">
       📊 ${L?'Tableau de bord national (en ligne)':'National dashboard (online)'}</button>
+    <button class="btn sec blk sm" style="margin-top:8px" onclick="closeTour();appUpdateAsk()">
+      ⟳ ${L?'Mettre à jour l\'application':'Update the app'}</button>
     ${vid?`<button class="btn sec blk sm" style="margin-top:8px" onclick="watchVideo()">▶ ${guideLabel()}</button>`
         :`<p class="xs muted" style="text-align:center;margin-top:10px">${L?'Un guide pas à pas sera ajouté ici.':'A step-by-step guide will be added here.'}</p>`}
     <p class="xs muted" style="text-align:center;margin-top:8px">
