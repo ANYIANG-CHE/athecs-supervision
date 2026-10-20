@@ -33,7 +33,7 @@
    Nothing here ever touches localStorage, where enrolment, PINs and
    every unsent supervision live. A cache purge is not a data loss. */
 
-const CACHE   = 'athecs-v4-8-0';
+const CACHE   = 'athecs-v4-9-1';
 const VKEY    = './__athecs_version__';  /* not a real file: a marker kept in the cache */
 const DOC     = './index.html';          /* the ONE key every document is stored under */
 const NET_MS  = 7000;                    /* a stalled connection gets this long, no more */
@@ -114,10 +114,18 @@ async function putDoc(cache, res){
   return v;
 }
 
+/* The AHD readiness tool is exported by filling in the workbook CDC issued, so
+   the app needs that workbook. It is a separate file rather than 134 KB of
+   base64 inside index.html, and it is precached here: an assessor finishing a
+   site with no network must still be able to produce the file. A failure to
+   fetch it must not fail the install — the app works without the export. */
+const EXTRA = ['./ahd-template.xlsx'];
+
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll([DOC, './']).catch(() => c.add('./')))
+      .then(c => c.addAll([DOC, './']).catch(() => c.add('./'))
+        .then(() => Promise.all(EXTRA.map(u => c.add(u).catch(() => {})))))
       .then(() => self.skipWaiting())
   );
 });
