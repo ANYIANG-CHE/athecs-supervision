@@ -406,6 +406,78 @@ select[multiple] option{padding:6px 8px;border-radius:6px}
 .fmchip.c-blue{background:#DCEAF7;color:#1F4E79}
 .fmchip.c-amber{background:#FDF0D5;color:#845B10}
 .fmchip.c-green{background:#DCF3E3;color:#17603A}
+/* ---- AHD readiness: a 141-line clinical instrument on a phone ----------
+   The things that must read at a glance: which of four answers is given,
+   how critical the line is, and which domain you are in. */
+.seg-b{flex:1 1 auto;min-width:58px;padding:9px 10px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink-2);border-radius:var(--r-xs);
+  font-size:.78rem;font-weight:650;cursor:pointer;
+  transition:all var(--fast) var(--ease)}
+.seg-b:hover{border-color:var(--brand-3)}
+.seg-b.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.seg-b.on.v-Yes{background:#17603A;border-color:#17603A}
+.seg-b.on.v-Partial{background:#845B10;border-color:#845B10}
+.seg-b.on.v-No{background:#B3261E;border-color:#B3261E}
+.seg-b.on.v-NA{background:#5A6678;border-color:#5A6678}
+.seg-b:disabled{opacity:.6;cursor:default}
+
+.ahdtabs{display:flex;gap:4px;margin-top:12px;overflow-x:auto}
+.ahdtabs button{flex:1 1 auto;white-space:nowrap;padding:9px 12px;border:0;
+  background:transparent;color:var(--ink-2);font-size:.8rem;font-weight:650;
+  border-bottom:2px solid transparent;cursor:pointer}
+.ahdtabs button.on{color:var(--brand);border-bottom-color:var(--brand)}
+
+.ahdstat{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:.74rem;
+  color:var(--ink-2)}
+.ahdstat b{color:var(--ink);font-size:.9rem}
+
+.ahddoms{display:flex;gap:6px;overflow-x:auto;padding:2px}
+.ahddom{flex:0 0 auto;min-width:54px;padding:7px 9px;border-radius:var(--r-xs);
+  border:1px solid var(--line);background:var(--surface);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:2px}
+.ahddom b{font-size:.82rem;color:var(--ink)}
+.ahddom span{font-size:.62rem;color:var(--ink-3)}
+.ahddom.on{background:var(--brand);border-color:var(--brand)}
+.ahddom.on b,.ahddom.on span{color:#fff}
+
+.ahditem{padding:12px 2px;border-bottom:1px solid var(--line)}
+.ahditem:last-child{border-bottom:0}
+.ahditem.answered{background:linear-gradient(90deg,rgba(27,110,194,.05),transparent 65%)}
+.ahdq{display:flex;gap:8px;align-items:flex-start}
+.ahdno{flex:0 0 auto;font-size:.68rem;font-weight:700;color:var(--ink-3);
+  padding-top:2px;min-width:34px}
+.ahdpri{flex:0 0 auto;font-size:.6rem;font-weight:700;padding:2px 6px;
+  border-radius:999px;letter-spacing:.03em}
+.ahdpri.p-P1{background:#FBE3E1;color:#B3261E}
+.ahdpri.p-P2{background:#FDF0D5;color:#845B10}
+.ahdpri.p-P3{background:#E6EAF0;color:#445060}
+.ahdtxt{flex:1 1 0;min-width:0;font-size:.845rem;line-height:1.38}
+.ahdparent{padding:11px;margin:8px 0;border-radius:var(--r-sm);
+  background:var(--surface-3);border:1px dashed var(--line)}
+.ahdchk{padding:11px 0;border-bottom:1px solid var(--line)}
+.ahdchk:last-child{border-bottom:0}
+.ahdchk-l{font-size:.82rem;line-height:1.4;margin-bottom:7px}
+.ahdgap{padding:11px;margin-bottom:9px;border-radius:var(--r-sm);
+  border:1px solid var(--line);background:var(--surface-2)}
+.ahdmx td,.ahdmx th{padding:5px 6px;font-size:.74rem}
+.ahdmx select,.ahdmx input{padding:5px 6px !important;font-size:.74rem !important;
+  min-width:78px}
+table.dash td,table.dash th{padding:6px 8px;font-size:.74rem;white-space:nowrap}
+table.dash td:first-child,table.dash th:first-child{white-space:normal;min-width:130px}
+.dcell{text-align:center;font-weight:650}
+.d-green{background:#DCF3E3;color:#17603A}
+.d-yellow{background:#FBF3DA;color:#6B5411}
+.d-amber{background:#FDF0D5;color:#845B10}
+.d-red{background:#FBE3E1;color:#B3261E}
+.d-grey{background:#E6EAF0;color:#445060}
+.d-none{color:var(--ink-3)}
+:root[data-theme="dark"] .d-green{background:#12301F;color:#8FD9AE}
+:root[data-theme="dark"] .d-red{background:#3A1614;color:#F0A9A3}
+:root[data-theme="dark"] .d-amber,:root[data-theme="dark"] .d-yellow{background:#33280E;color:#E8C77A}
+:root[data-theme="dark"] .d-grey{background:#232B36;color:#9FB0C6}
+.fmchip.c-red{background:#FBE3E1;color:#B3261E}
+.fmchip.c-grey{background:#E6EAF0;color:#445060}
+
 .fmpad{display:block;width:100%;height:150px;border:1px dashed var(--line);
   border-radius:var(--r-sm);background:#fff;touch-action:none;cursor:crosshair}
 
@@ -796,7 +868,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.8.0';
+const APP_VERSION = '4.9.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -8166,6 +8238,14 @@ async function pullData(full, deep){
     DB.d.formEntries[i] = Object.assign({sentBack: mine.sentBack}, re); changed++;
   });
   if(Array.isArray(j.formSignatures)) DB.d.formSignatures = j.formSignatures.slice();
+  /* A page deleted on the server must leave this phone too. Without this it
+     would sit here for ever: the row is gone up there, so nothing would ever
+     mention it again — the same hole VARCHIVE closes for supervisions. */
+  (j.formGone || []).forEach(g => {
+    const n = DB.d.formEntries.length;
+    DB.d.formEntries = DB.d.formEntries.filter(e => e.id !== g.id);
+    if(DB.d.formEntries.length !== n) changed++;
+  });
   /* Who may sign is the workbook's answer. Without it no phone would ever show
      a Sign button — not even the Business Official's own. */
   if(j.formOfficers){
@@ -9228,6 +9308,26 @@ function fmSitesFor(){
   return sort(live.filter(s => granted[s.id]));
 }
 
+/* What the LIST should show.
+
+   For these requests a coordinator or a site has one facility, not the
+   eighty-four of the mentorship — so the list is not where the work starts,
+   it is a detour. And for the console, a register of 84 rows of "Not started"
+   buries the 28 that matter. So: the console sees the sites that have
+   actually been started, and everyone else sees their own. */
+function fmListFor(formId){
+  const mine = fmSitesFor();
+  if(!isSuper()) return mine;
+  return mine.filter(s => !!fmEntry(formId, s.id));
+}
+
+/* The one site to open directly, if there is exactly one and no more. */
+function fmOnlySite(formId){
+  if(isSuper()) return null;
+  const mine = fmSitesFor();
+  return mine.length === 1 ? mine[0] : null;
+}
+
 function fmEntryId(formId, siteId){ return 'FE-' + formId + '-' + siteId; }
 function fmEntry(formId, siteId){
   return (DB.d.formEntries || []).filter(e =>
@@ -9250,15 +9350,21 @@ function viewForms(){
   const f = forms.filter(x => x.id === FM_PICK)[0] || forms[0];
   FM_PICK = f.id;
 
-  const sites = fmSitesFor();
+  /* One facility, no list: the screen a person with a single site needs is
+     that site, not a table with one row in it. */
+  const only = fmOnlySite(f.id);
+  if(only) return viewFormFill(f.id, only.id);
+
+  const sites = fmListFor(f.id);
+  const all = fmSitesFor();
   const wide = isSuper();
   const u = me() || {};
 
   /* Three situations, and the screen must leave nobody guessing which. */
   const scopeNote =
     wide
-      ? '<p class="xs muted" style="margin:0 0 8px">You see every facility of the '
-        + 'region, because you verify them and assemble the submission.</p>'
+      ? '<p class="xs muted" style="margin:0 0 8px">Only facilities that have been '
+        + 'started are listed — ' + sites.length + ' of ' + all.length + '.</p>'
       : sites.length
       ? '<p class="xs muted" style="margin:0 0 8px">These are the facilities granted to '
         + 'your account — the same ones you already follow. Nothing was assigned for '
@@ -9286,8 +9392,8 @@ function viewForms(){
       + (st ? 'Open' : 'Fill') + '</button></td></tr>';
   }).join('');
 
-  const n = st => sites.filter(s => fmStatus(fmEntry(f.id, s.id)) === st).length;
-  const started = sites.filter(s => fmEntry(f.id, s.id)).length;
+  const n = st => all.filter(s => fmStatus(fmEntry(f.id, s.id)) === st).length;
+  const started = all.filter(s => fmEntry(f.id, s.id)).length;
   /* "All" means every site that has actually been SUBMITTED — not the 84 of the
      register. Only 28 are expected to send one in, and a download that quietly
      included blank pages for the rest would be worse than useless. */
@@ -9305,7 +9411,7 @@ function viewForms(){
       ? '<div class="banner b-warn" style="margin-top:10px">This request is closed. '
         + 'The pages can still be printed; nothing more can be entered.</div>' : ''}
     <div class="fmcount">
-      <span>${started}/${sites.length} started</span>
+      <span>${started} started</span>
       <span>${n('SUBMITTED')} submitted</span>
       <span>${n('APPROVED')} verified</span>
 
@@ -9319,15 +9425,20 @@ function viewForms(){
       <span class="fmchip ${nSub ? 'c-blue' : 'c-none'}">${nSub} site${nSub===1?'':'s'} submitted</span>
     </div>
     <p class="small muted" style="margin:0 0 12px">
-      Only submitted sites are downloaded. ${nSub
-        ? 'Each one is the two pages of the Word document.'
-        : 'Nothing has been submitted yet, so there is nothing to download.'}</p>
+      Only submitted sites are downloaded. ${!nSub
+        ? 'Nothing has been submitted yet, so there is nothing to download.'
+        : ahdIs(f) ? 'Each one is the CDC workbook with the answers written into it.'
+                   : 'Each one is the two pages of the Word document.'}</p>
     <button class="btn blk" ${nSub ? '' : 'disabled'} onclick="fmDownloadDialog('${f.id}', null)">
-      ⬇ Download PDF…</button>
-    <p class="xs muted" style="margin:8px 0 0">
-      You choose which sites and where the certification goes. CDC may ask for
-      the sites one by one or all together — both come out of the same screen.</p>
+      ${ahdIs(f) ? '⬇ Download Excel…' : '⬇ Download PDF…'}</button>
+    <p class="xs muted" style="margin:8px 0 0">${ahdIs(f)
+      ? 'One file per site, as the tool is issued — every formula, dropdown and '
+        + 'the Readiness_Dashboard come back alive and recalculate when it opens.'
+      : 'You choose which sites and where the certification goes. CDC may ask for '
+        + 'the sites one by one or all together — both come out of the same screen.'}</p>
   </div>` : ''}
+
+  ${ahdIs(f) ? viewAhdDash(f.id) : ''}
 
   <div class="card">
     <h4 style="margin:0 0 4px">My facilities</h4>
@@ -9335,7 +9446,9 @@ function viewForms(){
     ${sites.length ? `<div class="tw"><table>
       <thead><tr><th>District</th><th>Facility</th><th>Status</th><th></th></tr></thead>
       <tbody>${rows}</tbody></table></div>`
-      : '<p class="small muted" style="margin:6px 0 0">Nothing to show here yet.</p>'}
+      : '<p class="small muted" style="margin:6px 0 0">'
+        + (wide ? 'No facility has been started yet. They appear here as they come in.'
+                : 'Nothing to show here yet.') + '</p>'}
   </div>`;
 }
 
@@ -9343,7 +9456,10 @@ var FM_PICK = '';
 
 /* ------------------------------------------------------------- the filling */
 function viewFormFill(formId, siteId){
-  const f = fmForms().filter(x => x.id === formId)[0];
+  const f0 = fmForms().filter(x => x.id === formId)[0];
+  /* a second instrument, answered differently, on the same road */
+  if(ahdIs(f0)) return viewAhdFill(formId, siteId);
+  const f = f0;
   const s = (DB.d.sites || []).filter(x => x.id === siteId)[0];
   if(!f || !s || !f.layout) return '<div class="banner b-err">This request is not available on this device.</div>';
 
@@ -9472,58 +9588,55 @@ function viewFormFill(formId, siteId){
     <p class="xs muted" style="margin:8px 0 0">${esc(tb.note)}</p>
   </div>
 
-  <div class="card fmact">
-    ${st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED' ? `
-      <div class="fmdone">
-        <div class="fmdone-i">✓</div>
-        <div>
-          <b>${st === 'SUBMITTED' ? 'Submitted' : st === 'APPROVED' ? 'Verified' : 'Signed'}</b>
-          <div class="xs muted">${esc(e.by || '')}${e.at ? ' · ' + esc(fmtDT(e.at)) : ''}${
-            st === 'SUBMITTED' ? ' · waiting to be verified' : ''}</div>
-        </div>
-      </div>` : ''}
-
-    <div class="row">
-      ${settled
-        ? (fmMayFill(f) && String(f.status) === 'OPEN'
-            ? `<button class="btn sec" onclick="fmReopen('${formId}','${siteId}')">Edit the submitted copy</button>`
-            : '')
-        : `<button class="btn sec" id="fm-draft" onclick="fmSave('${formId}','${siteId}','DRAFT')">Save draft</button>
-           <button class="btn" id="fm-sub" onclick="fmSubmit('${formId}','${siteId}')">Submit this site</button>`}
-      ${(isSuper() && st === 'SUBMITTED')
-        ? `<button class="btn" onclick="fmApprove('${formId}','${siteId}',true)">Verify and approve</button>` : ''}
-      ${(isSuper() && (st === 'SUBMITTED' || st === 'APPROVED'))
-        ? `<button class="btn sec" onclick="fmRevert('${formId}','${siteId}')">Send back to the site</button>` : ''}
-    </div>
-
-    ${isSuper() ? `<div class="row" style="margin-top:10px">
-      <button class="btn sec sm" ${st==='SUBMITTED'||st==='APPROVED'||st==='SIGNED' ? '' : 'disabled'}
-        onclick="fmDownloadDialog('${formId}','${siteId}')">⬇ Download this site…</button>
-      ${st==='DRAFT'||!st ? '<span class="xs muted">A site can be downloaded once it has been submitted.</span>' : ''}
-    </div>` : ''}
-
-
+  ${fmActionBar(f, formId, siteId, e, st, settled)}
   </div>`;
 }
 
 /* ------------------------------------------------------------ typing into it */
+/* An instrument decides the shape of its own answers. A declaration shaped like
+   the Foundational Milestone keeps the shape it has always had; one shaped like
+   the AHD readiness tool gets the four maps it needs. Seeding here rather than
+   in each handler means no screen has to guard against a missing object. */
 function fmTouch(formId, siteId){
+  const f = fmForms().filter(x => x.id === formId)[0] || {};
+  const ahd = String((f.layout || {}).kind || '') === 'ahd';
   let e = fmEntry(formId, siteId);
   if(!e){
     const s = (DB.d.sites || []).filter(x => x.id === siteId)[0] || {};
+    const u = me() || {};
     e = {id:fmEntryId(formId, siteId), formId, siteId, status:'DRAFT',
-         by:(me() || {}).name || '', uid:(me() || {}).id || '',
-         at:Date.now(), dirty:true,
-         data:{region:'Ouest', district:s.district || '', site:s.facility || '',
-               staff:{}, staffExtra:[]}};
+         by:u.name || '', uid:u.id || '', at:Date.now(), dirty:true,
+         data: ahd
+           ? {profile:{site:s.facility || '', region:'Ouest', district:s.district || '',
+                       partner:'NACC', adate:todayISO(),
+                       team:[{name:u.name || '', fn:u.function || u.fn || ''}],
+                       entries:{}, checks:{}},
+              resp:{}, train:{}, acts:{}}
+           : {region:'Ouest', district:s.district || '', site:s.facility || '',
+              staff:{}, staffExtra:{}}};
+    if(!ahd) e.data.staffExtra = [];
     DB.d.formEntries.push(e);
   }
   e.dirty = true;
   if(!e.data) e.data = {};
-  if(!e.data.staff) e.data.staff = {};
-  if(!e.data.staffExtra) e.data.staffExtra = [];
+  if(ahd){
+    if(!e.data.profile) e.data.profile = {entries:{}, checks:{}, team:[]};
+    if(!e.data.profile.entries) e.data.profile.entries = {};
+    if(!e.data.profile.checks)  e.data.profile.checks = {};
+    if(!Array.isArray(e.data.profile.team)) e.data.profile.team = [];
+    if(!e.data.resp)  e.data.resp = {};
+    if(!e.data.train) e.data.train = {};
+    if(!e.data.acts)  e.data.acts = {};
+    /* the assessment date is the day the assessment was made: never the past,
+       never the future, so it is stamped once and not edited */
+    if(!e.data.profile.adate) e.data.profile.adate = todayISO();
+  }else{
+    if(!e.data.staff) e.data.staff = {};
+    if(!Array.isArray(e.data.staffExtra)) e.data.staffExtra = [];
+  }
   return e;
 }
+function todayISO(){ return new Date().toISOString().slice(0, 10); }
 function fmSet(formId, siteId, k, v){
   fmTouch(formId, siteId).data[k] = v; DB.save(); fmPaintProgress(formId, siteId);
 }
@@ -9726,6 +9839,12 @@ function fmSubmitted(formId){
 function fmProgress(formId, siteId){
   const f = fmForms().filter(x => x.id === formId)[0];
   if(!f || !f.layout) return {done:0, total:0, pct:0, missing:[]};
+  if(ahdIs(f)){
+    const sc = ahdScore(f.layout, (fmEntry(formId, siteId) || {}).data || {});
+    const done = sc.total - sc.missing;
+    return {done, total:sc.total, pct: sc.total ? Math.round(done / sc.total * 100) : 0,
+            missing:[]};
+  }
   const d = (fmEntry(formId, siteId) || {}).data || {};
   const cl = f.layout.sections[1], hd = f.layout.sections[0];
   let total = 0, done = 0;
@@ -9797,6 +9916,10 @@ async function fmSubmitDo(formId, siteId){
    ===================================================================== */
 function fmDownloadDialog(formId, siteId){
   if(!isSuper()){ toast('Downloading belongs to the regional team.', 3000); return; }
+  const f0 = fmForms().filter(x => x.id === formId)[0];
+  /* The AHD readiness tool comes out as the CDC workbook itself, one file per
+     site. There is no certification page to place, so there is nothing to ask. */
+  if(ahdIs(f0)) return ahdDownload(formId, siteId);
   const subs = fmSubmitted(formId);
   const one = siteId ? ((DB.d.sites || []).filter(x => x.id === siteId)[0] || {}) : null;
   if(!siteId && !subs.length){ toast('No site has been submitted yet.', 3000); return; }
@@ -10266,6 +10389,1028 @@ function fmBuildPdf(L, entries, opts){
   if(opts.cert === 'end') certPage();
 
   return doc.build();
+}
+
+/* Deleting a page — for a trial run, or a page entered against the wrong
+   facility. It is permanent and it is not the kind of thing to offer behind a
+   single tap, so the facility has to be named back before it goes. */
+function fmDeleteAsk(formId, siteId){
+  if(!isSuper()){ toast('Only the regional team can delete a page.', 3000); return; }
+  const e = fmEntry(formId, siteId); if(!e) return;
+  const site = (DB.d.sites || []).filter(x => x.id === siteId)[0] || {};
+  modal('Delete this page',
+    `<div class="banner b-err" style="margin:0 0 12px">
+       <b>${esc(site.facility || '')}</b> loses everything entered for this request —
+       here and in the workbook, for everyone. It cannot be undone.</div>
+     <p class="small" style="margin:0 0 6px">Filled by <b>${esc(e.by || '—')}</b>${
+       e.at ? ' on ' + esc(fmtDT(e.at)) : ''}.</p>
+     <label class="f"><span>Type the facility name to confirm</span>
+       <input id="fm-del" placeholder="${esc(site.facility || '')}" autocomplete="off"></label>`,
+    `<button class="btn sec" onclick="closeModal()">Cancel</button>
+     <button class="btn" style="background:#B3261E"
+       onclick="fmDeleteDo('${formId}','${siteId}')">Delete</button>`);
+}
+function fmDeleteDo(formId, siteId){
+  const e = fmEntry(formId, siteId); if(!e) return;
+  const site = (DB.d.sites || []).filter(x => x.id === siteId)[0] || {};
+  const typed = (($('#fm-del') || {}).value || '').trim().toLowerCase();
+  if(typed !== String(site.facility || '').trim().toLowerCase()){
+    toast('The name does not match — nothing was deleted.', 3500);
+    return;
+  }
+  DB.d.formEntries = DB.d.formEntries.filter(x => x.id !== e.id);
+  DB.save();
+  queue('formDelete', {id:e.id, byId:(me() || {}).id});
+  closeModal();
+  toast('Deleted — ' + (site.facility || ''), 3500);
+  go('#/fm');
+}
+
+/* =====================================================================
+   AHD SITE READINESS                                        (v4.9.0)
+
+   A second instrument on the same road. It shares the declarations'
+   storage, their sync and their verify/send-back flow, and it touches
+   no supervision — but it is answered differently, so it renders
+   differently: Yes / Partial / No / N/A rather than a tick, sixteen
+   domains, and six Domain 7 questions whose score is the sum of the six
+   opportunistic-infection lines beneath them.
+   ===================================================================== */
+
+function ahdIs(f){ return !!f && String((f.layout || {}).kind || '') === 'ahd'; }
+
+/* ---------------------------------------------------------------- scoring
+   The workbook's own rule, and only that rule:
+
+     numerator   Yes
+     denominator Yes + Partial + No
+     N/A         excluded from readiness, counted as answered
+     blank       missing
+
+   Partial is NOT half. The tool's SOP says so in terms — "Partial is not
+   counted as fully ready" — and the app must not publish a number the Excel
+   it generates would contradict. */
+function ahdScore(L, data){
+  const sec = L.sections[1];
+  const resp = (data && data.resp) || {};
+  const out = {dom:{}, ready:0, applicable:0, na:0, missing:0,
+               p1:0, gaps:0, total:0};
+
+  sec.items.forEach(it => {
+    if(it.parent) return;                       /* summaries are not scored */
+    out.total++;
+    const d = out.dom[it.d] || (out.dom[it.d] = {ready:0, applicable:0, na:0,
+                                                 missing:0, p1:0, gaps:0, total:0});
+    d.total++;
+    const v = String((resp[it.k] || {}).v || '');
+    if(v === 'Yes'){ out.ready++; out.applicable++; d.ready++; d.applicable++; }
+    else if(v === 'Partial' || v === 'No'){
+      out.applicable++; d.applicable++;
+      out.gaps++; d.gaps++;
+      if(it.p === 'P1'){ out.p1++; d.p1++; }
+    }
+    else if(v === 'N/A'){ out.na++; d.na++; }
+    else { out.missing++; d.missing++; }
+  });
+
+  const pct = o => o.applicable > 0 ? Math.round(o.ready / o.applicable * 1000) / 10 : null;
+  Object.keys(out.dom).forEach(k => { out.dom[k].pct = pct(out.dom[k]); });
+  out.pct = pct(out);
+  out.completeness = out.total ? Math.round((out.total - out.missing) / out.total * 1000) / 10 : 0;
+  out.band = ahdBand(L, out);
+  return out;
+}
+
+/* The band is not the percentage alone. A single unresolved P1 gap makes a
+   site critical whatever the score, and a score with blanks in it is not a
+   score at all — both are rules of the instrument, not decoration. */
+function ahdBand(L, sc){
+  if(sc.missing > 0) return {label:'Incomplete', c:'grey'};
+  if(sc.p1 > 0)      return {label:'Critical readiness gap', c:'red'};
+  const bands = ((L.scoring || {}).bands) || [];
+  const p = sc.pct === null ? 0 : sc.pct;
+  for(const b of bands) if(p >= b.min) return {label:b.label, c:b.c};
+  return {label:'Critical readiness gap', c:'red'};
+}
+
+/* ---- site tier, computed from TX_CURR, with the rule on screen --------
+   The intervals live in Settings, as the mentorship bands do, so a change of
+   definition is a change of setting rather than a new version of the app. */
+function ahdTiers(L){
+  const saved = (DB.d.config || {}).ahdTiers;
+  return (Array.isArray(saved) && saved.length) ? saved
+       : ((L && L.tiers) || [{t:'Tier 1',min:2000},{t:'Tier 2',min:1000},
+                             {t:'Tier 3',min:500},{t:'Tier 4',min:0}]);
+}
+function ahdTier(L, tx){
+  const n = Number(tx);
+  if(!isFinite(n) || String(tx).trim() === '') return '';
+  const tiers = ahdTiers(L).slice().sort((a, b) => b.min - a.min);
+  for(const t of tiers) if(n >= t.min) return t.t;
+  return tiers.length ? tiers[tiers.length - 1].t : '';
+}
+function ahdTierRule(L){
+  const t = ahdTiers(L).slice().sort((a, b) => b.min - a.min);
+  return t.map((x, i) => i === t.length - 1
+      ? x.t + ' < ' + t[i - 1].min
+      : (i === 0 ? x.t + ' ≥ ' + x.min
+                 : x.t + ' ' + x.min + '–' + (t[i - 1].min - 1))).join(' · ');
+}
+
+/* ---------------------------------------------------------------- the screen */
+function viewAhdFill(formId, siteId){
+  const f = fmForms().filter(x => x.id === formId)[0];
+  const s = (DB.d.sites || []).filter(x => x.id === siteId)[0];
+  if(!f || !s || !f.layout) return '<div class="banner b-err">This assessment is not available on this device.</div>';
+
+  const L = f.layout, e = fmTouch(formId, siteId), d = e.data;
+  const st = fmStatus(e);
+  const settled = st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED';
+  const lock = settled || String(f.status) !== 'OPEN' || !fmMayFill(f);
+  const dis = lock ? 'disabled' : '';
+  const sc = ahdScore(L, d);
+  const P = L.sections[0], C = L.sections[1], T = L.sections[2], A = L.sections[3];
+  const tab = AHD_TAB || 'profile';
+
+  const chip = b => '<span class="fmchip c-' + b.c + '">' + esc(b.label) + '</span>';
+
+  /* ---- profile ---- */
+  const prof = () => {
+    const p = d.profile;
+    const field = fl => {
+      const known = {site:s.facility, region:'Ouest', district:s.district};
+      if(fl.readonly && known[fl.k] !== undefined)
+        return `<label class="f"><span>${esc(fl.label)}</span>
+          <input class="ro" readonly value="${esc(known[fl.k])}"></label>`;
+      if(fl.k === 'adate')
+        return `<label class="f"><span>${esc(fl.label)}</span>
+          <input class="ro" readonly value="${esc(p.adate || todayISO())}">
+          <span class="xs muted">The day the assessment was made. It is stamped once.</span></label>`;
+      if(fl.k === 'tier')
+        return `<label class="f"><span>${esc(fl.label)}</span>
+          <input class="ro" readonly value="${esc(ahdTier(L, p.txcurr) || '—')}">
+          <span class="xs muted">From TX_CURR · ${esc(ahdTierRule(L))}
+            ${isSuper() ? '· <a href="#" onclick="ahdTierEdit();return false">change the intervals</a>' : ''}
+          </span></label>`;
+      if(fl.type === 'select')
+        return `<label class="f"><span>${esc(fl.label)}</span>
+          <select ${dis} onchange="ahdProf('${formId}','${siteId}','${fl.k}',this.value)">
+            <option value=""></option>
+            ${(fl.options || []).map(o => `<option ${p[fl.k] === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+          </select></label>`;
+      if(fl.type === 'people'){
+        const team = p.team || [];
+        return `<div class="f"><span>${esc(fl.label)}</span>
+          ${team.map((m, i) => `<div class="row" style="margin-bottom:6px">
+            <input style="flex:2 1 160px" placeholder="Name" value="${esc(m.name || '')}" ${dis}
+              oninput="ahdTeam('${formId}','${siteId}',${i},'name',this.value)">
+            <input style="flex:2 1 160px" placeholder="Function" value="${esc(m.fn || '')}" ${dis}
+              oninput="ahdTeam('${formId}','${siteId}',${i},'fn',this.value)">
+            ${lock || i === 0 ? '' : `<button class="btn sec sm" onclick="ahdTeamDel('${formId}','${siteId}',${i})">✕</button>`}
+          </div>`).join('')}
+          ${lock ? '' : `<button class="btn sec sm" onclick="ahdTeamAdd('${formId}','${siteId}')">＋ Add an assessor</button>`}
+          <span class="xs muted">You are added automatically. Add anyone else who assessed with you.</span>
+        </div>`;
+      }
+      return `<label class="f"><span>${esc(fl.label)}</span>
+        <input ${fl.type === 'number' ? 'inputmode="numeric"' : ''} ${dis}
+          value="${esc(p[fl.k] === undefined ? (fl.default || '') : p[fl.k])}"
+          oninput="ahdProf('${formId}','${siteId}','${fl.k}',this.value)"></label>`;
+    };
+
+    return `<div class="card">${P.fields.map(field).join('')}</div>
+
+    <div class="card">
+      <h4 style="margin:0 0 8px">${esc(P.entryTitle).replace(' (drop-down)', '')}</h4>
+      <div class="fmlist">${P.entries.map(en => `<label class="fmrow${
+          p.entries[en.k] ? ' seen' : ''}${p.entries[en.k] === 'YES' ? ' yes' : ''}">
+        <input type="checkbox" ${p.entries[en.k] === 'YES' ? 'checked' : ''} ${dis}
+          onchange="ahdEntry('${formId}','${siteId}','${en.k}',this.checked)">
+        <span class="fmlab">${esc(en.label)}</span></label>`).join('')}</div>
+      <p class="xs muted" style="margin:8px 0 0">Ticked means this entry point was assessed.</p>
+    </div>
+
+    <div class="card">
+      <h4 style="margin:0 0 8px">${esc(P.checkTitle)}</h4>
+      ${P.checks.map(c => {
+        const v = p.checks[c.k] || {};
+        return `<div class="ahdchk">
+          <div class="ahdchk-l">${esc(c.label)}</div>
+          <div class="row">
+            ${(P.checkOptions || ['Yes','No']).map(o => `<button class="seg-b${
+                v.v === o ? ' on' : ''}" ${dis}
+                onclick="ahdCheck('${formId}','${siteId}','${c.k}','${o}')">${esc(o)}</button>`).join('')}
+            <input style="flex:1 1 180px" placeholder="${esc(P.checkCols[1])}"
+              value="${esc(v.c || '')}" ${dis}
+              oninput="ahdCheckC('${formId}','${siteId}','${c.k}',this.value)">
+          </div></div>`;
+      }).join('')}
+    </div>`;
+  };
+
+  /* ---- the 141 ---- */
+  const checklist = () => {
+    const open = AHD_DOM || C.domains[0].n;
+    const nav = C.domains.map(dm => {
+      const ds = sc.dom[dm.n] || {};
+      return `<button class="ahddom${String(open) === String(dm.n) ? ' on' : ''}"
+        onclick="ahdDom('${dm.n}')"><b>${esc(dm.n)}</b>
+        <span>${ds.missing ? ds.missing + ' left' : (ds.pct === null ? '—' : ds.pct + '%')}</span></button>`;
+    }).join('');
+
+    const rows = C.items.filter(it => String(it.d) === String(open)).map(it => {
+      const a = (d.resp[it.k]) || {};
+      if(it.parent){
+        const kids = C.items.filter(x => x.no.indexOf(it.no + '.') === 0 && !x.parent);
+        const yes = kids.filter(x => String((d.resp[x.k] || {}).v) === 'Yes').length;
+        const app = kids.filter(x => ['Yes','Partial','No'].indexOf(String((d.resp[x.k] || {}).v)) >= 0).length;
+        return `<div class="ahdparent">
+          <div class="spread"><div><b>${esc(it.no)}</b> ${esc(it.q.split('\n')[0])}</div>
+          <span class="fmchip c-blue">${yes}/${app || kids.length}</span></div>
+          <p class="xs muted" style="margin:4px 0 0">Scored from the six lines below. It is not answered itself.</p>
+        </div>`;
+      }
+      const lines = it.q.split('\n').filter(x => x.trim());
+      return `<div class="ahditem${a.v ? ' answered' : ''}">
+        <div class="ahdq">
+          <span class="ahdno">${esc(it.no)}</span>
+          <span class="ahdpri p-${esc(it.p)}">${esc(it.p)}</span>
+          <span class="ahdtxt"><b>${esc(lines[0])}</b>${
+            lines.length > 1 ? '<span class="xs muted"><br>' + esc(lines.slice(1).join(' ')) + '</span>' : ''}</span>
+        </div>
+        <div class="row" style="margin-top:7px">
+          ${C.options.map(o => `<button class="seg-b${a.v === o ? ' on v-' + o.replace(/\W/g,'') : ''}" ${dis}
+            onclick="ahdResp('${formId}','${siteId}','${it.k}','${o}')">${esc(o)}</button>`).join('')}
+          ${a.v && !lock ? `<button class="seg-b" style="flex:0 0 auto;min-width:34px"
+            title="Clear this answer"
+            onclick="ahdRespClear('${formId}','${siteId}','${it.k}')">✕</button>` : ''}
+        </div>
+        ${(a.v === 'Partial' || a.v === 'No') ? `<div class="row" style="margin-top:7px">
+          <input style="flex:1 1 100%" placeholder="${esc(C.cols.ev)}" value="${esc(a.ev || '')}" ${dis}
+            oninput="ahdRespF('${formId}','${siteId}','${it.k}','ev',this.value)">
+          <input style="flex:1 1 150px" placeholder="${esc(C.cols.who)}" value="${esc(a.who || '')}" ${dis}
+            oninput="ahdRespF('${formId}','${siteId}','${it.k}','who',this.value)">
+          <input type="date" min="${todayISO()}" style="flex:1 1 150px" value="${esc(a.due || '')}" ${dis}
+            oninput="ahdRespF('${formId}','${siteId}','${it.k}','due',this.value)">
+          <span class="xs muted" style="flex:1 1 100%">Suggested by ${esc(it.p)}:
+            ${esc(ahdDue(L, it.p, d.profile.adate))}</span>
+        </div>` : (a.ev ? `<div class="xs muted" style="margin-top:6px">${esc(a.ev)}</div>` : '')}
+      </div>`;
+    }).join('');
+
+    return `<div class="card tight"><div class="ahddoms">${nav}</div></div>
+      <div class="card"><h4 style="margin:0 0 4px">${esc(
+        (C.domains.filter(x => String(x.n) === String(open))[0] || {}).name || '')}</h4>
+        ${rows}</div>`;
+  };
+
+  /* ---- staff training ---- */
+  const training = () => `
+    <div class="card">
+      <h4 style="margin:0 0 2px">${esc(T.title)}</h4>
+      <p class="xs muted" style="margin:0 0 10px">${esc(T.note)}</p>
+      <div class="tw"><table class="ahdmx">
+        <thead><tr><th>${esc(T.rowHeader)}</th>
+          ${T.topics.map(t => '<th>' + esc(t.label) + '</th>').join('')}
+          <th>${esc(T.dateLabel)}</th></tr></thead>
+        <tbody>${T.cadres.map(c => {
+          const r = d.train[c.k] || {};
+          return '<tr><td>' + esc(c.label) + '</td>'
+            + T.topics.map(t => `<td><select ${dis}
+                onchange="ahdTrain('${formId}','${siteId}','${c.k}','${t.k}',this.value)">
+                <option value=""></option>
+                ${T.options.map(o => `<option ${r[t.k] === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+              </select></td>`).join('')
+            + `<td><input type="date" value="${esc(r.date || '')}" ${dis}
+                 oninput="ahdTrain('${formId}','${siteId}','${c.k}','date',this.value)"></td></tr>`;
+        }).join('')}</tbody></table></div>
+    </div>`;
+
+  /* ---- the action plan, which writes itself ---- */
+  const actions = () => {
+    const gaps = C.items.filter(it => !it.parent &&
+      ['Partial','No'].indexOf(String((d.resp[it.k] || {}).v)) >= 0);
+    if(!gaps.length) return `<div class="card"><h4 style="margin:0 0 6px">${esc(A.title)}</h4>
+      <p class="small muted" style="margin:0">${esc(A.note)}</p>
+      <div class="banner b-ok" style="margin-top:10px">No Partial or No has been recorded yet,
+        so there is nothing to plan. Items appear here the moment they are answered that way.</div></div>`;
+    return `<div class="card">
+      <div class="spread"><h4 style="margin:0">${esc(A.title)}</h4>
+        <span class="fmchip c-amber">${gaps.length} gap${gaps.length === 1 ? '' : 's'}</span></div>
+      <p class="xs muted" style="margin:4px 0 10px">${esc(A.note)}</p>
+      ${gaps.map(it => {
+        const a = d.acts[it.k] || {}, r = d.resp[it.k] || {};
+        return `<div class="ahdgap">
+          <div class="spread"><div><span class="ahdno">${esc(it.no)}</span>
+            <span class="ahdpri p-${esc(it.p)}">${esc(it.p)}</span>
+            <b>${esc(r.v)}</b></div>
+            <span class="xs muted">by ${esc(ahdDue(L, it.p, d.profile.adate))}</span></div>
+          <div class="xs" style="margin:5px 0 7px">${esc(it.q.split('\n')[0])}</div>
+          <div class="row">
+            <input style="flex:1 1 100%" placeholder="${esc(A.user[0])}" value="${esc(a.action || '')}" ${dis}
+              oninput="ahdAct('${formId}','${siteId}','${it.k}','action',this.value)">
+            <input style="flex:1 1 150px" placeholder="${esc(A.user[1])}" value="${esc(a.who || '')}" ${dis}
+              oninput="ahdAct('${formId}','${siteId}','${it.k}','who',this.value)">
+            <input type="date" min="${todayISO()}" style="flex:1 1 150px" value="${esc(a.due || '')}" ${dis}
+              oninput="ahdAct('${formId}','${siteId}','${it.k}','due',this.value)">
+          </div></div>`;
+      }).join('')}
+    </div>`;
+  };
+
+  /* A person with one facility never passes the request screen, so their own
+     readiness has to be reachable from here or it is reachable from nowhere. */
+  const tabs = [['profile','Facility'], ['check','Checklist'],
+                ['train','Training'], ['act','Action plan'], ['dash','Readiness']];
+
+  return `
+  <div class="card tight fmhead">
+    <button class="btn sec sm" onclick="go('#/fm')">‹ Back</button>
+    <div class="spread" style="margin-top:8px;align-items:flex-start">
+      <div style="min-width:0"><h3 style="margin:0 0 2px">${esc(s.facility)}</h3>
+        <p class="small muted" style="margin:0">${esc(s.district)} · ${esc(L.title)}</p></div>
+      ${chip(sc.band)}
+    </div>
+    <div class="ahdstat">
+      <span><b>${sc.pct === null ? '—' : sc.pct + '%'}</b> readiness</span>
+      <span><b>${sc.missing}</b> unanswered</span>
+      <span><b>${sc.p1}</b> P1 gap${sc.p1 === 1 ? '' : 's'}</span>
+      <span><b>${sc.completeness}%</b> complete</span>
+    </div>
+    <div class="ahdtabs">${tabs.map(t => `<button class="${tab === t[0] ? 'on' : ''}"
+      onclick="ahdTab('${t[0]}')">${t[1]}</button>`).join('')}</div>
+  </div>
+
+  ${(e.sentBack && st === 'DRAFT') ? `<div class="banner b-warn">
+      <b>Sent back by ${esc(e.sentBack.by || 'the regional team')}</b>${
+        e.sentBack.at ? ' · ' + esc(fmtDT(e.sentBack.at)) : ''}
+      ${e.sentBack.why ? '<br>' + esc(e.sentBack.why) : ''}</div>` : ''}
+  ${!fmMayFill(f) ? '<div class="banner b-info">You can read, verify and download this '
+      + 'assessment. Filling it belongs to the people it was sent to.</div>' : ''}
+
+  ${tab === 'profile' ? prof() : tab === 'check' ? checklist()
+    : tab === 'train' ? training() : tab === 'act' ? actions()
+    : viewAhdDash(formId, siteId)}
+
+  ${fmActionBar(f, formId, siteId, e, st, settled)}`;
+}
+
+/* The suggested date: the assessment date plus the days the priority carries —
+   P1 30, P2 90, P3 180 — which is the workbook's own rule. */
+function ahdDue(L, pri, from){
+  const days = ((L.scoring || {}).days || {})[pri];
+  if(!days) return '—';
+  const d = new Date(from || todayISO());
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/* ---- the handlers: small, and each one repaints only what changed -------- */
+var AHD_TAB = 'profile', AHD_DOM = '';
+function ahdTab(t){ AHD_TAB = t; render(); try{ window.scrollTo(0, 0); }catch(e){} }
+function ahdDom(n){ AHD_DOM = String(n); render(); }
+
+function ahdProf(formId, siteId, k, v){
+  const e = fmTouch(formId, siteId); e.data.profile[k] = v; DB.save();
+  if(k === 'txcurr') render();            /* the tier is computed from it */
+}
+function ahdEntry(formId, siteId, k, on){
+  const e = fmTouch(formId, siteId);
+  e.data.profile.entries[k] = on ? 'YES' : 'NO'; DB.save();
+}
+function ahdCheck(formId, siteId, k, v){
+  const e = fmTouch(formId, siteId);
+  e.data.profile.checks[k] = Object.assign({}, e.data.profile.checks[k], {v});
+  DB.save(); render();
+}
+function ahdCheckC(formId, siteId, k, v){
+  const e = fmTouch(formId, siteId);
+  e.data.profile.checks[k] = Object.assign({}, e.data.profile.checks[k], {c:v}); DB.save();
+}
+function ahdTeam(formId, siteId, i, k, v){
+  const e = fmTouch(formId, siteId);
+  if(!e.data.profile.team[i]) e.data.profile.team[i] = {};
+  e.data.profile.team[i][k] = v; DB.save();
+}
+function ahdTeamAdd(formId, siteId){
+  const e = fmTouch(formId, siteId);
+  e.data.profile.team.push({name:'', fn:''}); DB.save(); render();
+}
+function ahdTeamDel(formId, siteId, i){
+  const e = fmTouch(formId, siteId);
+  e.data.profile.team.splice(i, 1); DB.save(); render();
+}
+function ahdResp(formId, siteId, k, v){
+  const e = fmTouch(formId, siteId);
+  /* Setting an answer sets it. It used to toggle — pressing Yes twice cleared
+     it — which is the same impatient double tap that was reported on Submit,
+     and here it would have quietly turned an answered line back into a blank
+     one. Un-answering is its own control, below. */
+  e.data.resp[k] = Object.assign({}, e.data.resp[k], {v: v});
+  DB.save(); render();
+}
+function ahdRespClear(formId, siteId, k){
+  const e = fmTouch(formId, siteId);
+  e.data.resp[k] = Object.assign({}, e.data.resp[k], {v: ''});
+  DB.save(); render();
+}
+function ahdRespF(formId, siteId, k, f, v){
+  const e = fmTouch(formId, siteId);
+  e.data.resp[k] = Object.assign({}, e.data.resp[k]); e.data.resp[k][f] = v; DB.save();
+}
+function ahdTrain(formId, siteId, c, t, v){
+  const e = fmTouch(formId, siteId);
+  e.data.train[c] = Object.assign({}, e.data.train[c]); e.data.train[c][t] = v; DB.save();
+}
+function ahdAct(formId, siteId, k, f, v){
+  const e = fmTouch(formId, siteId);
+  e.data.acts[k] = Object.assign({}, e.data.acts[k]); e.data.acts[k][f] = v; DB.save();
+}
+
+/* The tier intervals are a setting, like the mentorship bands. */
+function ahdTierEdit(){
+  const f = fmForms().filter(x => ahdIs(x))[0];
+  const t = ahdTiers(f && f.layout).slice().sort((a, b) => b.min - a.min);
+  modal('Site tier intervals',
+    `<p class="small muted" style="margin:0 0 10px">A site falls in the first tier whose
+       floor it reaches. The lowest tier takes everything below the one above it.</p>
+     ${t.map((x, i) => `<label class="f"><span>${esc(x.t)} — TX_CURR at least</span>
+       <input id="ahd-t${i}" inputmode="numeric" value="${esc(x.min)}"></label>`).join('')}
+     <p class="xs muted" style="margin:0">Applies to every assessment on this device from now on.</p>`,
+    `<button class="btn sec" onclick="closeModal()">Cancel</button>
+     <button class="btn" onclick="ahdTierSave()">Save</button>`);
+}
+function ahdTierSave(){
+  const f = fmForms().filter(x => ahdIs(x))[0];
+  const t = ahdTiers(f && f.layout).slice().sort((a, b) => b.min - a.min);
+  const next = t.map((x, i) => ({t:x.t, min:Math.max(0, Number((($('#ahd-t' + i) || {}).value) || 0))}));
+  for(let i = 1; i < next.length; i++){
+    if(next[i].min >= next[i - 1].min){
+      toast('Each tier must start below the one above it.', 3500); return;
+    }
+  }
+  DB.d.config.ahdTiers = next; DB.save(); closeModal();
+  toast('Tier intervals saved', 2500); render();
+}
+
+
+/* The bar at the foot of a site page. Both instruments use it: the words on it
+   depend on the state of the page, never on which instrument it belongs to. */
+function fmActionBar(f, formId, siteId, e, st, settled){
+  return `
+  <div class="card fmact">
+    ${st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED' ? `
+      <div class="fmdone">
+        <div class="fmdone-i">✓</div>
+        <div>
+          <b>${st === 'SUBMITTED' ? 'Submitted' : 'Verified'}</b>
+          <div class="xs muted">${esc(e.by || '')}${e.at ? ' · ' + esc(fmtDT(e.at)) : ''}${
+            st === 'SUBMITTED' ? ' · waiting to be verified' : ''}</div>
+        </div>
+      </div>` : ''}
+
+    <div class="row">
+      ${settled
+        ? (fmMayFill(f) && String(f.status) === 'OPEN'
+            ? `<button class="btn sec" onclick="fmReopen('${formId}','${siteId}')">Edit the submitted copy</button>`
+            : '')
+        : `<button class="btn sec" id="fm-draft" onclick="fmSave('${formId}','${siteId}','DRAFT')">Save draft</button>
+           <button class="btn" id="fm-sub" onclick="fmSubmit('${formId}','${siteId}')">Submit this site</button>`}
+      ${(isSuper() && st === 'SUBMITTED')
+        ? `<button class="btn" onclick="fmApprove('${formId}','${siteId}',true)">Verify and approve</button>` : ''}
+      ${(isSuper() && (st === 'SUBMITTED' || st === 'APPROVED'))
+        ? `<button class="btn sec" onclick="fmRevert('${formId}','${siteId}')">Send back to the site</button>` : ''}
+    </div>
+
+    ${isSuper() ? `<div class="row" style="margin-top:10px">
+      <button class="btn sec sm" ${st==='SUBMITTED'||st==='APPROVED'||st==='SIGNED' ? '' : 'disabled'}
+        onclick="fmDownloadDialog('${formId}','${siteId}')">⬇ Download this site…</button>
+      ${e.id ? `<button class="btn sec sm" style="color:#B3261E"
+        onclick="fmDeleteAsk('${formId}','${siteId}')">Delete this page</button>` : ''}
+      ${st==='DRAFT'||!st ? '<span class="xs muted">A site can be downloaded once it has been submitted.</span>' : ''}
+    </div>` : ''}
+
+
+  </div>`;
+}
+
+/* =====================================================================
+   READING AND WRITING A .xlsx, OFFLINE                      (v4.9.0)
+
+   The AHD export is not a spreadsheet the app invents. It is the
+   workbook CDC issued, with the answers written into its input cells —
+   so every formula, every dropdown, the colour bands, the charts and
+   the Readiness_Dashboard come back alive and recalculate when it opens.
+
+   To do that the app has to open a zip, decompress four sheets, edit
+   them and write the zip back. Everything it does not touch is copied
+   across still compressed, byte for byte, so the parts that matter most
+   and are hardest to reproduce are never re-encoded at all.
+
+   The inflate below is a plain DEFLATE decoder (RFC 1951). It is here
+   because the app must work with no network, and because pulling in a
+   compression library to read one file would cost more than the file.
+   ===================================================================== */
+
+function inflateRaw(src, start){
+  let pos = start || 0, bit = 0;
+  const out = [];
+  const bits = n => {                       /* n bits, least significant first */
+    let v = 0;
+    for(let i = 0; i < n; i++){
+      v |= ((src[pos] >> bit) & 1) << i;
+      if(++bit === 8){ bit = 0; pos++; }
+    }
+    return v;
+  };
+  /* A canonical Huffman table, built from code lengths alone — which is all
+     DEFLATE ever stores. counts[] says how many codes of each length; base[]
+     where each length starts in the sorted symbol list. */
+  const build = lens => {
+    const maxBits = Math.max.apply(null, lens);
+    const counts = new Array(maxBits + 1).fill(0);
+    lens.forEach(l => { if(l) counts[l]++; });
+    const offs = new Array(maxBits + 2).fill(0);
+    for(let i = 1; i <= maxBits; i++) offs[i + 1] = offs[i] + counts[i];
+    const sorted = new Array(lens.length);
+    lens.forEach((l, s) => { if(l) sorted[offs[l]++] = s; });
+    return {counts, sorted, maxBits};
+  };
+  const decode = t => {
+    let code = 0, first = 0, index = 0;
+    for(let len = 1; len <= t.maxBits; len++){
+      code |= bits(1);
+      const count = t.counts[len];
+      if(code - first < count) return t.sorted[index + (code - first)];
+      index += count; first = (first + count) << 1; code <<= 1;
+    }
+    throw new Error('bad Huffman code');
+  };
+
+  const LBASE = [3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258];
+  const LEXT  = [0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0];
+  const DBASE = [1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577];
+  const DEXT  = [0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13];
+
+  let fixedL = null, fixedD = null;
+  for(;;){
+    const last = bits(1), type = bits(2);
+    if(type === 0){                                    /* stored */
+      if(bit){ bit = 0; pos++; }
+      const len = src[pos] | (src[pos + 1] << 8);
+      pos += 4;
+      for(let i = 0; i < len; i++) out.push(src[pos++]);
+    }else{
+      let lt, dt;
+      if(type === 1){
+        if(!fixedL){
+          const l = new Array(288);
+          for(let i = 0; i < 144; i++) l[i] = 8;
+          for(let i = 144; i < 256; i++) l[i] = 9;
+          for(let i = 256; i < 280; i++) l[i] = 7;
+          for(let i = 280; i < 288; i++) l[i] = 8;
+          fixedL = build(l);
+          fixedD = build(new Array(30).fill(5));
+        }
+        lt = fixedL; dt = fixedD;
+      }else if(type === 2){
+        const hlit = bits(5) + 257, hdist = bits(5) + 1, hclen = bits(4) + 4;
+        const ORDER = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15];
+        const cl = new Array(19).fill(0);
+        for(let i = 0; i < hclen; i++) cl[ORDER[i]] = bits(3);
+        const ct = build(cl);
+        const lens = [];
+        while(lens.length < hlit + hdist){
+          const sym = decode(ct);
+          if(sym < 16) lens.push(sym);
+          else if(sym === 16){ const prev = lens[lens.length - 1];
+            let r = 3 + bits(2); while(r--) lens.push(prev); }
+          else if(sym === 17){ let r = 3 + bits(3); while(r--) lens.push(0); }
+          else { let r = 11 + bits(7); while(r--) lens.push(0); }
+        }
+        lt = build(lens.slice(0, hlit));
+        dt = build(lens.slice(hlit));
+      }else throw new Error('bad block type');
+
+      for(;;){
+        const sym = decode(lt);
+        if(sym === 256) break;
+        if(sym < 256){ out.push(sym); continue; }
+        const li = sym - 257;
+        const len = LBASE[li] + bits(LEXT[li]);
+        const ds = decode(dt);
+        const dist = DBASE[ds] + bits(DEXT[ds]);
+        const from = out.length - dist;
+        for(let i = 0; i < len; i++) out.push(out[from + i]);
+      }
+    }
+    if(last) break;
+  }
+  return new Uint8Array(out);
+}
+
+/* ---------------------------------------------------------------- CRC32 */
+let CRC_T = null;
+function crc32(buf){
+  if(!CRC_T){
+    CRC_T = new Int32Array(256);
+    for(let n = 0; n < 256; n++){
+      let c = n;
+      for(let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      CRC_T[n] = c;
+    }
+  }
+  let c = -1;
+  for(let i = 0; i < buf.length; i++) c = CRC_T[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ -1) >>> 0;
+}
+
+/* ---------------------------------------------------------------- the zip */
+function zipRead(bytes){
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  /* find the end-of-central-directory record, scanning back from the tail */
+  let eo = -1;
+  for(let i = bytes.length - 22; i >= 0 && i > bytes.length - 66000; i--){
+    if(dv.getUint32(i, true) === 0x06054b50){ eo = i; break; }
+  }
+  if(eo < 0) throw new Error('not a zip');
+  const n = dv.getUint16(eo + 10, true);
+  let p = dv.getUint32(eo + 16, true);
+  const entries = [];
+  const dec = new TextDecoder();
+  for(let i = 0; i < n; i++){
+    const nameLen = dv.getUint16(p + 28, true);
+    const extraLen = dv.getUint16(p + 30, true);
+    const cmtLen = dv.getUint16(p + 32, true);
+    const e = {
+      method: dv.getUint16(p + 10, true),
+      crc:    dv.getUint32(p + 16, true),
+      csize:  dv.getUint32(p + 20, true),
+      usize:  dv.getUint32(p + 24, true),
+      lho:    dv.getUint32(p + 42, true),
+      name:   dec.decode(bytes.subarray(p + 46, p + 46 + nameLen))
+    };
+    /* the local header tells us where the data really starts */
+    const ln = dv.getUint16(e.lho + 26, true), le = dv.getUint16(e.lho + 28, true);
+    e.data = bytes.subarray(e.lho + 30 + ln + le, e.lho + 30 + ln + le + e.csize);
+    entries.push(e);
+    p += 46 + nameLen + extraLen + cmtLen;
+  }
+  return entries;
+}
+function zipText(e){
+  const raw = e.method === 0 ? e.data : inflateRaw(e.data, 0);
+  return new TextDecoder().decode(raw);
+}
+/* Compress with what the browser already has. CompressionStream is in every
+   Chrome since 80, which is every phone in the field; where it is missing the
+   part is simply stored instead. A bigger file still opens — a wrong one does
+   not — so this never fails the export, it only makes it leaner. */
+async function deflateRaw(bytes){
+  if(typeof CompressionStream === 'undefined') return null;
+  try{
+    const cs = new CompressionStream('deflate-raw');
+    const w = cs.writable.getWriter();
+    w.write(bytes); w.close();
+    const chunks = [];
+    const rd = cs.readable.getReader();
+    for(;;){
+      const r = await rd.read();
+      if(r.done) break;
+      chunks.push(r.value);
+    }
+    let n = 0; chunks.forEach(c => n += c.length);
+    const out = new Uint8Array(n);
+    let at = 0; chunks.forEach(c => { out.set(c, at); at += c.length; });
+    return out;
+  }catch(e){ return null; }
+}
+
+/* Rebuild the archive: edited parts recompressed where the browser can,
+   everything else copied across exactly as it was, still compressed. */
+async function zipWrite(entries){
+  const enc = new TextEncoder();
+  const parts = [], dir = [];
+  let off = 0;
+  const u16 = v => [v & 255, (v >> 8) & 255];
+  const u32 = v => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+
+  for(const e of entries){
+    const name = enc.encode(e.name);
+    let method, data, crc, usize;
+    if(e.text !== undefined){
+      const raw = enc.encode(e.text);
+      crc = crc32(raw); usize = raw.length;
+      const z = await deflateRaw(raw);
+      if(z && z.length < raw.length){ data = z; method = 8; }
+      else { data = raw; method = 0; }
+    }else{
+      data = e.data; method = e.method; crc = e.crc; usize = e.usize;
+    }
+    const lh = [].concat(u32(0x04034b50), u16(20), u16(0), u16(method), u16(0), u16(0),
+                         u32(crc), u32(data.length), u32(usize),
+                         u16(name.length), u16(0));
+    parts.push(new Uint8Array(lh), name, data);
+    dir.push({name, method, crc, csize:data.length, usize, off});
+    off += lh.length + name.length + data.length;
+  }
+
+  const dirStart = off;
+  dir.forEach(d => {
+    const ch = [].concat(u32(0x02014b50), u16(20), u16(20), u16(0), u16(d.method),
+                         u16(0), u16(0), u32(d.crc), u32(d.csize), u32(d.usize),
+                         u16(d.name.length), u16(0), u16(0), u16(0), u16(0),
+                         u32(0), u32(d.off));
+    parts.push(new Uint8Array(ch), d.name);
+    off += ch.length + d.name.length;
+  });
+  const end = [].concat(u32(0x06054b50), u16(0), u16(0), u16(dir.length), u16(dir.length),
+                        u32(off - dirStart), u32(dirStart), u16(0));
+  parts.push(new Uint8Array(end));
+
+  let total = 0; parts.forEach(p2 => total += p2.length);
+  const out = new Uint8Array(total);
+  let at = 0; parts.forEach(p2 => { out.set(p2, at); at += p2.length; });
+  return out;
+}
+
+/* ---------------------------------------------------------------- cells
+   Every input cell already exists in the workbook, empty and styled. So a
+   value is written by replacing that cell in place, keeping its `s=` — write
+   a new cell instead and the formatting, the borders and the colour bands go
+   with it. Text goes in as an inline string so sharedStrings is never touched,
+   which keeps one more part of the file untouched byte for byte. */
+function xlEsc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function xlSet(xml, ref, value, numeric){
+  const re = new RegExp('<c r="' + ref + '"([^>]*?)(/>|>[\\s\\S]*?</c>)');
+  const m = re.exec(xml);
+  const v = value === undefined || value === null ? '' : String(value);
+  if(!m) return xml;                       /* a cell the template does not have */
+  const attrs = (m[1] || '').replace(/\s*t="[^"]*"/, '');
+  if(v === '') return xml.replace(re, '<c r="' + ref + '"' + attrs + '/>');
+  const body = numeric
+    ? '<c r="' + ref + '"' + attrs + '><v>' + xlEsc(v) + '</v></c>'
+    : '<c r="' + ref + '"' + attrs + ' t="inlineStr"><is><t xml:space="preserve">'
+      + xlEsc(v) + '</t></is></c>';
+  return xml.replace(re, body);
+}
+
+/* ------------------------------------------------- the AHD workbook, filled */
+async function ahdBuildXlsx(template, L, site, data){
+  const entries = zipRead(template);
+  const by = {};
+  entries.forEach(e => { by[e.name] = e; });
+
+  const P = L.sections[0], C = L.sections[1], T = L.sections[2];
+  const p = (data && data.profile) || {}, resp = (data && data.resp) || {},
+        train = (data && data.train) || {}, acts = (data && data.acts) || {};
+
+  /* ---- Facility_Profile ---- */
+  let s2 = zipText(by['xl/worksheets/sheet2.xml']);
+  const team = (p.team || []).filter(m => (m.name || '').trim())
+    .map(m => m.name + (m.fn ? ' (' + m.fn + ')' : '')).join('; ');
+  s2 = xlSet(s2, 'B5', site.facility);
+  s2 = xlSet(s2, 'E5', p.dama);
+  s2 = xlSet(s2, 'B6', 'Ouest');
+  s2 = xlSet(s2, 'D6', site.district);
+  s2 = xlSet(s2, 'F6', p.level);
+  s2 = xlSet(s2, 'B7', p.adate);
+  s2 = xlSet(s2, 'D7', ahdTier(L, p.txcurr));
+  s2 = xlSet(s2, 'F7', p.txcurr, true);
+  s2 = xlSet(s2, 'B8', team);
+  s2 = xlSet(s2, 'E8', p.partner || 'NACC');
+  P.entries.forEach((en, i) => {
+    s2 = xlSet(s2, 'B' + (11 + i), (p.entries || {})[en.k] || '');
+  });
+  P.checks.forEach((c, i) => {
+    const v = (p.checks || {})[c.k] || {};
+    s2 = xlSet(s2, 'E' + (11 + i), v.v || '');
+    s2 = xlSet(s2, 'F' + (11 + i), v.c || '');
+  });
+  by['xl/worksheets/sheet2.xml'].text = s2;
+
+  /* ---- Checklist ---- */
+  let s3 = zipText(by['xl/worksheets/sheet3.xml']);
+  C.items.forEach(it => {
+    if(it.parent) return;                  /* its Response cell holds a formula */
+    const a = resp[it.k] || {};
+    s3 = xlSet(s3, 'F' + it.row, a.v || '');
+    s3 = xlSet(s3, 'G' + it.row, a.ev || '');
+    s3 = xlSet(s3, 'H' + it.row, a.who || '');
+    s3 = xlSet(s3, 'I' + it.row, a.due || '');
+  });
+  by['xl/worksheets/sheet3.xml'].text = s3;
+
+  /* ---- Staff_Training ---- */
+  let s5 = zipText(by['xl/worksheets/sheet5.xml']);
+  const COL = ['B','C','D','E','F','G'];
+  T.cadres.forEach((c, r) => {
+    const row = train[c.k] || {};
+    T.topics.forEach((t, k) => { s5 = xlSet(s5, COL[k] + (6 + r), row[t.k] || ''); });
+    s5 = xlSet(s5, 'H' + (6 + r), row.date || '');
+  });
+  by['xl/worksheets/sheet5.xml'].text = s5;
+
+  /* ---- Action_Plan: the three columns the assessor fills ----
+     Columns A–I build themselves from the Checklist. The gap rows come out in
+     checklist order, so the Nth gap is row 4+N — which is how the workbook's
+     own COUNTIF numbering works. */
+  let s7 = zipText(by['xl/worksheets/sheet7.xml']);
+  const gaps = C.items.filter(it => !it.parent &&
+    ['Partial','No'].indexOf(String((resp[it.k] || {}).v)) >= 0);
+  gaps.forEach((it, i) => {
+    const a = acts[it.k] || {}, row = 5 + i;
+    s7 = xlSet(s7, 'J' + row, a.action || '');
+    s7 = xlSet(s7, 'K' + row, a.who || '');
+    s7 = xlSet(s7, 'L' + row, a.due || '');
+  });
+  by['xl/worksheets/sheet7.xml'].text = s7;
+
+  /* Excel rebuilds the calculation chain; a stale one can make it open the
+     file with the old results showing. Drop it and let Excel recalculate. */
+  const out = entries.filter(e => e.name !== 'xl/calcChain.xml');
+  const ct = out.filter(e => e.name === '[Content_Types].xml')[0];
+  if(ct) ct.text = zipText(ct).replace(
+    /<Override PartName="\/xl\/calcChain\.xml"[^>]*\/>/, '');
+
+  return await zipWrite(out);
+}
+
+/* ------------------------------------------------- the AHD download ------- */
+let AHD_TPL = null;
+async function ahdTemplate(){
+  if(AHD_TPL) return AHD_TPL;
+  /* precached by the service worker, so this works with no network */
+  const r = await fetch('ahd-template.xlsx', {cache:'force-cache'});
+  if(!r.ok) throw new Error('the workbook template is not on this device yet');
+  AHD_TPL = new Uint8Array(await r.arrayBuffer());
+  return AHD_TPL;
+}
+
+async function ahdDownload(formId, siteId){
+  if(!isSuper()){ toast('Downloading belongs to the regional team.', 3000); return; }
+  const f = fmForms().filter(x => x.id === formId)[0];
+  if(!f || !f.layout) return;
+  const subs = fmSubmitted(formId);
+  const sites = siteId ? subs.filter(s => s.id === siteId) : subs;
+  if(!sites.length){
+    toast(siteId ? 'This site has not been submitted yet.'
+                 : 'No site has been submitted yet.', 3500);
+    return;
+  }
+  toast('Building ' + sites.length + ' workbook' + (sites.length === 1 ? '' : 's') + '…', 2500);
+  let tpl;
+  try{ tpl = await ahdTemplate(); }
+  catch(err){
+    toast('The workbook template is not on this device yet. Connect once and try again.', 5000);
+    return;
+  }
+  const stamp = todayISO();
+  const safe = x => String(x || '').replace(/[^\w\-]+/g, '-').replace(/^-+|-+$/g, '');
+  for(const s of sites){
+    const e = fmEntry(formId, s.id) || {};
+    let bytes;
+    try{ bytes = await ahdBuildXlsx(tpl, f.layout, s, e.data || {}); }
+    catch(err){ toast('Could not build ' + s.facility + ': ' + err, 5000); continue; }
+    const blob = new Blob([bytes],
+      {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'AHD_' + safe(s.facility) + '_' + stamp + '.xlsx';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+    /* one file per site, and the browser needs a breath between downloads */
+    if(sites.length > 1) await new Promise(r => setTimeout(r, 450));
+  }
+  toast('✓ ' + sites.length + ' workbook' + (sites.length === 1 ? '' : 's') + ' downloaded', 4000);
+}
+
+/* =====================================================================
+   READINESS AT A GLANCE
+
+   The workbook's own dashboard is one site per file. Here the question is
+   the other one: across every site assessed so far, where are we? Three
+   tables, sites down the side:
+
+     1  the five minimum high-priority checks, and a verdict
+     2  readiness by domain
+     3  gaps, and how many cadres still need each training
+
+   Who sees what: a facility account sees its own site; everyone signed in
+   sees the region. It lives inside the request, so it leaves with it.
+   ===================================================================== */
+/* A column heading has to fit a column. The full wording is on the cell's
+   title, so nothing is lost — it is one hover or long-press away. */
+function ahdShort(label){
+  const head = String(label || '').split(':')[0];
+  const words = head.split(/[\s/&]+/).filter(Boolean);
+  const out = words.slice(0, 3).join(' ');
+  return out.length > 26 ? out.slice(0, 24) + '…' : out;
+}
+
+function ahdAssessed(formId){
+  const sites = isSuper() ? (DB.d.sites || []) : fmSitesFor();
+  return sites.filter(s => {
+    const st = fmStatus(fmEntry(formId, s.id));
+    return st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED';
+  });
+}
+
+function viewAhdDash(formId, onlySite){
+  const f = fmForms().filter(x => x.id === formId)[0];
+  if(!f || !f.layout) return '';
+  const L = f.layout, P = L.sections[0], C = L.sections[1], T = L.sections[2];
+  const rows = onlySite
+    ? (DB.d.sites || []).filter(s => s.id === onlySite)
+    : ahdAssessed(formId);
+  if(!rows.length) return `<div class="card">
+    <h4 style="margin:0 0 6px">Readiness at a glance</h4>
+    <p class="small muted" style="margin:0">No site has been submitted yet.
+      Each one appears here as it comes in.</p></div>`;
+
+  const data = rows.map(s => {
+    const e = fmEntry(formId, s.id) || {};
+    return {s, d:e.data || {}, sc: ahdScore(L, e.data || {})};
+  });
+
+  const pc = v => v === null || v === undefined ? '—' : v + '%';
+  const cell = (v, c) => '<td class="dcell d-' + (c || 'none') + '">' + v + '</td>';
+
+  /* ---- 1 · the five minimum high-priority checks ---- */
+  const t1 = `<div class="card">
+    <h4 style="margin:0 0 2px">${esc(P.checkTitle)}</h4>
+    <p class="xs muted" style="margin:0 0 9px">Ready on every one of the five, or not.</p>
+    <div class="tw"><table class="dash">
+      <thead><tr><th>Facility</th>
+        ${P.checks.map(c => '<th title="' + esc(c.label) + '">'
+            + esc(ahdShort(c.label)) + '</th>').join('')}
+        <th>Verdict</th></tr></thead>
+      <tbody>${data.map(x => {
+        const ch = (x.d.profile || {}).checks || {};
+        const vals = P.checks.map(c => String((ch[c.k] || {}).v || ''));
+        const allYes = vals.every(v => v === 'Yes');
+        const anyNo = vals.some(v => v === 'No');
+        return '<tr><td>' + esc(x.s.facility) + '</td>'
+          + vals.map(v => cell(v || '—', v === 'Yes' ? 'green' : v === 'No' ? 'red' : 'none')).join('')
+          + cell(allYes ? 'All five ready' : anyNo ? 'Gap' : 'Incomplete',
+                 allYes ? 'green' : anyNo ? 'red' : 'grey')
+          + '</tr>';
+      }).join('')}</tbody></table></div></div>`;
+
+  /* ---- 2 · readiness by domain ---- */
+  const t2 = `<div class="card">
+    <h4 style="margin:0 0 2px">Readiness by domain</h4>
+    <p class="xs muted" style="margin:0 0 9px">Yes ÷ (Yes + Partial + No), N/A excluded —
+      the workbook's own rule, so these are the figures the exported file shows.</p>
+    <div class="tw"><table class="dash">
+      <thead><tr><th>Facility</th>
+        ${C.domains.map(dm => '<th title="' + esc(dm.name) + '">D' + esc(dm.n) + '</th>').join('')}
+        <th>Overall</th><th>Band</th></tr></thead>
+      <tbody>${data.map(x => '<tr><td>' + esc(x.s.facility) + '</td>'
+        + C.domains.map(dm => {
+            const d2 = x.sc.dom[dm.n] || {};
+            const v = d2.pct;
+            return cell(v === null || v === undefined ? '—' : v + '%',
+              v === null || v === undefined ? 'none'
+              : v >= 90 ? 'green' : v >= 80 ? 'yellow' : v >= 60 ? 'amber' : 'red');
+          }).join('')
+        + cell('<b>' + pc(x.sc.pct) + '</b>', 'none')
+        + '<td><span class="fmchip c-' + x.sc.band.c + '">' + esc(x.sc.band.label) + '</span></td>'
+        + '</tr>').join('')}</tbody></table></div></div>`;
+
+  /* ---- 3 · gaps, and who still needs training ---- */
+  const t3 = `<div class="card">
+    <h4 style="margin:0 0 2px">Gaps and training still needed</h4>
+    <p class="xs muted" style="margin:0 0 9px">Training counts the cadres not yet
+      marked Yes on that topic — out of ${T.cadres.length}.</p>
+    <div class="tw"><table class="dash">
+      <thead><tr><th>Facility</th><th>All gaps</th><th>P1</th><th>Unanswered</th>
+        ${T.topics.map(t => '<th title="' + esc(t.label) + '">'
+            + esc(ahdShort(t.label)) + '</th>').join('')}
+      </tr></thead>
+      <tbody>${data.map(x => {
+        const tr = x.d.train || {};
+        return '<tr><td>' + esc(x.s.facility) + '</td>'
+          + cell(x.sc.gaps, x.sc.gaps ? 'amber' : 'green')
+          + cell(x.sc.p1, x.sc.p1 ? 'red' : 'green')
+          + cell(x.sc.missing, x.sc.missing ? 'grey' : 'green')
+          + T.topics.map(t => {
+              const need = T.cadres.filter(c => String((tr[c.k] || {})[t.k] || '') !== 'Yes').length;
+              return cell(need, need === 0 ? 'green' : need >= T.cadres.length / 2 ? 'red' : 'amber');
+            }).join('')
+          + '</tr>';
+      }).join('')}</tbody></table></div></div>`;
+
+  return `<div class="card tight">
+      <div class="spread"><h3 style="margin:0">Readiness at a glance</h3>
+        <span class="fmchip c-blue">${data.length} site${data.length === 1 ? '' : 's'}</span></div>
+      <p class="small muted" style="margin:6px 0 0">${
+        onlySite ? 'Your facility, as it stands now.'
+                 : isSuper() ? 'Every facility assessed so far.' : 'Your facility.'}</p>
+    </div>${t1}${t2}${t3}`;
 }
 
 </script>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ATHECS — Réparer / Repair</title>
+<title>ATHECS — Mettre à jour / Update</title>
 <style>
   body{margin:0;font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
        background:#F5F8FC;color:#0F1723;display:flex;align-items:center;
@@ -26,19 +26,20 @@
 <div class="card">
   <div id="busy">
     <div class="spin"></div>
-    <h1>Réparation en cours…</h1>
+    <h1>Mise à jour en cours…</h1>
     <p>Ne fermez pas cette page.</p>
-    <p class="en">Repairing. Do not close this page.</p>
+    <p class="en">Updating. Do not close this page.</p>
   </div>
 
   <div id="done" style="display:none">
-    <h1>C'est réparé</h1>
+    <h1>C'est à jour</h1>
     <div class="ok">
       <b>Rien n'a été perdu.</b> Votre compte, votre code PIN et vos supervisions —
       envoyées ou non — sont intacts.
       <div class="en" style="margin-top:6px">Nothing was lost: your account, your PIN and
       your supervisions, sent or not, are untouched.</div>
     </div>
+    <p id="ver" style="font-weight:600;color:#0B3C71"></p>
     <p id="what"></p>
     <p>L'application va s'ouvrir dans sa dernière version.</p>
     <p class="en">The app will now open in its latest version.</p>
@@ -46,7 +47,7 @@
   </div>
 
   <div id="fail" style="display:none">
-    <h1>Réparation incomplète</h1>
+    <h1>Mise à jour incomplète</h1>
     <div class="warn">
       Ce navigateur n'a pas laissé tout nettoyer. Essayez ceci, dans cet ordre :
       <div class="en" style="margin-top:6px">This browser did not allow a full clean.
@@ -67,11 +68,12 @@
 
 <script>
 /* =====================================================================
-   ATHECS — the rescue page.
+   ATHECS — the update page.
 
-   It exists for one situation: a browser whose cached copy of the app has
-   got stuck on an old version and will not move, whatever the supervisor
-   does. It empties the two things that can hold a stale copy — the service
+   One link, safe to send to everybody, whatever version their phone is
+   stuck on. It exists for one situation: a browser whose cached copy of
+   the app has got stuck on an old version and will not move, whatever the
+   supervisor does. It empties the two things that can hold a stale copy — the service
    worker registrations and the Cache Storage — and it deliberately does
    NOT touch the browser's local storage area, which is where the enrolment,
    the PIN and every unsent supervision live.
@@ -122,6 +124,16 @@ function go(){
     document.getElementById('fail').style.display = 'block';
     return;
   }
+  /* Say which version they are landing on. "It says it updated" is not the
+     same as "it updated", and the field has no other way to tell. */
+  try{
+    var r = await fetch('sw.js?u=' + Date.now(), {cache:'no-store'});
+    var txt = await r.text();
+    var m = /athecs-v(\d+)-(\d+)-(\d+)/.exec(txt);
+    if(m) document.getElementById('ver').textContent =
+      'Version ' + m[1] + '.' + m[2] + '.' + m[3];
+  }catch(e){}
+
   document.getElementById('what').textContent =
     killedSW + ' service worker(s) et ' + killedCache + ' cache(s) supprimés. / '
     + killedSW + ' worker(s) and ' + killedCache + ' cache(s) removed.';
