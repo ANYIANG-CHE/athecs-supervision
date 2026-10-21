@@ -1022,7 +1022,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.13.0';
+const APP_VERSION = '4.14.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -1248,12 +1248,37 @@ function appUpdateNow(){
     + '<p id="ath-up-log" style="margin:12px 0 0;opacity:.6;font-size:.75rem"></p></div>'
     + '<style>@keyframes athspin{to{transform:rotate(360deg)}}</style>';
   document.body.appendChild(box);
+  /* Then READ what is actually on the server, rather than announcing success.
+     The repair that reported "done" while the phone stayed on v4.6.0 is the
+     reason this exists: a message is not proof. The HTTP cache is refused on
+     this one read, and the version it finds goes into the address, so what
+     landed is visible without opening anything. */
   athecsPurge().then(function(r){
     var log = document.getElementById('ath-up-log');
     if(log) log.textContent = r.workers + ' worker(s) · ' + r.caches + ' cache(s)';
-    setTimeout(function(){
-      location.replace(location.pathname.replace(/[^/]*$/, '') + 'index.html?fresh=' + Date.now());
-    }, 700);
+    var dir = location.pathname.replace(/[^/]*$/, '');
+    return fetch(dir + 'index.html?_=' + Date.now(), {cache:'no-store', credentials:'omit'})
+      .then(function(res){ return res.text(); })
+      .then(function(t){
+        var m = /APP_VERSION\s*=\s*'([^']+)'/.exec(t);
+        return m ? m[1] : '';
+      })
+      .catch(function(){ return ''; })
+      .then(function(ver){
+        var h = document.getElementById('ath-up-h');
+        var p2 = document.getElementById('ath-up-p');
+        var fr2 = athecsFr();
+        if(h) h.textContent = ver ? (fr2 ? 'Version ' + ver : 'Version ' + ver)
+                                  : (fr2 ? 'Mise à jour terminée' : 'Update finished');
+        if(p2 && !ver) p2.textContent = fr2
+          ? 'La version n\'a pas pu être vérifiée — le réseau n\'a pas répondu.'
+          : 'The version could not be verified — the network did not answer.';
+        setTimeout(function(){
+          location.replace(dir + 'index.html'
+            + (ver ? '?v=' + encodeURIComponent(ver) + '&t=' + Date.now()
+                   : '?fresh=' + Date.now()));
+        }, ver ? 900 : 1500);
+      });
   });
 }
 
@@ -1299,7 +1324,14 @@ function appUpdateNow(){
     window.ATHECS_ASK_UPDATE = ask;
 
     window.addEventListener('load', function(){
-      navigator.serviceWorker.register('sw.js').then(function(reg){
+      /* A VERSIONED SCRIPT URL.
+         Registering the same 'sw.js' every time leaves the browser deciding,
+         by byte comparison, whether to replace a worker it already holds —
+         and a worker left behind by an uninstalled home-screen app is exactly
+         the case where that decision is not made. A URL that changes with the
+         release is a new worker identity, so the old registration is replaced
+         rather than inspected. */
+      navigator.serviceWorker.register('sw.js?v=' + APP_VERSION).then(function(reg){
         /* update() REJECTS when the host is unreachable — a daily event in the
            field. Unhandled, that rejection surfaces as a page error. */
         try{ var u = reg.update(); if(u && u.catch) u.catch(function(){}); }catch(e){}
