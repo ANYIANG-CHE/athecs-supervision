@@ -33,7 +33,7 @@
    Nothing here ever touches localStorage, where enrolment, PINs and
    every unsent supervision live. A cache purge is not a data loss. */
 
-const CACHE   = 'athecs-v4-13-0';
+const CACHE   = 'athecs-v4-14-0';
 const VKEY    = './__athecs_version__';  /* not a real file: a marker kept in the cache */
 const DOC     = './index.html';          /* the ONE key every document is stored under */
 const NET_MS  = 7000;                    /* a stalled connection gets this long, no more */
@@ -79,7 +79,7 @@ function verOf(text){
    own error page — and reset.html, whose whole job is to work when this
    worker is the problem, is no longer touched by it at all.
    ═══════════════════════════════════════════════════════════════════════════ */
-const STANDALONE = /(^|\/)(reset|update|dashboard)\.html$/i;
+const STANDALONE = /(^|\/)(reset|update|heal|dashboard)\.html$/i;
 
 function isDoc(req){
   let p;

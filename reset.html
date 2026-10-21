@@ -90,8 +90,27 @@
 var line = [];
 function note(s){ line.push(s); document.getElementById('log').textContent = line.join(' · '); }
 
+/* PROOF, NOT A MESSAGE.
+   This page used to say "it is up to date" and send the phone to
+   index.html?fresh=… without ever looking at what it had actually landed on.
+   A coordinator opened it, read the success text, and was still on v4.6.0 —
+   the page had no way of knowing and no way of saying so.
+   Now it fetches the document itself, with the HTTP cache refused, reads the
+   version out of it, and reports THAT. The address it then goes to carries
+   the version, so what arrived is visible without opening anything. */
+var LANDED_VER = '';
+async function readVersion(){
+  try{
+    var r = await fetch('index.html?_=' + Date.now(), {cache:'no-store', credentials:'omit'});
+    var t = await r.text();
+    var m = /APP_VERSION\s*=\s*'([^']+)'/.exec(t);
+    return m ? m[1] : '';
+  }catch(e){ return ''; }
+}
 function go(){
-  location.replace('index.html?fresh=' + Date.now());
+  var q = LANDED_VER ? ('?v=' + encodeURIComponent(LANDED_VER) + '&t=' + Date.now())
+                     : ('?fresh=' + Date.now());
+  location.replace('index.html' + q);
 }
 
 (async function(){
@@ -126,13 +145,12 @@ function go(){
   }
   /* Say which version they are landing on. "It says it updated" is not the
      same as "it updated", and the field has no other way to tell. */
-  try{
-    var r = await fetch('sw.js?u=' + Date.now(), {cache:'no-store'});
-    var txt = await r.text();
-    var m = /athecs-v(\d+)-(\d+)-(\d+)/.exec(txt);
-    if(m) document.getElementById('ver').textContent =
-      'Version ' + m[1] + '.' + m[2] + '.' + m[3];
-  }catch(e){}
+  LANDED_VER = await readVersion();
+  if(LANDED_VER)
+    document.getElementById('ver').textContent = 'Version ' + LANDED_VER;
+  else
+    document.getElementById('ver').textContent =
+      'Version : impossible à vérifier (réseau) / could not be verified (network)';
 
   document.getElementById('what').textContent =
     killedSW + ' service worker(s) et ' + killedCache + ' cache(s) supprimés. / '
