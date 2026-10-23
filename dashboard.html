@@ -106,6 +106,23 @@ h2{font-size:.95rem;margin:26px 0 3px;letter-spacing:-.01em}
 .pill{display:inline-block;font-size:.68rem;font-weight:650;padding:1px 7px;border-radius:999px;
       border:1px solid var(--line);color:var(--ink-2);margin-left:6px}
 
+/* ---------- the site-summary filter bar and its scroller ----------
+   Both of these were written once against an anchor that exists in the APP's
+   stylesheet and not in this page's, so the replace silently did nothing and
+   the table laid out unstyled and pushed a 390px phone 252px sideways. The
+   anchor below is asserted. A table whose columns are words is wider in French
+   than in English and wider again when a column is added, so it scrolls inside
+   its own box rather than pushing the page. */
+.scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+.scrollx table{min-width:460px}
+.filtbar{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:0 0 11px}
+.filtq{flex:1 1 150px;min-width:110px;max-width:100%;padding:8px 11px;font-size:.82rem;
+  border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
+.filtbar select{background:var(--surface);color:var(--ink);border:1px solid var(--line);
+  border-radius:9px;padding:7px 9px;font-size:.78rem;max-width:100%}
+.filtn{margin-left:auto;font-size:.72rem;color:var(--ink-3);font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+@media (max-width:560px){ .filtn{margin-left:0} }
 table{width:100%;border-collapse:collapse;font-size:.85rem}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
 th{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);
@@ -262,7 +279,15 @@ var T = {
        aFacs:'Sites évalués', aFacsSub:'Évaluations vérifiées, de la meilleure préparation à la plus faible. Les niveaux portent les termes de l’outil CDC et ne sont pas traduits, pour que la page et le fichier Excel disent la même chose.',
        aGaps:'Écarts', aP1c:'P1', aBand:'Niveau', aTrained:'Formés', aSlots:'sur',
        aPriv:'Cette section ne publie que des agrégats d’évaluations vérifiées. Elle ne contient aucun nom d’évaluateur, aucune preuve écrite, aucun plan d’action, aucun code DAMA, aucun effectif TX_CURR et aucune donnée sur un patient.',
-       aUnits:'éléments notés' },
+       aUnits:'éléments notés',
+       stTitle:'Où en est chaque formation sanitaire',
+       stSub:'Pour le cycle choisi, et seulement pour les formations sanitaires prévues. Des effectifs uniquement : aucun nom, aucun score tant qu\'une supervision n\'est pas validée.',
+       stAll:'Toutes', stFac:'Formation sanitaire', stDraft:'Brouillons', stWait:'En attente',
+       stVer:'Validées', stBack:'Retournées', stState:'État', stDup:'Doublon',
+       stNone:'Pas commencée', stStarted:'Commencée', stReturned:'Retournée',
+       stWaiting:'En attente de validation', stVerified:'Validée',
+       stDupOnly:'Doublons seulement', stNotStarted:'Pas commencées seulement',
+       stSupers:'supervision(s) plus ancienne(s) écartée(s) comme doublon' },
   en:{ title:'Integrated Supervision — Dashboard',
        cover:'Coverage', covSub:'Facilities supervised and validated, out of all active facilities.',
        score:'Regional score', scoreSub:'All sections, weighted.',
@@ -298,7 +323,15 @@ var T = {
        aFacs:'Sites assessed', aFacsSub:'Verified assessments, best readiness first. The level carries the CDC tool\u2019s own wording, so the page and the exported workbook say the same thing.',
        aGaps:'Gaps', aP1c:'P1', aBand:'Level', aTrained:'Trained', aSlots:'of',
        aPriv:'This section publishes aggregates of verified assessments only. It carries no assessor name, no written evidence, no action plan, no DAMA code, no TX_CURR count and no patient data.',
-       aUnits:'scored items' }
+       aUnits:'scored items',
+       stTitle:'Where each facility stands',
+       stSub:'For the chosen cycle, and only for the facilities it planned. Counts only: no names, and no score until a supervision has been verified.',
+       stAll:'All', stFac:'Facility', stDraft:'Drafts', stWait:'Waiting',
+       stVer:'Verified', stBack:'Returned', stState:'State', stDup:'Duplicate',
+       stNone:'Not started', stStarted:'Started', stReturned:'Returned',
+       stWaiting:'Waiting to be verified', stVerified:'Verified',
+       stDupOnly:'Duplicates only', stNotStarted:'Not started only',
+       stSupers:'older supervision(s) set aside as duplicates' }
 };
 function t(k){ return T[L ? 'fr' : 'en'][k]; }
 
@@ -542,8 +575,89 @@ function supHtml(j){
   }).join('') || '<tr><td colspan="5" style="color:var(--ink-3)">' + esc(t('none')) + '</td></tr>';
   h += '</tbody></table></div>';
 
+  /* ---- where every planned facility stands ----
+     Counts only. A draft is a supervisor still typing and its score belongs to
+     nobody, so no score is published for one; what is published is that it
+     exists, which is what tells the region a facility has started. */
+  const st = j.siteStates || [];
+  if(st.length){
+    const f = SFILT;
+    const rows = st.filter(x => {
+      if(f.d && x.district !== f.d) return false;
+      if(f.s === 'dup' && !x.duplicate) return false;
+      if(f.s === 'none' && x.state !== 'none') return false;
+      if(f.s && f.s !== 'dup' && f.s !== 'none' && x.state !== f.s) return false;
+      if(f.q && String(x.name + ' ' + x.district).toLowerCase()
+                  .indexOf(f.q.toLowerCase()) < 0) return false;
+      return true;
+    });
+    const dists = [...new Set(st.map(x => x.district))].sort();
+    h += '<h2>' + esc(t('stTitle')) + '</h2><p class="sub">' + esc(t('stSub'))
+       + (j.superseded ? ' <b>' + j.superseded + '</b> ' + esc(t('stSupers')) + '.' : '')
+       + '</p>';
+    h += '<div class="card" style="padding:12px 12px 0">'
+      + '<div class="filtbar">'
+      + '<input class="filtq" id="sfq" type="search" value="' + esc(f.q) + '" '
+      + 'placeholder="' + esc(t('stFac')) + '" oninput="sfSet(\'q\',this.value)">'
+      + '<select onchange="sfSet(\'d\',this.value)"><option value="">'
+      + esc(t('dist')) + '</option>'
+      + dists.map(d => '<option value="' + esc(d) + '"'
+          + (f.d === d ? ' selected' : '') + '>' + esc(d) + '</option>').join('')
+      + '</select>'
+      + '<select onchange="sfSet(\'s\',this.value)"><option value="">'
+      + esc(t('stState')) + '</option>'
+      + [['none', t('stNotStarted')], ['started', t('stStarted')],
+         ['returned', t('stReturned')], ['waiting', t('stWaiting')],
+         ['verified', t('stVerified')], ['dup', t('stDupOnly')]]
+          .map(o => '<option value="' + o[0] + '"'
+            + (f.s === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('')
+      + '</select>'
+      + '<span class="filtn">' + rows.length + ' / ' + st.length + '</span>'
+      + '</div>';
+    h += '<div class="scrollx"><table><thead><tr><th>' + esc(t('stFac')) + '</th>'
+      + '<th class="hide-s">' + esc(t('dist')) + '</th>'
+      + '<th class="num">' + esc(t('stDraft')) + '</th>'
+      + '<th class="num">' + esc(t('stWait')) + '</th>'
+      + '<th class="num">' + esc(t('stVer')) + '</th>'
+      + '<th class="hide-s num">' + esc(t('stBack')) + '</th>'
+      + '<th class="hide-s">' + esc(t('stState')) + '</th></tr></thead><tbody>';
+    const word = {none:t('stNone'), started:t('stStarted'), returned:t('stReturned'),
+                  waiting:t('stWaiting'), verified:t('stVerified')};
+    const dot  = {none:'var(--ink-3)', started:'var(--warn)', returned:'var(--crit)',
+                  waiting:'var(--warn)', verified:'var(--good)'};
+    h += rows.map(x =>
+      '<tr><td>' + esc(x.name)
+        + (x.duplicate ? ' <span class="pill">' + esc(t('stDup')) + '</span>' : '')
+        + '<span class="s-only"><span class="dot" style="background:' + dot[x.state]
+        + '"></span>' + esc(word[x.state]) + '</span></td>'
+      + '<td class="hide-s">' + esc(x.district) + '</td>'
+      + '<td class="num">' + (x.draft || '') + '</td>'
+      + '<td class="num">' + (x.submitted || '') + '</td>'
+      + '<td class="num">' + (x.approved || '') + '</td>'
+      + '<td class="hide-s num">' + (x.returned || '') + '</td>'
+      + '<td class="hide-s"><span class="dot" style="background:' + dot[x.state] + '"></span>'
+        + esc(word[x.state]) + '</td></tr>').join('')
+      || '<tr><td colspan="7" style="color:var(--ink-3)">' + esc(t('none')) + '</td></tr>';
+    h += '</tbody></table></div></div>';
+  }
+
   h += '<div class="note">' + esc(t('priv')) + '</div>';
   return h;
+}
+
+/* The site-summary filter. Kept out of the URL and out of storage: a filter
+   that survives a reload is a filter somebody forgets they set, and then
+   reports as missing data. */
+var SFILT = {q:'', d:'', s:''};
+function sfSet(k, v){
+  SFILT[k] = v;
+  const el = document.getElementById('sfq');
+  const caret = el ? el.selectionStart : null;
+  draw(DATA);
+  if(k === 'q'){
+    const again = document.getElementById('sfq');
+    if(again){ again.focus(); try{ again.setSelectionRange(caret, caret); }catch(e){} }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

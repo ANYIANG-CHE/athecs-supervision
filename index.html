@@ -775,6 +775,13 @@ tbody tr:hover{background:var(--brand-tint)}
 }
 @media(min-width:640px){.mask{align-items:center;padding:24px}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+/* A list of twenty districts inside a modal pushed Save below the fold on a
+   telephone: the person ticked three districts, found nothing to press, and had to
+   discover that the modal itself scrolls. The list gets its own scroll box instead,
+   so the ticking scrolls and the Save button never moves. */
+.scopelist{max-height:min(32vh,280px);overflow-y:auto;overscroll-behavior:contain;
+  border:1px solid var(--line);border-radius:var(--r-md);padding:4px 6px;
+  -webkit-overflow-scrolling:touch}
 .modal{
   background:var(--surface);border:1px solid var(--line);
   border-radius:var(--r-xl) var(--r-xl) 0 0;width:100%;max-width:660px;
@@ -1034,7 +1041,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.15.0';
+const APP_VERSION = '5.1.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -1600,6 +1607,10 @@ const DB = {
     if(!Array.isArray(d.forms))          d.forms = [];
     if(!Array.isArray(d.formEntries))    d.formEntries = [];
     if(!Array.isArray(d.formSignatures)) d.formSignatures = [];
+    /* A facility now belongs to a region. Every row the app has ever held is in the
+       West, so that is what a missing one reads as — never blank, because a blank
+       region is a facility that a regional console cannot see. */
+    if(Array.isArray(d.sites)) d.sites.forEach(s2=>{ if(s2 && !s2.region) s2.region='Ouest'; });
     if(!d.sites || !d.sites.length){
       d.sites = SEED_SITES.map((s,i)=>({
         id:'S'+String(i+1).padStart(3,'0'), district:s[0], area:s[1], facility:s[2],
@@ -1963,13 +1974,177 @@ const pc = v => { if(v===null||v===undefined||isNaN(v)) return '—';
 function toast(m,ms){ const t=$('#toast'); t.textContent=m; t.style.display='block';
   clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display='none', ms||2600); }
 function today(){ return new Date().toISOString().slice(0,10); }
-function fmtDT(ts){ const d=new Date(ts); return d.toLocaleDateString(LANG==='fr'?'fr-FR':'en-GB')+' '+d.toLocaleTimeString(LANG==='fr'?'fr-FR':'en-GB',{hour:'2-digit',minute:'2-digit'}); }
+/* A missing or unparseable timestamp used to render as 01/01/1970 00:00 —
+   the Unix epoch, printed in full, on a screen a coordinator is being asked to
+   trust. An empty cell coming back from a sync was enough to produce it. An
+   unknown time is now shown as unknown. */
+function fmtDT(ts){
+  if(ts === null || ts === undefined || ts === '' || ts === true || ts === false) return '—';
+  const d = new Date(ts);
+  if(isNaN(d.getTime()) || d.getTime() <= 0) return '—';
+  const loc = LANG==='fr'?'fr-FR':'en-GB';
+  return d.toLocaleDateString(loc)+' '+d.toLocaleTimeString(loc,{hour:'2-digit',minute:'2-digit'});
+}
 function me(){ return DB.d.session ? DB.d.users.find(u=>u.id===DB.d.session) : null; }
 /* An administrator IS a super user, plus the right to assign super users. Every
    existing isSuper() gate therefore keeps working unchanged for both roles. */
 function isSuper(){ const u=me(); return !!u && (u.role==='SUPER' || u.role==='ADMIN'); }
 function isAdmin(){ const u=me(); return !!u && u.role==='ADMIN'; }
 function isSlot(u){ return !!u && (u.role==='SUPER' || u.role==='ADMIN'); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LEVELS OF ACCESS
+
+   Until this release there was one level and one region: a super user saw the
+   West, all of it, because the West was all there was. The coordination team
+   is now district cluster leads, district mentors, M&E assistants, M&E
+   officers, the regional lead and the RTG coordinators — and other regions
+   are coming, with national staff above them.
+
+   Three fields carry all of that, and no more:
+
+     grade      district | region | national     HOW WIDE
+     regions[]  which regions, for a region grade
+     districts[] which districts, for a district grade   (the field that already existed)
+     title      free text: the job, for human beings
+
+   WHY title IS NOT A ROLE. A new job description must never be a new version
+   of this app, and must never be a new branch in a permission test. What
+   somebody may DO comes from `grade`; what they are CALLED comes from `title`.
+   "Chef de cluster de district" and "Coordonnateur RTG" are typed in, not
+   coded in.
+
+   WHY THE POWERS ARE A TABLE. Every capability is one line of data below.
+   Adding a power, or moving one between levels, is an edit to that table —
+   not a hunt through ten thousand lines for the gates that happen to guard
+   it. That is what "leave room for future needs" has to mean in a file this
+   size, or the room closes the first time somebody is in a hurry.
+
+   WHAT IS ENFORCED WHERE. The server sends a console only its own scope and
+   refuses the writes reserved above its level (Code.gs: scopeFor, RESERVED).
+   Everything here is the courtesy on top: a button nobody may press is not
+   shown. Both halves exist on purpose — hiding alone would be decoration,
+   and refusing alone would be a screen full of traps.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const GRADES = ['district','region','national'];
+const GRADE_RANK = {district:1, region:2, national:3};
+/* An account the workbook has never graded behaves at the level its kind has
+   always behaved at — administrators national, super users regional — so the
+   upgrade changes nothing for anybody until somebody is deliberately narrowed.
+   setup() writes these down in the workbook, so this is a safety net and not a
+   working state; it must therefore give TODAY'S answer, never a smaller one. */
+const GRADE_FALLBACK = {ADMIN:'national', SUPER:'region'};
+const REGION_DEFAULT = 'Ouest';
+const SCOPE_ALL = 'ALL';
+/* 'ALL' has always been what an unnarrowed slot's districts cell holds. It is a
+   sentinel, and must never be mistaken for a district of that name. */
+function scopeList(v){
+  const a = Array.isArray(v) ? v : String(v==null?'':v).split(',');
+  return a.map(x=>String(x).trim())
+          .filter(x=>x && x.toUpperCase()!==SCOPE_ALL);
+}
+function gradeOf(u){
+  if(!u) return '';
+  const g = String(u.grade||'').trim().toLowerCase();
+  if(GRADES.includes(g)) return g;
+  return GRADE_FALLBACK[String(u.role||'').toUpperCase()] || '';
+}
+function gradeLabel(g){
+  const L = LANG==='fr';
+  if(g==='national') return L?'National':'National';
+  if(g==='region')   return L?'Régional':'Regional';
+  if(g==='district') return L?'District':'District';
+  return L?'—':'—';
+}
+/* The job title if one has been typed, otherwise the level. Printed, never tested. */
+function postLabel(u){
+  const t = String((u&&u.title)||'').trim();
+  return t || gradeLabel(gradeOf(u));
+}
+
+/* ---- THE POWERS TABLE -------------------------------------------------------
+   One line per capability: the LOWEST level that holds it.
+
+   What a district-level console holds, as decided by the coordination team:
+   approving and returning supervisions in its districts; the dashboard and the
+   downloads for its districts; approving accounts in its districts; resolving
+   duplicate submissions and settling requests for the pen.
+
+   What stays with the regional and national team: opening, closing and planning
+   a cycle; editing and publishing the questionnaire; publishing an instrument;
+   deleting a page; deciding a facility creation or transfer request — an official
+   act carried by a document; and, at national level, giving somebody a privileged
+   account and setting anybody's level.
+
+   A capability that is not in this table is REFUSED, not granted: a typo must
+   disable a button rather than open a door. build.py asserts that every can('…')
+   written anywhere in this file appears here, so the typo is caught before it can
+   disable anything. */
+const POWERS = {
+  /* ---- district level and upwards: the work of a cycle ---- */
+  visitApprove:    'district',
+  visitReturn:     'district',
+  visitReopen:     'district',
+  dupResolve:      'district',
+  penGrant:        'district',
+  userApprove:     'district',
+  userSuspend:     'district',
+  userTransfer:    'district',
+  dashRegional:    'district',
+  dataDownload:    'district',
+  /* `formPublish` and `formOfficers` have no screen in the app yet — an instrument is
+     published, and its signing officers named, by typing into the workbook. They are
+     written down here because the server already reserves the matching writes, so the
+     day a screen for them exists it will find its line already in place. */
+  formApprove:     'district',
+  formReturn:      'district',
+  threadOpen:      'district',
+
+  /* ---- regional and upwards: the shape of the work ---- */
+  cycleManage:     'region',
+  cyclePlan:       'region',
+  questionEdit:    'region',
+  questionPublish: 'region',
+  formPublish:     'region',
+  formDelete:      'region',
+  formOfficers:    'region',
+  ahdTiers:        'region',
+  siteReqDecide:   'region',
+  /* Settings is NOT reserved. It holds the address of the server, and a console that
+     cannot be pointed at the server cannot do the things its own level does hold. */
+
+  /* ---- national: who holds a console at all ---- */
+  slotAssign:      'national',
+  scopeAssign:     'national'
+};
+function can(cap, u){
+  u = u || me();
+  if(!u || !isSlot(u)) return false;        // every line above is a console power
+  const need = POWERS[cap];
+  if(!need) return false;                   // unknown capability: refused, never granted
+  return (GRADE_RANK[gradeOf(u)]||0) >= (GRADE_RANK[need]||99);
+}
+/* The regions this console covers. null means every region — which is what a
+   national account has, and what today's regional team has while the West is the
+   only region in the workbook. */
+function myRegions(){
+  const u=me(); if(!u) return null;
+  /* null, NOT []. An empty district list has meant "nothing" since the day an emptied
+     supervisor silently saw the whole West, and every caller reads it that way — but an
+     empty REGION list has never meant anything of the kind, and read as "no region is in
+     scope" it rejects every facility on earth. A supervisor is placed by their districts
+     and their facility; regions do not narrow them. Returning [] here made
+     siteInScope() false for every facility on every field phone, which emptied the cycle
+     plan, the coverage denominator and the "not yet supervised" list. */
+  if(!isSlot(u)) return null;
+  const g=gradeOf(u);
+  if(g==='national') return null;
+  if(g==='region'){
+    const rs=scopeList(u.regions);
+    return rs.length ? rs : null;           // a region grade naming no region = the one region
+  }
+  return null;                              // a district grade is placed by its districts
+}
 
 /* =====================================================================
    ONE PERSON, TWO HATS
@@ -2098,6 +2273,98 @@ function myConflicts(){
   });
   return out;
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   WHICH FACILITIES THIS CYCLE IS ABOUT                           (v5.0.0)
+
+   Every coverage figure in this app divided by the whole register — 84
+   facilities — because nothing anywhere said which ones a cycle was actually
+   meant to cover. So a quarter in which 28 were planned and 28 were done read
+   as 33%, and "facilities never supervised" would have listed 56 sites nobody
+   ever intended to visit.
+
+   A cycle now carries its own list. It rides inside the cycle's `raw` column,
+   which saveCycle() already writes and reviveCycle() already reads, so there is
+   no new column, no setup() to run and nothing for an older phone to choke on:
+   a cycle with no list behaves exactly as before, which is every cycle that
+   exists today.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function activeSites(){
+  return (DB.d.sites || []).filter(s => s.status !== 'CLOSED');
+}
+/* The facilities this console is answerable for. A regional or national console gets
+   every one of them, which is what activeSites() has always returned — so nothing
+   changes for the people who have been using these screens. A district cluster lead
+   gets their districts, and their coverage is then counted against the facilities they
+   are actually responsible for instead of against all eighty-four: eleven of fourteen
+   is a figure somebody can act on, eleven of eighty-four is a figure that just looks
+   like failure. */
+function myActiveSites(){
+  return activeSites().filter(s => siteInScope(s.id));
+}
+/* The sites this cycle is meant to cover. No list means the whole register —
+   the behaviour every existing cycle already has. */
+function cyclePlan(c){
+  if(!c) return [];
+  const want = Array.isArray(c.planned) ? c.planned.filter(Boolean) : [];
+  if(!want.length) return myActiveSites().map(s => s.id);
+  /* myActiveSites() and not activeSites(): a closed facility leaves the plan, and so
+     does one that is not this console's business. The plan itself is the region's and
+     is never rewritten here — only the part of it this console is answerable for is
+     read back, so the coverage figure means something to the person reading it. */
+  const live = {}; myActiveSites().forEach(s => { live[s.id] = 1; });
+  return want.filter(id => live[id]);
+}
+function cyclePlanned(c){ return Array.isArray(c && c.planned) && c.planned.length > 0; }
+/* Planned, and with no supervision that counts. The coverage gap, named. */
+function cycleUnsupervised(c){
+  if(!c) return [];
+  const done = {};
+  DB.d.visits.forEach(v => { if(v.cycleId === c.id && countable(v)) done[v.siteId] = 1; });
+  return cyclePlan(c).filter(id => !done[id]).map(siteById).filter(Boolean);
+}
+function setCyclePlan(cid, siteId, on){
+  const c = DB.d.cycles.find(x => x.id === cid); if(!c) return;
+  /* Planning a cycle belongs to the regional team. The server refuses the write;
+     this stops the tick from looking as though it had worked. */
+  if(!can('cyclePlan')) return toast(LANG==='fr'
+    ? 'La planification du cycle appartient à l\'équipe régionale.'
+    : 'Planning the cycle belongs to the regional team.', 3400);
+  /* The first tick turns an implicit "everyone" into an explicit list, and it
+     starts from everyone — otherwise one tick would silently drop 83 sites out
+     of the quarter's denominator. */
+  if(!Array.isArray(c.planned) || !c.planned.length)
+    c.planned = activeSites().map(s => s.id);
+  const set = new Set(c.planned);
+  if(on) set.add(siteId); else set.delete(siteId);
+  c.planned = [...set];
+  DB.save(); queue('cycle', c); render();
+}
+function setCyclePlanDistrict(cid, district, on){
+  const c = DB.d.cycles.find(x => x.id === cid); if(!c) return;
+  /* Planning a cycle belongs to the regional team. The server refuses the write;
+     this stops the tick from looking as though it had worked. */
+  if(!can('cyclePlan')) return toast(LANG==='fr'
+    ? 'La planification du cycle appartient à l\'équipe régionale.'
+    : 'Planning the cycle belongs to the regional team.', 3400);
+  if(!Array.isArray(c.planned) || !c.planned.length)
+    c.planned = activeSites().map(s => s.id);
+  const set = new Set(c.planned);
+  activeSites().filter(s => s.district === district)
+    .forEach(s => { if(on) set.add(s.id); else set.delete(s.id); });
+  c.planned = [...set];
+  DB.save(); queue('cycle', c); render();
+}
+function cyclePlanAll(cid, on){
+  const c = DB.d.cycles.find(x => x.id === cid); if(!c) return;
+  /* Planning a cycle belongs to the regional team. The server refuses the write;
+     this stops the tick from looking as though it had worked. */
+  if(!can('cyclePlan')) return toast(LANG==='fr'
+    ? 'La planification du cycle appartient à l\'équipe régionale.'
+    : 'Planning the cycle belongs to the regional team.', 3400);
+  c.planned = on ? activeSites().map(s => s.id) : [];
+  DB.save(); queue('cycle', c); render();
+}
+
 function activeCycle(){ return DB.d.cycles.find(c=>c.status==='OPEN') || DB.d.cycles[0]; }
 function siteById(id){ return DB.d.sites.find(s=>s.id===id); }
 function audit(action, entity, detail){
@@ -2137,7 +2404,7 @@ function modal(title, bodyHTML, footHTML){
     <div class="modal" style="position:relative">
       <button class="btn sec sm mclose" onclick="closeModal()">✕</button>
       <h3>${esc(title)}</h3>
-      <div>${bodyHTML}</div>
+      <div id="modal-body">${bodyHTML}</div>
       ${footHTML? '<div class="row" style="margin-top:14px;justify-content:flex-end">'+footHTML+'</div>':''}
     </div></div>`;
 }
@@ -4098,6 +4365,12 @@ async function refreshSlots(loud){
      reads this. */
   DB.d.config.slotRoster = j.slots.map(sl => ({
     id:sl.id, label:sl.label, role:sl.role, name:sl.name||'', phone:sl.phone||'',
+    /* The level, the places and the job title. An older Code.gs sends none of these,
+       and gradeOf() then reports the level that kind of post has always behaved at —
+       so an administrator looking at this panel before the script is redeployed sees
+       the truth about the deployment they actually have, not a blank column. */
+    grade:String(sl.grade||''), regions:sl.regions||[],
+    districts:sl.districts||[], title:String(sl.title||''),
     assigned:!!sl.assigned, claimed:!!sl.claimed, active:sl.active!==false}));
   let n=0;
   j.slots.forEach(sl=>{
@@ -4113,11 +4386,24 @@ async function refreshSlots(loud){
     }
     if(!local){
       DB.d.users.push({id:sl.id, name:sl.name, role:sl.role, phone:sl.phone,
-        districts:'ALL', status:U_ACTIVE, active:true, pin:'',
+        districts:(sl.districts && sl.districts.length) ? sl.districts.slice() : 'ALL',
+        grade:String(sl.grade||''), regions:(sl.regions||[]).slice(),
+        title:String(sl.title||''),
+        status:U_ACTIVE, active:true, pin:'',
         claimed:sl.claimed, slot:true}); n++; return;
     }
     if(local.name!==sl.name){ local.name=sl.name; n++; }
     if(local.role!==sl.role){ local.role=sl.role; n++; }
+    /* THE LEVEL REACHES THE PHONE THAT HOLDS THE POST, and this is the only channel
+       by which it can: refreshMyState() returns early for a privileged account, so a
+       super user had no way at all to learn anything about themselves. A narrowing
+       must arrive on the narrowed person's own device, or the hidden buttons are
+       hidden on everybody's phone except theirs. */
+    if(sl.grade && local.grade!==sl.grade){ local.grade=String(sl.grade); n++; }
+    if(Array.isArray(sl.regions)) local.regions = sl.regions.slice();
+    if(Array.isArray(sl.districts))
+      local.districts = sl.districts.length ? sl.districts.slice() : 'ALL';
+    if(sl.title !== undefined) local.title = String(sl.title||'');
     if(sl.phone && local.phone!==sl.phone) local.phone=sl.phone;
     /* Reassigned to somebody else: the slot is unclaimed again, so this phone must
        let go of the PIN it was holding. */
@@ -4307,7 +4593,12 @@ async function refreshRoster(loud){
   const api=DB.d.config.api;
   if(!isSuper() || !api || !ONLINE){ if(loud) toast(T('offline')); return; }
   try{
-    const r=await fetch(api+'?action=users&token='+encodeURIComponent(apiToken()));
+    /* The roster is asked for BY NAME, because the server now answers it with the
+       accounts this console is answerable for and nothing else. Without the uid it
+       would hand back all twenty districts' identity details to a cluster lead — the
+       scoping would be in place everywhere except the one screen that shows people. */
+    const r=await fetch(api+'?action=users&token='+encodeURIComponent(apiToken())
+      +'&uid='+encodeURIComponent((me()||{}).id||''));
     const j=await r.json();
     if(applyReset(j)) return;
     if(!j || !j.ok || !Array.isArray(j.users)) { if(loud) toast('—'); return; }
@@ -4375,6 +4666,12 @@ function pushUser(u){
 function approveUser(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
   const L=LANG==='fr';
+  /* An enrolment is approved by the console that is answerable for the districts and
+     facilities on it. A district cluster lead approves their own districts' staff and
+     nobody else's: an identity document is not a thing to hand round the region. */
+  if(!can('userApprove') || !userInMyScope(u))
+    return toast(L?'Ce compte n\'est pas dans votre périmètre'
+                  :'That account is not in your scope', 3600);
   /* Every hat this account carries must have a real scope. An empty scope is not a
      harmless blank: an empty facility list shows the person nothing, and an empty
      district list used to show them the whole region. */
@@ -4406,6 +4703,9 @@ function rejectUser(uid){
 }
 function suspendUser(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
+  if(!can('userSuspend') || !userInMyScope(u))
+    return toast(LANG==='fr'?'Ce compte n\'est pas dans votre périmètre'
+                            :'That account is not in your scope', 3600);
   if(isSlot(u)) return toast(LANG==='fr'?'Un super utilisateur ne peut pas être désactivé ici'
                                                :'A super user cannot be deactivated here');
   const L=LANG==='fr';
@@ -4468,7 +4768,13 @@ function showTempPin(uid){
 }
 /* kept for older call sites */
 function issuePinReset(uid){ return resetPin(uid); }
-function transferUser(uid){ return editScope(uid); }
+function transferUser(uid){
+  const x=DB.d.users.find(y=>y.id===uid);
+  if(!can('userTransfer') || !userInMyScope(x))
+    return toast(LANG==='fr'?'Ce compte n\'est pas dans votre périmètre'
+                            :'That account is not in your scope', 3600);
+  return editScope(uid);
+}
 
 /* The server compares the code and never sends it back. */
 async function checkTempPin(uid, code){
@@ -6121,14 +6427,14 @@ function visitReview(v, sc){
       ${conflictOwner(v)?`<div style="margin-top:8px"><button class="btn dan sm" onclick="resolveConflictModal('${v.id}')">
         ${LANG==='fr'?'Choisir celle qui compte':'Choose the one that counts'}</button></div>`:''}
     </div>`:''}
-    ${isSuper()&&v.status==='SUBMITTED'&&!inConflict(v)?`<hr>
+    ${can('visitApprove')&&visitInScope(v)&&v.status==='SUBMITTED'&&!inConflict(v)?`<hr>
       <label class="f"><span>${LANG==='fr'?'Retour au superviseur':'Feedback to the supervisor'}</span>
         <textarea id="rv-note"></textarea></label>
       <div class="row"><button class="btn ok" onclick="approveVisit('${v.id}')">✓ ${
           LANG==='fr'?'Approuver la supervision':'Approve the supervision'}</button>
         <button class="btn dan" onclick="returnVisit('${v.id}')">↩ ${
           LANG==='fr'?'Retourner au superviseur':'Return to the supervisor'}</button></div>`:''}
-    ${isSuper()&&v.status==='APPROVED'?`<hr><button class="btn sec sm" onclick="reopenVisit('${v.id}')">
+    ${can('visitReopen')&&visitInScope(v)&&v.status==='APPROVED'?`<hr><button class="btn sec sm" onclick="reopenVisit('${v.id}')">
       ${LANG==='fr'?'Rouvrir (motif obligatoire)':'Reopen (reason required)'}</button>`:''}
     <hr>
     <button class="btn sec blk sm" onclick="exportVisit('${v.id}')">⇩ ${LANG==='fr'?'Exporter cette supervision (CSV)':'Export this visit (CSV)'}</button>
@@ -6221,6 +6527,15 @@ function submitVisit(vid){
 }
 function approveVisit(vid){
   const v=DB.d.visits.find(x=>x.id===vid);
+  /* ---- THE DECISION, AND WHOSE DECISION IT IS ------------------------------------
+     The button that leads here is already hidden at the wrong level and for the
+     wrong district, and the server already refuses to send this console a
+     supervision outside its scope. This is the last of the three, and it is the
+     one that holds when a screen was rendered before a narrowing arrived — a
+     console left open on a desk while an administrator changes its districts. */
+  if(!v || !can('visitApprove') || !visitInScope(v))
+    return toast(LANG==='fr'?'Cette supervision n\'est pas dans votre périmètre'
+                            :'That supervision is not in your scope', 3600);
   v.status='APPROVED'; v.reviewNote=($('#rv-note')||{}).value||''; v.reviewedBy=(me()||{}).name;
   v.reviewedAt=Date.now(); DB.save(); audit('VISIT_APPROVE','visit',siteById(v.siteId).facility);
   queue('visit',{visit:visitForSync(v), answers:answersForSync(vid), actions:visitActions(vid)}); postSiteMessage(v.siteId, (LANG==='fr'?'Supervision approuvée. ':'Visit approved. ')+(v.reviewNote||''));
@@ -6230,6 +6545,9 @@ function returnVisit(vid){
   const note=($('#rv-note')||{}).value||'';
   if(!note.trim()) return toast(LANG==='fr'?'Un retour écrit est obligatoire':'Written feedback is mandatory');
   const v=DB.d.visits.find(x=>x.id===vid);
+  if(!v || !can('visitReturn') || !visitInScope(v))
+    return toast(LANG==='fr'?'Cette supervision n\'est pas dans votre périmètre'
+                            :'That supervision is not in your scope', 3600);
   v.status='RETURNED'; v.reviewNote=note; v.reviewedBy=(me()||{}).name; v.reviewedAt=Date.now();
   v.updated=Date.now();
   DB.save(); audit('VISIT_RETURN','visit',note);
@@ -6335,6 +6653,9 @@ function resolveConflictModal(vid){
 async function doResolveConflict(keepId){
   const L=LANG==='fr';
   const v=DB.d.visits.find(x=>x.id===keepId); if(!v) return;
+  if(!can('dupResolve') || !visitInScope(v))
+    return toast(L?'Cette supervision n\'est pas dans votre périmètre'
+                  :'That supervision is not in your scope', 3600);
   if(!ONLINE) return toast(L?'Ce choix a besoin du réseau — réessayez avec du signal.'
                             :'This choice needs a network — try again with signal.', 4500);
   const api=DB.d.config.api;
@@ -6344,7 +6665,7 @@ async function doResolveConflict(keepId){
   let j=null;
   try{
     const r=await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({token:apiToken(), kind:'resolve', id:'RC-'+Date.now(),
+      body:JSON.stringify({token:apiToken(), uid:(me()||{}).id||'', kind:'resolve', id:'RC-'+Date.now(),
         payload:{keepId, byId:(me()||{}).id}})});
     j=await r.json();
   }catch(e){}
@@ -6835,7 +7156,7 @@ let DASH={cycle:'', district:'', site:''};
    The coordination team compares districts. A supervisor needs their own districts and,
    above all, the facility they have just supervised. So the dashboard splits in two, and a
    supervisor is never shown another district's figures. */
-function viewDash(){ return isSuper() ? viewDashRegional() : viewDashMine(); }
+function viewDash(){ return can('dashRegional') ? viewDashRegional() : viewDashMine(); }
 
 /* An EMPTY scope means NOTHING, never everything.
    This used to return null for an empty list, and every caller reads null as
@@ -6845,8 +7166,74 @@ function viewDash(){ return isSuper() ? viewDashRegional() : viewDashMine(); }
 function myDistricts(){
   const u=me();
   if(!u) return [];
-  if(isSlot(u)) return null;                    // the console: the whole region, on purpose
+  if(isSlot(u)){
+    /* A console, and now not necessarily the whole region. A district cluster lead,
+       a district mentor or an M&E assistant holds named districts and sees those;
+       a regional or national console holds the whole of what it was sent, which is
+       what null has always meant to every caller below. */
+    if(gradeOf(u)==='district'){
+      const ds=scopeList(u.districts);
+      return ds;                                // empty means NOTHING — see above
+    }
+    return null;                                // region / national: all of what it holds
+  }
   return Array.isArray(u.districts) ? u.districts : [];
+}
+/* Is this facility inside the signed-in person's scope? One definition, used by every
+   screen that has to decide whether a row may be touched as well as seen. The server
+   does not send out-of-scope rows at all, so this is belt and braces — and belt and
+   braces is exactly right for a rule that decides who may approve somebody's work. */
+function siteInScope(siteId){
+  /* NOBODY SIGNED IN IS NOT AN EMPTY SCOPE. myDistricts() answers [] for no user,
+     which every caller below it reads — correctly — as "sees no supervisions". Read
+     as a place test it would mean the opposite: no facility anywhere is in scope, so
+     the cycle plan would be empty, the coverage denominator would be nought and the
+     register would read zero of eighty-four on the landing screen. A scope narrows a
+     signed-in console; with nobody signed in there is nothing to narrow. */
+  const u = me(); if(!u) return true;
+  const s = siteById(siteId);
+  if(!s) return true;                           // a renamed facility is never hidden
+  const ds = myDistricts();
+  if(ds && !ds.includes(s.district)) return false;
+  const rs = myRegions();
+  if(rs && rs.length && !rs.includes(String(s.region||REGION_DEFAULT))) return false;
+  return true;
+}
+function visitInScope(v){ return !!v && siteInScope(v.siteId); }
+/* A page belongs to a facility, except for the region-level pages, which belong to
+   nobody's district and are therefore in everybody's scope. */
+function fmEntryInScope(e){ return !e || siteInScope(e.siteId); }
+/* An ACCOUNT inside this console's scope. A privileged account is always in — a
+   district lead must be able to see who the regional lead is — and an account with
+   no scope of its own is in everybody's, because an enrolment nobody can see is an
+   enrolment nobody can approve. Mirrors userInScope() in Code.gs exactly. */
+function userInMyScope(x){
+  const u=me(); if(!u || !x) return false;
+  if(String(x.id)===String(u.id) || isSlot(x)) return true;
+  const ds=myDistricts(); if(!ds) return true;          // region or national console
+  const xd=Array.isArray(x.districts)?x.districts:[];
+  const xs=Array.isArray(x.sites)?x.sites:[];
+  if(!xd.length && !xs.length) return true;
+  return xd.some(d=>ds.includes(d)) || xs.some(id=>siteInScope(id));
+}
+/* Every district the workbook knows about, inside this console's regions. The
+   facility list is the only register of districts there is, so it is read off that
+   rather than kept in a second place that could disagree with it. */
+function allDistricts(){
+  const rs = myRegions();
+  const seen = {};
+  (DB.d.sites||[]).forEach(s=>{
+    if(!s || !s.district) return;
+    if(rs && rs.length && !rs.includes(String(s.region||REGION_DEFAULT))) return;
+    seen[s.district] = 1;
+  });
+  return Object.keys(seen).sort((a,b)=>a.localeCompare(b));
+}
+function allRegions(){
+  const seen = {};
+  (DB.d.sites||[]).forEach(s=>{ const r=String((s&&s.region)||REGION_DEFAULT); if(r) seen[r]=1; });
+  if(!Object.keys(seen).length) seen[REGION_DEFAULT]=1;
+  return Object.keys(seen).sort((a,b)=>a.localeCompare(b));
 }
 /* every submitted supervision inside this person's districts, for the chosen cycle */
 function scopedVisits(cid){
@@ -7017,16 +7404,32 @@ function viewDashMine(){
   </div>`;
 }
 
+/* Changing the cycle clears the chosen facility: a facility that was planned
+   for one quarter may not be planned for the next, and a filter pointing at a
+   site that is not in the new cycle shows an empty screen with no explanation. */
+function dashPickCycle(v){ DASH.cycle = v; DASH.site = ''; render(); }
+
 function viewDashRegional(){
   const cycles=DB.d.cycles, u=me(), L=LANG==='fr';
   const cid=DASH.cycle||(activeCycle()||{}).id;
-  const inScope = v => !DASH.district || (siteById(v.siteId)||{}).district===DASH.district;
+  /* siteInScope() on top of the filters the screen offers. The server no longer sends
+     a district cluster lead anything outside their districts, and the prune has already
+     dropped whatever was sent before they were narrowed — so this is the third of three
+     and will almost never change an answer. It is here because "almost never" is not
+     the standard for a screen that decides whose work gets approved. */
+  const inScope = v => siteInScope(v.siteId)
+                    && (!DASH.district || (siteById(v.siteId)||{}).district===DASH.district)
+                    && (!DASH.site || v.siteId===DASH.site);
   let vs=DB.d.visits.filter(countable);
   if(cid) vs=vs.filter(v=>v.cycleId===cid);
   vs=vs.filter(inScope);
   const agg=vs.filter(v=>{ const s=siteById(v.siteId); return s && s.status==='ACTIVE'; });
-  const dis=[...new Set(DB.d.sites.map(s=>s.district))].sort();
-  const scopeLabelTxt = DASH.district || (L?'Toute la région':'The whole region');
+  const mineD=myDistricts();
+  const dis=[...new Set(DB.d.sites.filter(s=>siteInScope(s.id)).map(s=>s.district))].sort();
+  const scopeLabelTxt = DASH.district
+    || (mineD ? (mineD.length===1 ? mineD[0]
+                 : (L?'Mes districts':'My districts')+' ('+mineD.length+')')
+              : (L?'Toute la région':'The whole region'));
   // pooled regional
   const pool=poolOf;
   const rOverall=pool(agg,'overall'), rClin=pool(agg,'clinical'), rMne=pool(agg,'mne');
@@ -7052,11 +7455,46 @@ function viewDashRegional(){
   vs.forEach(v=>{ const sc=v.scores||visitScores(v);
     sc.sections.forEach(s=>{ const o=secAgg[s.sec]=secAgg[s.sec]||{n:0,d:0}; o.n+=s.n; o.d+=s.d; }); });
 
+  /* ---------- COVERAGE, AGAINST WHAT THE CYCLE PLANNED ----------------------
+     Not against the register. 28 of 28 planned is 100%; 28 of 84 registered is
+     33% and was the figure on this screen. */
+  const cycObj = cycles.filter(c=>c.id===cid)[0] || null;
+  const planIds = cycObj ? cyclePlan(cycObj) : [];
+  const planInScope = planIds.map(siteById).filter(s2 => s2
+      && (!DASH.district || s2.district===DASH.district)
+      && (!DASH.site || s2.id===DASH.site));
+  const doneIds = {}; vs.forEach(v => { doneIds[v.siteId] = 1; });
+  const covDone = planInScope.filter(s2 => doneIds[s2.id]).length;
+  const covPct = planInScope.length ? covDone/planInScope.length*100 : null;
+  const notYet = planInScope.filter(s2 => !doneIds[s2.id]);
+  const facOpts = (cycObj ? planIds.map(siteById) : DB.d.sites.slice())
+    .filter(s2 => s2 && (!DASH.district || s2.district===DASH.district))
+    .sort((a,b)=>String(a.facility).localeCompare(String(b.facility)));
+  const covCard = `<div class="card tight">
+    <div class="spread">
+      <div><b>${L?'Couverture':'Coverage'}</b>
+        <div class="xs muted">${L?'Supervisées ÷ prévues pour ce cycle':'Supervised ÷ planned for this cycle'}${
+          cycObj && !cyclePlanned(cycObj)
+            ? ' · ' + (L?'aucune liste définie : registre entier':'no list set: whole register')
+            : ''}</div></div>
+      <span class="chip ${covPct===null?'n':band(covPct)}">${
+        covDone} / ${planInScope.length}${covPct===null?'':' · '+pc(covPct)}</span>
+    </div>
+    ${notYet.length?`<details style="margin-top:8px">
+      <summary class="small" style="cursor:pointer">${notYet.length} ${
+        L?'pas encore supervisée(s)':'not yet supervised'}</summary>
+      <div class="list" style="margin-top:6px">${notYet.slice(0,40).map(s2=>`<div class="item">
+        <div style="min-width:0"><b>${esc(s2.facility)}</b>
+          <div class="s">${esc(s2.district)}</div></div></div>`).join('')}</div>
+      ${notYet.length>40?`<p class="xs muted">${L?'… et ':'… and '}${notYet.length-40}</p>`:''}
+    </details>`:''}
+  </div>`;
+
   return `
   <div class="card tight">
     <div class="row">
       <label class="f" style="flex:1;margin:0"><span>${T('cycle')}</span>
-        <select onchange="DASH.cycle=this.value;render()">
+        <select onchange="dashPickCycle(this.value)">
           ${cycles.map(c=>`<option value="${c.id}" ${cid===c.id?'selected':''}>${esc(c.name)} — ${esc(cyclePeriodLabel(c))}</option>`).join('')}
         </select></label>
       <label class="f" style="flex:1;margin:0"><span>${T('district')}</span>
@@ -7064,10 +7502,18 @@ function viewDashRegional(){
           <option value="">${L?'Tous':'All'}</option>
           ${dis.map(d=>`<option ${DASH.district===d?'selected':''}>${esc(d)}</option>`).join('')}
         </select></label>
+      <label class="f" style="flex:1;margin:0"><span>${L?'Formation sanitaire':'Facility'}</span>
+        <select onchange="DASH.site=this.value;render()">
+          <option value="">${L?'Toutes':'All'}</option>
+          ${facOpts.map(s2=>`<option value="${s2.id}" ${DASH.site===s2.id?'selected':''}>${
+            esc(s2.facility)}</option>`).join('')}
+        </select></label>
     </div>
     <p class="xs muted" style="margin:6px 0 0">${L?'Chiffres affichés pour : ':'Figures shown for: '}
       <b>${esc(scopeLabelTxt)}</b>${(agg.length?'':' · '+(L?'aucune supervision soumise sur cette période':'no supervision submitted for this period'))}</p>
   </div>
+
+  ${covCard}
 
   <div class="grid g3 rings" style="margin-bottom:13px">
     <div class="stat">${ring(rOverall,58,LANG==='fr'?'Score régional':'Regional score',
@@ -7178,7 +7624,7 @@ function viewChat(tid){
     <div>
       <div class="card tight">
         <div class="spread"><b>${T('chat')}</b>
-          ${isSuper()?`<button class="btn sm" onclick="newThreadModal()">＋</button>`:''}</div>
+          ${can('threadOpen')?`<button class="btn sm" onclick="newThreadModal()">＋</button>`:''}</div>
       </div>
       <div class="list">${th.map(t=>{
         const last=DB.d.messages.filter(m=>m.threadId===t.id).slice(-1)[0];
@@ -7400,19 +7846,77 @@ async function submitSiteReq(editId){
 function viewAdmin(tab){
   const L=LANG==='fr';
   const pend=DB.d.visits.filter(v=>v.status==='SUBMITTED').length;
-  const tabs=[['supervisions',(L?'Supervisions':'Supervisions')+(pend?' <span class="badge">'+pend+'</span>':'')],
-    ['cycles',L?'Cycles':'Cycles'],['approvals',L?'Validations':'Approvals'],
-    ['questions',L?'Questions':'Questions'],['sites',L?'Demandes de sites':'Site requests'],
-    ['users',L?'Utilisateurs':'Users'],['cfg',L?'Paramètres':'Settings'],
-    ['audit',L?'Journal':'Audit log']]
-    .concat(isAdmin()? [['slots', L?'Super utilisateurs':'Super users']] : []);
-  return `<div class="card tight"><h2 style="margin:0">${T('admin')}</h2></div>
+  /* ---- WHICH TABS THIS LEVEL HAS ------------------------------------------------
+     A district console keeps the work of a cycle — supervisions, approvals, accounts,
+     the Journal, the settings it needs to reach the server at all — and does not get
+     the tabs that shape the region's work. The server refuses those writes anyway;
+     hiding the tab is so that nobody spends an afternoon in a screen whose Save button
+     was never going to work.
+
+     Settings is deliberately NOT reserved: it holds the address of the server, and a
+     console that cannot be pointed at the server is a console that cannot do anything
+     at all — including the things its level does hold. */
+  const tabs=[['supervisions',(L?'Supervisions':'Supervisions')+(pend?' <span class="badge">'+pend+'</span>':'')]]
+    .concat(can('cycleManage')? [['cycles',L?'Cycles':'Cycles']] : [])
+    .concat([['approvals',L?'Validations':'Approvals']])
+    .concat(can('questionEdit')? [['questions',L?'Questions':'Questions']] : [])
+    .concat(can('siteReqDecide')? [['sites',L?'Demandes de sites':'Site requests']] : [])
+    .concat([['users',L?'Utilisateurs':'Users'],['cfg',L?'Paramètres':'Settings'],
+             ['audit',L?'Journal':'Audit log']])
+    .concat(can('slotAssign')? [['slots', L?'Super utilisateurs':'Super users']] : []);
+  /* A tab reached by a stored address rather than by pressing it — the hash survives a
+     reload, and a narrowing can arrive between the two. A name that is not a tab at all
+     lands on Supervisions; a tab that EXISTS but is above this level lands on the refusal
+     below, in words. Falling back for both would have hidden the explanation behind a
+     screen that silently showed something else. */
+  const ALL_TABS = ['supervisions','cycles','approvals','questions','sites',
+                    'users','cfg','audit','slots'];
+  if(!ALL_TABS.includes(tab)) tab = 'supervisions';
+  return `<div class="card tight"><div class="spread">
+      <h2 style="margin:0">${T('admin')}</h2>${scopeChip()}</div></div>
   <div class="secnav" id="tabnav">${tabs.map(t=>`<button class="${tab===t[0]?'on':''}" ${
     tab===t[0]?'disabled aria-current="page"':''} onclick="go('#/admin/${t[0]}')">${t[1]}</button>`).join('')}</div>
-  ${ tab==='slots'? (isAdmin()?admSlots():'<div class="banner b-err">Réservé à l\'administrateur.</div>')
-   : tab==='supervisions'?admVisits(): tab==='cycles'?admCycles(): tab==='approvals'?admApprovals()
-   : tab==='questions'?admQuestions()
-   : tab==='sites'?admSites(): tab==='users'?admUsers(): tab==='cfg'?admCfg(): admAudit() }`;
+  ${ tab==='slots'? (can('slotAssign')?admSlots():scopeDenied('slotAssign'))
+   : tab==='supervisions'?admVisits()
+   : tab==='cycles'?    (can('cycleManage')  ?admCycles()   :scopeDenied('cycleManage'))
+   : tab==='approvals'? admApprovals()
+   : tab==='questions'? (can('questionEdit') ?admQuestions():scopeDenied('questionEdit'))
+   : tab==='sites'?     (can('siteReqDecide')?admSites()    :scopeDenied('siteReqDecide'))
+   : tab==='users'?admUsers(): tab==='cfg'?admCfg(): admAudit() }`;
+}
+
+/* The level this console is working at, said once at the top of the screen rather
+   than left for somebody to deduce from which buttons are missing. A person who
+   knows they are a district console does not file a bug about the Cycles tab. */
+function scopeChip(){
+  const u=me(); if(!u || !isSlot(u)) return '';
+  const L=LANG==='fr', g=gradeOf(u), ds=myDistricts(), rs=myRegions();
+  const where = g==='national' ? (L?'toutes régions':'every region')
+              : ds ? (ds.length===1 ? ds[0] : ds.length+(L?' districts':' districts'))
+              : rs ? rs.join(', ')
+              : REGION_DEFAULT;
+  const bad = g==='district' && ds && !ds.length;
+  return `<span class="chip ${bad?'r':g==='district'?'a':'g'}" title="${
+    esc(postLabel(u))}">${esc(gradeLabel(g))} · ${esc(bad?(L?'aucun district':'no district'):where)}</span>`;
+}
+/* Refused, in words, with the reason and who to ask. A screen that simply is not
+   there teaches nobody anything; this one says what the level is, what the power
+   needs, and that the decision belongs to somebody by name. */
+function scopeDenied(cap){
+  const L=LANG==='fr', u=me()||{};
+  const need = POWERS[cap] || 'region';
+  const adm = (DB.d.config.slotRoster||[]).filter(x=>String(x.name||'').trim()
+                && (GRADE_RANK[gradeOf(x)]||0) >= (GRADE_RANK[need]||9));
+  return `<div class="banner b-warn">
+    <b>${L?'Hors de votre niveau d\'accès':'Above your access level'}</b>
+    <p class="small" style="margin:6px 0 0">${L
+      ?'Votre compte est au niveau <b>'+esc(gradeLabel(gradeOf(u)))+'</b>. Cette page appartient au niveau <b>'
+        +esc(gradeLabel(need))+'</b> et au-dessus. Le serveur refuse l\'enregistrement, pas seulement l\'écran.'
+      :'Your account is at <b>'+esc(gradeLabel(gradeOf(u)))+'</b> level. This page belongs to <b>'
+        +esc(gradeLabel(need))+'</b> level and above. The server refuses the write, not just the screen.'}</p>
+    ${adm.length?`<p class="small" style="margin:6px 0 0">${L?'À demander à : ':'Ask: '}${
+      adm.slice(0,4).map(x=>esc(x.name)+(x.phone?' ('+esc(x.phone)+')':'')).join(' · ')}</p>`:''}
+  </div>`;
 }
 
 /* ---------------------------------------------------------------------------
@@ -7433,14 +7937,30 @@ function admSlots(){
       : DB.d.users.filter(u=>isSlot(u)).map(u=>({id:u.id, role:u.role, name:u.name,
           phone:u.phone, claimed:u.claimed, assigned:!!String(u.name||'').trim()})))
     .sort((a,b)=> a.id<b.id ? -1 : 1);
+  /* An account that is narrowed to a district and has no district would see nothing
+     at all. The server refuses to create that state, so it can only arrive by hand in
+     the workbook — and when it does, the pull answers that account with everything
+     rather than with nothing, which is safe but is not what anybody intended. So it
+     is counted and said out loud here instead of sitting in a cell nobody reads. */
+  const noScope = slots.filter(x=>String(x.name||'').trim()
+                   && gradeOf(x)==='district' && !scopeList(x.districts).length);
   const row=u=>{
     const named=String(u.name||'').trim();
     const isA=u.role==='ADMIN';
+    const g=gradeOf(u), ds=scopeList(u.districts), rs=scopeList(u.regions);
+    const where = g==='national' ? (L?'toutes les régions':'every region')
+                : g==='region'   ? (rs.length?rs.join(', '):(L?'la région':'the region'))
+                : ds.length      ? ds.join(', ')
+                                 : (L?'⚠ aucun district':'⚠ no district');
     return `<div class="card tight">
       <div class="spread">
         <div style="min-width:0">
           <b>${named?esc(u.name):(L?'— non attribué —':'— unassigned —')}</b>
           <div class="xs muted">${esc(roleLabel(u.role))} · ${esc(u.id)}${u.phone?' · '+esc(u.phone):''}</div>
+          <div class="xs" style="margin-top:3px">
+            <span class="chip ${g==='district'?'a':'g'}">${esc(gradeLabel(g))}</span>
+            ${u.title?' <b>'+esc(u.title)+'</b>':''}
+            <span class="muted"> · ${esc(where)}</span></div>
         </div>
         <span class="chip ${!named?'n':u.claimed?'g':'a'}">${
           !named?(L?'libre':'free'):u.claimed?(L?'actif':'active'):(L?'à activer':'to activate')}</span>
@@ -7451,6 +7971,8 @@ function admSlots(){
       :`<div class="row" style="margin-top:9px">
           <button class="btn sm" ${ONLINE?'':'disabled'} onclick="assignSlotModal('${u.id}')">${
             named?(L?'⇄ Réattribuer':'⇄ Reassign'):(L?'＋ Attribuer':'＋ Assign')}</button>
+          <button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="scopeModal('${u.id}')">⚙ ${
+            L?'Niveau et périmètre':'Level and scope'}</button>
           ${named?`<button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="releaseSlotAsk('${u.id}')">⛔ ${
             L?'Retirer':'Withdraw'}</button>`:''}
         </div>`}
@@ -7460,8 +7982,15 @@ function admSlots(){
     <div class="spread"><h3>${L?'Comptes privilégiés':'Privileged accounts'}</h3>
       <button class="btn sm" ${ONLINE?'':'disabled'} onclick="refreshSlots(true)">↻ ${L?'Actualiser':'Refresh'}</button></div>
     <p class="small muted">${L
-      ?'Deux administrateurs et six super utilisateurs, pas davantage. Un compte n\'est jamais créé par la personne elle-même : il lui est <b>attribué</b>, et elle l\'active sur son téléphone avec un code à 6 chiffres. Aucun code PIN n\'existe par défaut, nulle part.'
-      :'Two administrators and six super users, no more. An account is never created by the person: it is <b>assigned</b> to them, and they activate it on their phone with a 6-digit code. No PIN exists by default, anywhere.'}</p>
+      ?'Deux administrateurs et vingt super utilisateurs, pas davantage. Un compte n\'est jamais créé par la personne elle-même : il lui est <b>attribué</b>, et elle l\'active sur son téléphone avec un code à 6 chiffres. Aucun code PIN n\'existe par défaut, nulle part.'
+      :'Two administrators and twenty super users, no more. An account is never created by the person: it is <b>assigned</b> to them, and they activate it on their phone with a 6-digit code. No PIN exists by default, anywhere.'}</p>
+    ${noScope.length?`<div class="banner b-warn">${L
+      ?'<b>'+noScope.length+' compte(s)</b> sont au niveau District sans aucun district : '
+       +esc(noScope.map(x=>x.name).join(', '))+'. Ces consoles ne montrent rien du tout. '
+       +'Ouvrez <b>Niveau et périmètre</b> et nommez leurs districts.'
+      :'<b>'+noScope.length+' account(s)</b> are at District level with no district: '
+       +esc(noScope.map(x=>x.name).join(', '))+'. Those consoles show nothing at all. '
+       +'Open <b>Level and scope</b> and name their districts.'}</div>`:''}
     ${!roster.length?`<div class="banner b-warn">${L
       ?'Cette liste n\'a pas encore été lue sur le serveur. Appuyez sur <b>Actualiser</b> : les postes libres n\'apparaissent qu\'à ce moment-là.'
       :'This list has not been read from the server yet. Press <b>Refresh</b>: free posts only appear then.'}</div>`:''}
@@ -7472,6 +8001,136 @@ function admSlots(){
       :'Withdrawing an account frees it immediately: the person\'s phone lets go of it by itself at its next connection and their PIN stops working. Their past decisions stay in the Journal.'}</p>
   </div>`;
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   NIVEAU ET PÉRIMÈTRE — the one screen where an access level is decided
+
+   The level is a choice between three words, and the places follow from it, so
+   the panel shows only the list that the chosen level actually uses. That is not
+   a cosmetic nicety: a district list left visible under a Regional level is an
+   invitation to fill it in and then wonder for a week why it had no effect.
+
+   The job title is free text and sits beside the level rather than inside it,
+   which is what makes "District cluster lead", "District mentor", "M&E assistant",
+   "M&E officer", "Regional lead" and "RTG Coordinator" six labels and not six
+   releases. A title printed on a screen is worth having; a title that quietly
+   decides what somebody may do is a trap, and this app does not have one.
+   ═══════════════════════════════════════════════════════════════════════════ */
+let SCOPE_DRAFT = {grade:'', regions:[], districts:[]};
+function scopeModal(slotId){
+  const L=LANG==='fr';
+  if(!can('scopeAssign')) return toast(L
+    ?'Fixer un niveau d\'accès appartient à l\'administrateur.'
+    :'Setting an access level belongs to the administrator.', 3600);
+  const roster = DB.d.config.slotRoster||[];
+  const u = roster.find(x=>x.id===slotId)
+         || DB.d.users.find(x=>x.id===slotId) || {id:slotId};
+  SCOPE_DRAFT = {grade: gradeOf(u) || 'region',
+                 regions: scopeList(u.regions).slice(),
+                 districts: scopeList(u.districts).slice()};
+  if(!SCOPE_DRAFT.regions.length) SCOPE_DRAFT.regions = [REGION_DEFAULT];
+  modal((L?'Niveau et périmètre — ':'Level and scope — ')+esc(u.name||slotId),
+    scopeBody(slotId, String(u.title||'')),
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn" onclick="doScopeSave('${slotId}')">${L?'Enregistrer':'Save'}</button>`);
+}
+function scopeBody(slotId, title){
+  const L=LANG==='fr', g=SCOPE_DRAFT.grade;
+  const regs=allRegions(), dsts=allDistricts();
+  const note = g==='national'
+      ? (L?'Voit et décide partout, dans toutes les régions, y compris celles qui seront ajoutées plus tard. C\'est le niveau qui attribue les comptes et fixe le périmètre des autres.'
+          :'Sees and decides everywhere, in every region, including the ones added later. This is the level that assigns the accounts and sets everybody else\'s scope.')
+    : g==='region'
+      ? (L?'Voit et décide dans les régions cochées. Ouvre et planifie les cycles, modifie et publie le questionnaire, publie les instruments, supprime une page, décide les demandes de formation sanitaire.'
+          :'Sees and decides in the regions ticked. Opens and plans the cycles, edits and publishes the questionnaire, publishes the instruments, deletes a page, decides facility requests.')
+      : (L?'Voit et décide uniquement dans les districts cochés : approuver et renvoyer les supervisions, le tableau de bord et les téléchargements, approuver les comptes, résoudre les doublons et accorder la main. Les cycles, le questionnaire et les instruments restent à l\'équipe régionale.'
+          :'Sees and decides only in the districts ticked: approve and send back supervisions, the dashboard and the downloads, approve accounts, resolve duplicates and grant the pen. Cycles, the questionnaire and the instruments stay with the regional team.');
+  const tick=(kind,v,on)=>`<label class="yn-row" style="gap:8px">
+      <input type="checkbox" ${on?'checked':''} onchange="scopeTick('${kind}',${JSON.stringify(v).replace(/"/g,'&quot;')},this.checked)">
+      <span>${esc(v)}</span></label>`;
+  return `
+  <label class="f"><span>${L?'Niveau':'Level'}</span>
+    <select class="fit" onchange="scopePickGrade(this.value,'${slotId}')">
+      ${GRADES.map(x=>`<option value="${x}" ${g===x?'selected':''}>${esc(gradeLabel(x))}</option>`).join('')}
+    </select></label>
+  <p class="xs muted" style="margin:-4px 0 10px">${note}</p>
+
+  <label class="f"><span>${L?'Fonction (texte libre)':'Job title (free text)'}</span>
+    <input type="text" id="sc-title" maxlength="80" value="${esc(title||'')}"
+      placeholder="${L?'Chef de cluster de district, Mentor de district, Assistant S&E…'
+                     :'District cluster lead, District mentor, M&E assistant…'}"></label>
+  <p class="xs muted" style="margin:-4px 0 12px">${L
+    ?'Imprimé sur les écrans. Ne décide de rien : ce sont le niveau et le périmètre qui décident.'
+    :'Printed on the screens. Decides nothing: the level and the scope decide.'}</p>
+
+  ${g==='national' ? `<div class="banner b-ok">${L
+      ?'Aucun périmètre à choisir : le niveau national couvre tout.'
+      :'No scope to choose: the national level covers everything.'}</div>`
+  : g==='region' ? `<div class="card tight"><h3 class="xs">${L?'Régions':'Regions'}</h3>
+      <div class="scopelist">${regs.map(r=>tick('region', r, SCOPE_DRAFT.regions.includes(r))).join('')}</div>
+      <p class="xs muted" style="margin:6px 0 0">${L
+        ?'Une région apparaît ici dès qu\'une formation sanitaire y est enregistrée. Ajouter une région est donc de la saisie, pas une mise à jour de l\'application.'
+        :'A region appears here as soon as a facility is registered in it. Adding a region is therefore data entry, not an app update.'}</p></div>`
+  : `<div class="card tight"><h3 class="xs">${L?'Districts':'Districts'} <span class="badge">${
+        SCOPE_DRAFT.districts.length}</span></h3>
+      ${dsts.length?'<div class="scopelist">'
+          +dsts.map(d=>tick('district', d, SCOPE_DRAFT.districts.includes(d))).join('')+'</div>'
+        :`<p class="small muted">${L?'Aucun district connu sur cet appareil. Synchronisez d\'abord.'
+                                    :'No district known on this device. Synchronise first.'}</p>`}
+      <p class="xs muted" style="margin:6px 0 0">${L
+        ?'Un chef de cluster et un assistant S&E peuvent couvrir plusieurs districts : cochez-en autant qu\'il faut.'
+        :'A cluster lead and an M&E assistant may cover several districts: tick as many as needed.'}</p></div>`}`;
+}
+function scopePickGrade(v, slotId){
+  if(!GRADES.includes(v)) return;
+  SCOPE_DRAFT.grade = v;
+  /* The title is typed into the panel that is about to be rebuilt, so it is read out
+     first. Losing somebody's typing because they changed a dropdown is the sort of
+     small insult that makes people stop using a screen. */
+  const t = ($('#sc-title')||{}).value || '';
+  const box = $('#modal-body');
+  if(box) box.innerHTML = scopeBody(slotId, t);
+}
+function scopeTick(kind, v, on){
+  const key = kind==='region' ? 'regions' : 'districts';
+  const a = SCOPE_DRAFT[key].filter(x=>x!==v);
+  if(on) a.push(v);
+  SCOPE_DRAFT[key] = a.sort((x,y)=>x.localeCompare(y));
+  /* Only the counter moves, so the list is NOT rebuilt: rebuilding it here would
+     scroll a twenty-district list back to the top on every single tick. */
+  const b = $('#modal-body');
+  if(b){ const n = b.querySelector('.badge'); if(n) n.textContent = SCOPE_DRAFT.districts.length; }
+}
+async function doScopeSave(slotId){
+  const L=LANG==='fr', g=SCOPE_DRAFT.grade;
+  const title = String((($('#sc-title')||{}).value)||'').trim().slice(0,80);
+  if(g==='region' && !SCOPE_DRAFT.regions.length)
+    return toast(L?'Cochez au moins une région':'Tick at least one region', 3200);
+  if(g==='district' && !SCOPE_DRAFT.districts.length)
+    return toast(L?'Cochez au moins un district — sinon cette console ne montre rien'
+                  :'Tick at least one district — otherwise that console shows nothing', 4200);
+  const me0 = me()||{};
+  queue('scopeSet', {id:slotId, byId:me0.id, what:'GRADE', grade:g,
+                     regions:SCOPE_DRAFT.regions.slice(),
+                     districts:SCOPE_DRAFT.districts.slice(), title:title});
+  audit('SCOPE_SET','user', slotId+' → '+g+
+        (g==='district'?' ('+SCOPE_DRAFT.districts.join(', ')+')'
+        :g==='region'  ?' ('+SCOPE_DRAFT.regions.join(', ')+')':'')+
+        (title?' · '+title:''));
+  /* Shown at once on this console so the change is visible, and confirmed by the
+     server's own answer on the next refresh — never the other way round. */
+  const r = (DB.d.config.slotRoster||[]).find(x=>x.id===slotId);
+  if(r){ r.grade=g; r.title=title;
+         r.regions=SCOPE_DRAFT.regions.slice();
+         r.districts = g==='district' ? SCOPE_DRAFT.districts.slice() : []; }
+  const loc = DB.d.users.find(x=>x.id===slotId);
+  if(loc){ loc.grade=g; loc.title=title; loc.regions=SCOPE_DRAFT.regions.slice();
+           if(g==='district') loc.districts=SCOPE_DRAFT.districts.slice(); }
+  DB.save(); closeModal(); render();
+  toast(L?'Niveau enregistré — il s\'appliquera au prochain passage de ce téléphone'
+         :'Level saved — it takes effect the next time that phone connects', 4000);
+  if(ONLINE) setTimeout(()=>refreshSlots(false), 1500);
+}
+
 function assignSlotModal(slotId){
   const L=LANG==='fr';
   const u=DB.d.users.find(x=>x.id===slotId)||{};
@@ -7502,7 +8161,7 @@ async function doAssignSlot(slotId){
   let j=null;
   try{
     const r=await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({token:apiToken(), kind:'assign', id:'AS-'+Date.now(),
+      body:JSON.stringify({token:apiToken(), uid:(me()||{}).id||'', kind:'assign', id:'AS-'+Date.now(),
         payload:{slotId, name, phone, byId:(me()||{}).id}})});
     j=await r.json();
   }catch(e){}
@@ -7539,7 +8198,7 @@ async function doReleaseSlot(slotId){
   let j=null;
   try{
     const r=await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({token:apiToken(), kind:'release', id:'RL-'+Date.now(),
+      body:JSON.stringify({token:apiToken(), uid:(me()||{}).id||'', kind:'release', id:'RL-'+Date.now(),
         payload:{slotId, byId:(me()||{}).id}})});
     j=await r.json();
   }catch(e){}
@@ -7567,6 +8226,9 @@ function penGrant(vid){
            :`The supervision of "${esc((siteById(v.siteId)||{}).facility||'')}" will move from <b>${esc(penHolderName(v)||'—')}</b> to <b>${esc(to.name)}</b>.<br><br>Whatever was synced follows the supervision. Anything the current holder entered offline and has not sent stays on their phone.`,
     okLabel:L?'Accorder':'Grant',
     onOk:()=>{
+      if(!can('penGrant') || !visitInScope(v))
+        return toast(L?'Cette supervision n\'est pas dans votre périmètre'
+                      :'That supervision is not in your scope', 3600);
       queue('penSet', {visitId:vid, toId:to.id, toName:to.name, byId:(me()||{}).id,
                        why:(L?'accordé par la console : ':'granted by the console: ')+(v.penReq.why||'')});
       v.uid=to.id; v.supervisor=to.name; v.penReq=null; v.updated=Date.now(); DB.save();
@@ -7602,11 +8264,11 @@ function penRefuse(vid){
    missing data — which is the class of problem this release exists to end.
    ═══════════════════════════════════════════════════════════════════════════ */
 var FILT = {};
-function filt(g){ return FILT[g] || (FILT[g] = {q:'', district:'', site:'', status:'', cycle:''}); }
+function filt(g){ return FILT[g] || (FILT[g] = {q:'', district:'', site:'', status:'', cycle:'', theme:''}); }
 function filtSet(g, k, v){ filt(g)[k] = v; render(); }
 function filtClear(g){ delete FILT[g]; render(); }
 function filtOn(g){ const f = filt(g);
-  return !!(f.q || f.district || f.site || f.status || f.cycle); }
+  return !!(f.q || f.district || f.site || f.status || f.cycle || f.theme); }
 /* One haystack per row: whatever a person might reasonably type. */
 function filtHit(g, hay){
   const q = String(filt(g).q || '').trim().toLowerCase();
@@ -7644,6 +8306,74 @@ function filtDistricts(list, idOf){
   return Object.keys(seen).sort();
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   THEMES — THE FILTER THAT ANSWERS "WHAT NEEDS ME?"               (v5.0.0)
+
+   A district filter and a search box answer "where is X". Neither answers the
+   question a coordinator actually opens the console with, which is "what is
+   waiting on me". Ten facilities sat out of the region's figures for a whole
+   quarter because no screen could be asked that.
+
+   Each theme is one predicate and one label. They are counted before they are
+   offered, so a theme that would return nothing is shown with a zero rather
+   than silently missing — a filter that disappears when it is empty is a
+   filter nobody trusts.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function themeDefs(kind){
+  const L = LANG === 'fr';
+  const DAY = 86400000;
+  if(kind === 'visits') return [
+    {k:'todo',  t:L?'À approuver':'Needs approval',
+     f:v => v.status === 'SUBMITTED'},
+    {k:'sup',   t:L?'Remplacée par une plus récente':'Superseded',
+     f:v => !!supersededBy(v)},
+    {k:'inc',   t:L?'Incomplète':'Incomplete',
+     f:v => (v.status === 'SUBMITTED' || v.status === 'APPROVED') && visitGaps(v).any > 0},
+    {k:'back',  t:L?'Retournée, pas encore renvoyée':'Returned, not resubmitted',
+     f:v => v.status === 'RETURNED'},
+    {k:'stall', t:L?'Brouillon à l\'arrêt (14 j)':'Stalled draft (14 days)',
+     f:v => v.status === 'DRAFT' && (Date.now() - (v.updated || 0)) > 14 * DAY},
+    {k:'pen',   t:L?'Demande de droits d\'édition':'Pen request',
+     f:v => !!(v.penReq && v.penReq.status === 'PENDING')},
+    {k:'dup',   t:L?'Double soumission non tranchée':'Duplicate not settled',
+     f:v => inConflict(v)}
+  ];
+  if(kind === 'appr') return [
+    {k:'pend',  t:L?'En attente de décision':'Pending a decision',
+     f:u => userStatus(u) === U_PENDING},
+    {k:'dupl',  t:L?'Doublon probable':'Probable duplicate',
+     f:(u, all) => duplicatesOf(u, all).length > 0},
+    {k:'pin',   t:L?'Code PIN oublié':'Forgotten PIN',
+     f:u => !!u.pinHelp},
+    {k:'role',  t:L?'Demande de rôle en attente':'Role request pending',
+     f:u => !!(u.req && !u.req.decided)},
+    {k:'thin',  t:L?'Une seule formation sanitaire ou un seul district':'Single facility or district',
+     f:u => { const d=(u.districts||[]).length, si=(u.sites||[]).length;
+              return userStatus(u) === U_ACTIVE && (d + si) === 1; }},
+    {k:'none',  t:L?'Aucun périmètre accordé':'Granted nothing',
+     f:u => userStatus(u) === U_ACTIVE
+            && !(u.districts||[]).length && !(u.sites||[]).length},
+    {k:'off',   t:L?'Suspendu ou refusé':'Suspended or refused',
+     f:u => [U_SUSPENDED, U_REJECTED].includes(userStatus(u))}
+  ];
+  return [];
+}
+/* Count every theme over the unfiltered set, so the numbers in the picker do
+   not change as you filter by something else. */
+function themeOpts(kind, list, extra){
+  return themeDefs(kind).map(d => {
+    let n = 0;
+    try{ n = list.filter(x => d.f(x, extra)).length; }catch(e){ n = 0; }
+    return {v:d.k, t:d.t + ' (' + n + ')'};
+  });
+}
+function themeKeep(kind, key, x, extra){
+  if(!key) return true;
+  const d = themeDefs(kind).filter(z => z.k === key)[0];
+  if(!d) return true;
+  try{ return !!d.f(x, extra); }catch(e){ return true; }
+}
+
 function admVisits(){
   const L=LANG==='fr';
   const G='visits';
@@ -7657,6 +8387,7 @@ function admVisits(){
     const s=siteById(v.siteId)||{};
     if(f.district && s.district!==f.district) return false;
     if(f.cycle && v.cycleId!==f.cycle) return false;
+    if(!themeKeep('visits', f.theme, v)) return false;
     return filtHit(G, [s.facility, s.district, v.supervisor, v.date,
                        (DB.d.cycles.find(c=>c.id===v.cycleId)||{}).name].join(' '));
   });
@@ -7673,7 +8404,11 @@ function admVisits(){
   const row=v=>{
     const s=siteById(v.siteId)||{facility:'?',district:'?'};
     const sc=(v.scores||visitScores(v)).overall;
-    const g=visitGaps(v), sup=supersededBy(v);
+    /* A draft is SUPPOSED to be incomplete — badging one says nothing and
+       buries the submitted ones that actually need a decision. The marker is
+       only for work that has been handed in. */
+    const settled=(v.status==='SUBMITTED'||v.status==='APPROVED');
+    const g=settled?visitGaps(v):{q:0,c:0,r:0,any:0}, sup=supersededBy(v);
     return `<div class="item" onclick="go('#/visit/${v.id}/rev')">
       <div style="min-width:0"><b>${esc(s.facility)}</b>${
         g.any?`<span class="flag inc" title="${esc(L?'Incomplète':'Incomplete')}">${
@@ -7689,10 +8424,35 @@ function admVisits(){
   };
 
   const bar=filtBar(G, [
+    filtSel(G,'theme', L?'Ce qui demande attention':'Needs attention',
+      themeOpts('visits', every)),
     filtSel(G,'district', L?'District':'District', filtDistricts(every, v=>siteById(v.siteId))),
     filtSel(G,'cycle', L?'Cycle':'Cycle',
       DB.d.cycles.map(c=>({v:c.id, t:c.name})))
   ], all.length, every.length);
+
+  /* The coverage gap, which is a list of facilities and not of supervisions —
+     so it cannot live in the lists above and has a card of its own. */
+  const cyc = f.cycle ? DB.d.cycles.find(c=>c.id===f.cycle) : activeCycle();
+  const gap = cyc ? cycleUnsupervised(cyc) : [];
+  const gapCard = (cyc && gap.length) ? `<div class="card">
+    <div class="spread"><h3>${L?'Pas encore supervisées':'Not yet supervised'}
+      <span class="badge">${gap.length}</span></h3>
+      <span class="xs muted">${esc(cyc.name)}</span></div>
+    <p class="small muted">${L
+      ? (cyclePlanned(cyc)
+          ? 'Sur les ' + cyclePlan(cyc).length + ' formations sanitaires prévues pour ce cycle.'
+          : 'Aucune liste n\'a été définie pour ce cycle, donc le registre entier compte. Cochez les formations sanitaires prévues dans l\'onglet Cycle.')
+      : (cyclePlanned(cyc)
+          ? 'Out of the ' + cyclePlan(cyc).length + ' facilities planned for this cycle.'
+          : 'No list has been set for this cycle, so the whole register counts. Tick the planned facilities on the Cycle tab.')}</p>
+    <div class="list">${gap.slice(0,60).map(s2=>`<div class="item">
+      <div style="min-width:0"><b>${esc(s2.facility)}</b>
+        <div class="s">${esc(s2.district)}</div></div>
+      <span class="chip n">${L?'aucune':'none'}</span></div>`).join('')}</div>
+    ${gap.length>60?`<p class="xs muted">${L?'… et ':'… and '}${gap.length-60}${
+      L?' autres':' more'}</p>`:''}
+  </div>` : '';
 
   const attention = (supers.length || incomp.length) ? `<div class="card">
     <h3>${L?'À regarder':'Needs attention'}
@@ -7731,7 +8491,7 @@ function admVisits(){
           <button class="btn sec sm" onclick="go('#/visit/${v.id}/rev')">${L?'Voir':'Open'}</button>
         </div></div>`; }).join('')}</div></div>` : '';
 
-  return `${penCard}${attention}<div class="card">
+  return `${penCard}${attention}${gapCard}<div class="card">
     ${bar}
     <div class="spread"><h3>${L?'À approuver':'To approve'}
       ${sub.length?`<span class="badge">${sub.length}</span>`:''}</h3>
@@ -7760,6 +8520,62 @@ function admVisits(){
   </div>`;
 }
 
+/* The facilities this cycle is about. Ticking is what turns "33% covered"
+   into the truth, and what makes "not yet supervised" a list somebody can act
+   on rather than fifty-six sites nobody intended to visit.
+
+   A cycle with nothing ticked means the whole register — the behaviour every
+   cycle has today — and the card says so rather than looking like a cycle with
+   no facilities in it. */
+function cyclePlanCard(c){
+  const L = LANG === 'fr';
+  const open = PLAN_OPEN === c.id;
+  const sites = activeSites();
+  const chosen = new Set(cyclePlan(c));
+  const explicit = cyclePlanned(c);
+  const byD = {};
+  sites.forEach(s => { (byD[s.district] = byD[s.district] || []).push(s); });
+  const head = `<div class="spread" style="margin-top:10px">
+      <span class="small"><b>${L?'Formations sanitaires prévues':'Planned facilities'}</b>
+        <span class="xs muted"> · ${chosen.size} / ${sites.length}${
+          explicit ? '' : (L?' (registre entier)':' (whole register)')}</span></span>
+      <button class="btn sec sm" onclick="planToggle('${c.id}')">${
+        open ? (L?'Masquer':'Hide') : (L?'Choisir':'Choose')}</button>
+    </div>`;
+  if(!open) return head;
+  return head + `
+    <div class="banner b-info xs" style="margin-top:8px">${L
+      ? 'Ce choix fixe le dénominateur de la couverture et la liste « pas encore supervisées » pour ce cycle. Il ne retire aucune supervision déjà saisie.'
+      : 'This choice sets the coverage denominator and the "not yet supervised" list for this cycle. It removes no supervision already entered.'}</div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn sec sm" onclick="cyclePlanAll('${c.id}',true)">${
+        L?'Tout cocher':'Tick all'}</button>
+      <button class="btn sec sm" onclick="cyclePlanAll('${c.id}',false)">${
+        L?'Revenir au registre entier':'Back to the whole register'}</button>
+    </div>
+    ${Object.keys(byD).sort().map(d => {
+      const list = byD[d];
+      const on = list.filter(x => chosen.has(x.id)).length;
+      return `<div class="card tight" style="margin-top:8px">
+        <div class="spread">
+          <b class="small">${esc(d)}</b>
+          <span class="row" style="gap:6px">
+            <span class="xs muted">${on}/${list.length}</span>
+            <button class="btn sec sm" onclick="setCyclePlanDistrict('${c.id}','${esc(d)}',${
+              on < list.length})">${on < list.length ? (L?'tout':'all') : (L?'aucun':'none')}</button>
+          </span></div>
+        <div class="grid2" style="margin-top:7px">${list.map(x => `
+          <label class="yn-row" style="cursor:pointer">
+            <span>${esc(x.facility)}</span>
+            <input type="checkbox" ${chosen.has(x.id) ? 'checked' : ''}
+              onchange="setCyclePlan('${c.id}','${x.id}',this.checked)">
+          </label>`).join('')}</div>
+      </div>`;
+    }).join('')}`;
+}
+var PLAN_OPEN = '';
+function planToggle(cid){ PLAN_OPEN = (PLAN_OPEN === cid) ? '' : cid; render(); }
+
 function admCycles(){
   return `<div class="card">
     <div class="spread"><h3>${T('cycle')}</h3><button class="btn sm" onclick="newCycleModal()">＋</button></div>
@@ -7783,7 +8599,8 @@ function admCycles(){
           ${c.status==='OPEN'?(LANG==='fr'?'Clôturer':'Close'):(LANG==='fr'?'Ouvrir':'Open')}</button>
         <input type="date" style="width:auto" value="${esc(c.deadline||'')}" onchange="setCycleDeadline('${c.id}',this.value)">
         <span class="xs muted">${LANG==='fr'?'échéance de soumission':'submission deadline'}</span>
-      </div></div>`).join('')}
+      </div>
+      ${cyclePlanCard(c)}</div>`).join('')}
   </div>`;
 }
 function newCycleModal(){
@@ -7837,6 +8654,7 @@ function admApprovals(){
     if(f.district && !(Array.isArray(u.districts) && u.districts.includes(f.district)))
       return false;
     if(f.status && userStatus(u)!==f.status) return false;
+    if(!themeKeep('appr', f.theme, u, every)) return false;
     const sites=(Array.isArray(u.sites)?u.sites:[])
       .map(id=>(siteById(id)||{}).facility||'').join(' ');
     return filtHit(G, [u.name, u.fn, u.email, u.phone,
@@ -7851,6 +8669,8 @@ function admApprovals(){
      choice in this list can never return nothing. */
   const dsts={}; every.forEach(u=>(u.districts||[]).forEach(d=>{ if(d) dsts[d]=1; }));
   const apprBar=filtBar(G, [
+    filtSel(G,'theme', L?'Ce qui demande attention':'Needs attention',
+      themeOpts('appr', every, every)),
     filtSel(G,'district', L?'District':'District', Object.keys(dsts).sort()),
     filtSel(G,'status', L?'État':'Status', [
       {v:U_PENDING, t:L?'En attente':'Pending'},
@@ -8828,7 +9648,15 @@ async function syncNow(quiet){
   for(const item of box){
     try{
       const res=await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({token:apiToken(), kind:item.kind, id:item.id, payload:item.payload})});
+        /* ---- EVERY PUSH NAMES THE ACCOUNT SENDING IT -------------------------------
+           The server reserves a handful of writes to a level — opening a cycle,
+           publishing the questionnaire, giving somebody a console — and it cannot
+           refuse what it cannot attribute. The name goes on the envelope rather
+           than inside each payload so that one line covers every kind, including
+           the kinds that do not exist yet. Nothing secret travels: an account id
+           is already on every pull. */
+        body:JSON.stringify({token:apiToken(), kind:item.kind, id:item.id,
+                             uid:(me()||{}).id||'', payload:item.payload})});
       const j=await res.json();
       if(j && j.ok){ DB.d.outbox=DB.d.outbox.filter(x=>x.id!==item.id); ok++; }
       /* The workbook is busy with somebody else's write. Nothing is wrong, nothing is
@@ -8886,6 +9714,185 @@ async function pullRemote(){
    ===================================================================== */
 /* full : also bring the questionnaire, the cycles and the site registry.
    deep : ignore the watermark and re-read the whole history — the repair button. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE SCOPE THE SERVER JUST APPLIED
+
+   Returns '' when nothing moved, 'changed' when the level or the places are
+   different from the ones this phone was holding, and 'narrowed' when the new
+   scope is smaller than the old one — which is the case that has to clean up
+   after itself.
+
+   WHY `degraded` IS SURFACED AND NOT HIDDEN. An account whose scope cell is
+   empty is answered with everything, because sending a field telephone nothing
+   in the middle of a cycle is the worst failure this app can have. That is a gap
+   in the workbook, not a decision, so the console is told about it in words and
+   an administrator fixes the cell. A silent fallback would be a permanent hole
+   that looks exactly like working software.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function applyScope(sc){
+  if(!sc || typeof sc !== 'object') return '';
+  const u = me(); if(!u) return '';
+  const before = String(DB.d.config.scopeStamp || '');
+  const after  = String(sc.stamp || '');
+  DB.d.config.scopeAll      = sc.all !== false;
+  DB.d.config.scopeDegraded = sc.degraded === true;
+  DB.d.config.scopeFound    = sc.found === true;
+
+  /* The account's own record is updated from this, because every screen reads the
+     level off me() and not off the config. A level the server did not state is left
+     exactly as it was: an absence never overwrites something that is known. */
+  if(sc.grade && GRADES.includes(String(sc.grade))) u.grade = String(sc.grade);
+  if(Array.isArray(sc.regions))   u.regions   = sc.regions.slice();
+  if(Array.isArray(sc.districts) && sc.districts.length && isSlot(u))
+    u.districts = sc.districts.slice();
+
+  if(!after) return '';                       // an older Code.gs: nothing is claimed
+  DB.d.config.scopeStamp = after;
+
+  /* ---- THE FIRST PULL AFTER THE UPGRADE ------------------------------------------
+     There is no previous stamp to compare with, so nothing came INTO scope and no
+     re-pull is owed. But something did happen, on eighty-four telephones at once:
+     until this morning every phone in the region was sent every district's
+     supervisions and is still holding them. The server stops sending them from now
+     on; this is the only thing that stops them being HELD, and it is the larger half
+     of the privacy problem — twenty consoles were never the issue, eighty-four
+     supervisors' phones were.
+
+     It runs only when the server has stated a real, narrowed, undegraded scope AND
+     this device can actually place its own districts. Either of those missing means
+     the lists cannot be trusted to prune with, and an untrustworthy prune is how a
+     field telephone gets emptied in the middle of a cycle. Then nothing happens,
+     which is exactly today's behaviour. */
+  if(!before){
+    const ds = myDistricts(), rs = myRegions();
+    const placed = (ds && ds.length) || (rs && rs.length);
+    if(sc.found === true && sc.all === false && sc.degraded !== true && placed){
+      const dropped = pruneOutOfScope();
+      if(dropped) audit('SCOPE_FIRST','user', dropped+' item(s) outside this account\'s '
+                        + 'scope removed on the first scoped pull');
+      /* 'pruned' and NOT 'narrowed': the caller re-pulls everything for a narrowing,
+         and here there is nothing to re-pull — no row came into scope, so a full pull
+         would be eighty-four phones spending mobile data on data they already have.
+         The distinction is the difference between a quiet upgrade and a noisy one. */
+      return dropped ? 'pruned' : '';
+    }
+    return '';
+  }
+  if(before === after) return '';
+
+  /* Narrower, or merely different? Comparing the two lists is the only way to know,
+     and only a narrowing needs the prune — a widening just needs the full re-pull. */
+  const was = before.split('/'), now = after.split('/');
+  const wasAll = was[1] === '*', nowAll = now[1] === '*';
+  const grew = (nowAll && !wasAll)
+            || (GRADE_RANK[now[0]]||0) > (GRADE_RANK[was[0]]||0);
+  audit('SCOPE_CHANGE','user', (u.name||u.id)+' : '+before+' → '+after);
+  /* `since` is dropped HERE, by the function that knows the scope moved, and not by
+     its caller — a row that came INTO scope without changing is older than this
+     phone's `since` and would otherwise never arrive at all. Putting it anywhere
+     else means the one code path that forgets to do it loses data silently. */
+  DB.d.config.lastData = 0;
+  if(grew) return 'changed';
+  const dropped = pruneOutOfScope();
+  toast(LANG==='fr'
+    ? 'Votre périmètre a changé — '+dropped+' élément(s) hors périmètre retiré(s) de cet appareil'
+    : 'Your scope has changed — '+dropped+' out-of-scope item(s) removed from this device', 4200);
+  return 'narrowed';
+}
+
+/* ---- WHAT A NARROWING ACTUALLY MEANS ----------------------------------------
+   The server can stop sending another district's supervisions from tomorrow. Only
+   the phone can stop HOLDING the ones it was sent yesterday, and a cluster lead's
+   telephone currently holds all twenty districts. This is the half that makes the
+   release worth deploying.
+
+   THREE THINGS ARE NEVER DROPPED, whatever the scope says:
+     · anything in the outbox, and anything it refers to — work not yet delivered
+       is not ours to throw away, at any price;
+     · a supervision this person supervised, or holds the pen on;
+     · a draft open on this device.
+   Everything dropped is a server copy of somebody else's finished work: if the
+   scope widens again it comes straight back on the next full pull. */
+function pruneOutOfScope(){
+  const u = me(); if(!u) return 0;
+  const ds = myDistricts(), rs = myRegions();
+  if(!ds && !rs) return 0;                     // nothing is narrowed
+  let n = 0;
+
+  const held = new Set();
+  (DB.d.outbox||[]).forEach(o=>{
+    const p = o && o.payload; if(!p) return;
+    if(p.id)      held.add(String(p.id));
+    if(p.visitId) held.add(String(p.visitId));
+    if(p.siteId)  held.add(String(p.siteId));
+  });
+  const keepVisit = v =>
+       held.has(String(v.id))
+    || String(v.uid||'') === String(u.id)
+    || v.status === 'DRAFT';
+
+  const inScope = sid => {
+    const s = siteById(sid);
+    if(!s) return true;                        // a facility this phone cannot place
+    if(ds && !ds.includes(s.district)) return false;
+    if(rs && rs.length && !rs.includes(String(s.region||REGION_DEFAULT))) return false;
+    return true;
+  };
+
+  const goneV = new Set();
+  DB.d.visits = (DB.d.visits||[]).filter(v=>{
+    if(!v) return false;
+    if(keepVisit(v) || inScope(v.siteId)) return true;
+    goneV.add(String(v.id)); n++; return false;
+  });
+  /* The answers are keyed by supervision, and the SWOT travels on the supervision
+     itself — so dropping the supervision drops both, and these keys would otherwise
+     be the only thing left of another district's work on this device. */
+  goneV.forEach(id=>{ if(DB.d.answers) delete DB.d.answers[id]; });
+  DB.d.actions = (DB.d.actions||[]).filter(a=>{
+    if(!a) return false;
+    if(held.has(String(a.id)) || held.has(String(a.visitId))) return true;
+    if(goneV.has(String(a.visitId))){ n++; return false; }
+    if(inScope(a.siteId)) return true;
+    n++; return false;
+  });
+  if(Array.isArray(DB.d.formEntries))
+    DB.d.formEntries = DB.d.formEntries.filter(e=>{
+      if(!e) return false;
+      if(held.has(String(e.id)) || String(e.uid||'')===String(u.id)
+         || e.status==='DRAFT') return true;
+      if(inScope(e.siteId)) return true;
+      n++; return false;
+    });
+  /* A facility request carries the district it concerns, at both ends: a transfer OUT
+     of a district is as much that district's business as a transfer in. */
+  DB.d.siteReq = (DB.d.siteReq||[]).filter(r=>{
+    if(!r) return false;
+    if(held.has(String(r.id)) || String(r.reqUid||'')===String(u.id)) return true;
+    const a=(r.after||{}).district||'', b=(r.before||{}).district||'';
+    if(!ds) return true;
+    if((a && ds.includes(a)) || (b && ds.includes(b))) return true;
+    if(r.siteId && inScope(r.siteId)) return true;
+    n++; return false;
+  });
+  /* The roster: another district's identity documents are not this console's to hold.
+     The person's own record and every privileged account stay — a district lead must
+     still be able to see who the regional lead is. */
+  DB.d.users = (DB.d.users||[]).filter(x=>{
+    if(!x) return false;
+    if(String(x.id)===String(u.id) || isSlot(x) || !x.remote) return true;
+    const xd = Array.isArray(x.districts)?x.districts:[];
+    const xs = Array.isArray(x.sites)?x.sites:[];
+    if(!xd.length && !xs.length) return true;
+    if(xd.some(d=>!ds || ds.includes(d))) return true;
+    if(xs.some(sid=>inScope(sid))) return true;
+    n++; return false;
+  });
+  DB.save();
+  audit('SCOPE_PRUNE','user', n+' out-of-scope item(s) removed from this device');
+  return n;
+}
+
 async function pullData(full, deep){
   const api=DB.d.config.api;
   if(!api || !ONLINE) return {changed:0};
@@ -8911,6 +9918,28 @@ async function pullData(full, deep){
      in touch while never learning that it was three versions behind. */
   if(j.appExpected) DB.d.config.appExpected = String(j.appExpected);
   if(typeof applyReset==='function') applyReset(j);
+
+  /* ---- THE SERVER TELLS THIS PHONE WHAT ITS SCOPE IS -----------------------------
+     Not the other way round, and this is the whole point of the release. The level
+     and the places arrive in the same answer whose contents they have just filtered,
+     so the two can never disagree: whatever a phone believes about itself, what it
+     HOLDS is what the server decided to send.
+
+     It also closes the gap that made a privileged account a special case. A slot's
+     phone never called userstate — refreshMyState() returns early for one — so there
+     was no channel at all through which a super user could learn anything about
+     themselves. There is now, and it is the channel they already use every minute. */
+  const scopeChanged = applyScope(j.scope);
+  /* 'pruned' is deliberately not in this list: see applyScope. */
+  if(scopeChanged === 'narrowed' || scopeChanged === 'changed'){
+    /* A row that came INTO scope without changing is older than this phone's `since`,
+       so it would never arrive: the only correct answer to a change of scope is to ask
+       for everything again. And a row that has just left scope is still sitting in this
+       phone's storage, which is the half that actually matters — the server can stop
+       SENDING another district's supervisions, and only the phone can stop HOLDING them. */
+    DB.d.config.lastData = 0;
+    if(!deep){ DB.save(); return await pullData(true, true); }
+  }
 
   const meNow = me() || {};
   let changed = 0;
@@ -9466,7 +10495,14 @@ function publishQuestionnaire(force, stamp){
      keeps using its own built-in questionnaire meanwhile, which is correct and needs no
      network at all; it simply stops shouting it at the workbook. */
   const who = me();
-  if(!stamp && !(who && isSlot(who))) return false;
+  /* ---- AND FROM A CONSOLE THAT MAY ACTUALLY PUBLISH --------------------------------
+     The server now reserves qPublish to the regional level, so a district console
+     sending it would be refused — and this function marks the questionnaire as
+     published locally the moment it queues the push. Twenty district consoles would
+     therefore each decide the questionnaire had gone up, and it would never go up at
+     all. The gate moves from "is a console" to "may publish", which is the same thing
+     the server will decide one second later. */
+  if(!stamp && !can('questionPublish', who)) return false;
   const mark = stamp || QCORR_VERSION;
   if(!force && String(DB.d.config.qserver||'') >= String(mark)) return false;
   if(!stamp && publishQuestionnaire._busy) return false;
@@ -10796,7 +11832,7 @@ async function fmSubmitDo(formId, siteId){
    DOWNLOAD — every combination CDC might ask for
    ===================================================================== */
 function fmDownloadDialog(formId, siteId){
-  if(!isSuper()){ toast('Downloading belongs to the regional team.', 3000); return; }
+  if(!can('dataDownload')){ toast('Downloading belongs to the regional team.', 3000); return; }
   const f0 = fmForms().filter(x => x.id === formId)[0];
   /* The AHD readiness tool comes out as the CDC workbook itself, one file per
      site. There is no certification page to place, so there is nothing to ask. */
@@ -10838,7 +11874,7 @@ function fmDownloadDo(formId, siteId){
    actually needs — a phone's print dialogue is not a way to produce a document
    for CDC. */
 function fmDownload(formId, siteId, cert){
-  if(!isSuper()){ toast('Downloading belongs to the regional team.', 3000); return; }
+  if(!can('dataDownload')){ toast('Downloading belongs to the regional team.', 3000); return; }
   const f = fmForms().filter(x => x.id === formId)[0];
   if(!f || !f.layout){ toast('This request is not available on this device.', 3000); return; }
 
@@ -11276,7 +12312,7 @@ function fmBuildPdf(L, entries, opts){
    facility. It is permanent and it is not the kind of thing to offer behind a
    single tap, so the facility has to be named back before it goes. */
 function fmDeleteAsk(formId, siteId){
-  if(!isSuper()){ toast('Only the regional team can delete a page.', 3000); return; }
+  if(!can('formDelete')){ toast('Only the regional team can delete a page.', 3000); return; }
   const e = fmEntry(formId, siteId); if(!e) return;
   const site = (DB.d.sites || []).filter(x => x.id === siteId)[0] || {};
   modal('Delete this page',
@@ -11432,7 +12468,7 @@ function viewAhdFill(formId, siteId){
         return `<label class="f"><span>${esc(fl.label)}</span>
           <input class="ro" readonly value="${esc(ahdTier(L, p.txcurr) || '—')}">
           <span class="xs muted">From TX_CURR · ${esc(ahdTierRule(L))}
-            ${isSuper() ? '· <a href="#" onclick="ahdTierEdit();return false">change the intervals</a>' : ''}
+            ${can('ahdTiers') ? '· <a href="#" onclick="ahdTierEdit();return false">change the intervals</a>' : ''}
           </span></label>`;
       if(fl.type === 'select')
         return `<label class="f"><span>${esc(fl.label)}</span>
@@ -11800,9 +12836,9 @@ function fmActionBar(f, formId, siteId, e, st, settled){
             : '')
         : `<button class="btn sec" id="fm-draft" onclick="fmSave('${formId}','${siteId}','DRAFT')">Save draft</button>
            <button class="btn" id="fm-sub" onclick="fmSubmit('${formId}','${siteId}')">Submit this site</button>`}
-      ${(isSuper() && st === 'SUBMITTED')
+      ${(can('formApprove') && fmEntryInScope(e) && st === 'SUBMITTED')
         ? `<button class="btn" onclick="fmApprove('${formId}','${siteId}',true)">Verify and approve</button>` : ''}
-      ${(isSuper() && (st === 'SUBMITTED' || st === 'APPROVED'))
+      ${(can('formReturn') && fmEntryInScope(e) && (st === 'SUBMITTED' || st === 'APPROVED'))
         ? `<button class="btn sec" onclick="fmRevert('${formId}','${siteId}')">Send back to the site</button>` : ''}
     </div>
 
@@ -12175,7 +13211,7 @@ async function ahdTemplate(){
 }
 
 async function ahdDownload(formId, siteId){
-  if(!isSuper()){ toast('Downloading belongs to the regional team.', 3000); return; }
+  if(!can('dataDownload')){ toast('Downloading belongs to the regional team.', 3000); return; }
   const f = fmForms().filter(x => x.id === formId)[0];
   if(!f || !f.layout) return;
   const subs = fmSubmitted(formId);
