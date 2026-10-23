@@ -1041,7 +1041,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.2.0';
+const APP_VERSION = '5.3.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -6542,7 +6542,33 @@ function answersForSync(vid){
 }
 function visitForSync(v){
   const s=siteById(v.siteId)||{};
-  return Object.assign({}, v, {_district:s.district, _area:s.area, _facility:s.facility});
+  /* ---- WHAT A DRAFT IS WORTH KNOWING ABOUT -----------------------------------------
+     A draft has no score and never gets one — it is a supervisor still typing. But how
+     far they have got, and whether the thing is complete, is exactly what a coordinator
+     needs in order to know whether to telephone them, and the workbook cannot work it
+     out for itself: completeness means walking the questionnaire, and the questionnaire
+     lives here. So it travels with the visit.
+
+     Through the same try/catch as everywhere else this is used. visitGaps() walks a
+     questionnaire and a cycle with no month list — which exists in the field, on older
+     rows — makes it throw. A progress figure is worth having; it is not worth failing a
+     push for, so a throw simply means no figure. */
+  let fill = null;
+  try{
+    if(v.status === 'DRAFT'){
+      const g = visitGaps(v) || {};
+      const qs = visitQs(v) || [];
+      const A = DB.d.answers[v.id] || {};
+      let answered = 0;
+      qs.forEach(q => { const a = A[q.id];
+        if(a && (a.na || scoreAnswer(q, a, A).answered)) answered++; });
+      fill = {q:g.q||0, c:g.c||0, r:g.r||0, any:g.any||0,
+              answered:answered, total:qs.length};
+    }
+  }catch(e){ fill = null; }
+  const out = Object.assign({}, v, {_district:s.district, _area:s.area, _facility:s.facility});
+  if(fill) out._fill = fill;
+  return out;
 }
 function submitVisit(vid){
   const v=DB.d.visits.find(x=>x.id===vid);

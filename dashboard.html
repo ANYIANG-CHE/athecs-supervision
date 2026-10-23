@@ -322,8 +322,14 @@ svg.chart .cross{stroke:var(--axis);stroke-width:1;stroke-dasharray:3 3;opacity:
 const API   = 'https://script.google.com/macros/s/AKfycbyAjaQ1yALvefsUxZhvQbUFPo-yXXuDguqV0ni2Iz0UQXENF-uBRNU1I4zrhtQeK-ESbQ/exec';
 const TOKEN = 'ATHECS-DASH-2026';
 
-let J = null, A = null, LANG = 'fr', VIEW = 'ov';
-let F = {cycle:'', region:'', district:'', site:'', section:'', prov:false};
+let J = null, A = null, LANG = 'fr', VIEW = 'cy';
+/* `prov` TRUE BY DEFAULT, and this is a decision rather than an oversight.
+   The page published verified work only, so a quarter in which every facility
+   had been visited and nothing had yet been checked showed an empty dashboard —
+   which is not what happened in the field and told nobody anything. Work feeds
+   this page the moment it is SUBMITTED; whether it has been validated is then a
+   switch, and choosing "validated only" says what it set aside and why. */
+let F = {cycle:'', region:'', district:'', site:'', section:'', prov:true};
 let SORT = {k:'name', dir:1};
 let QTXT = '';
 
@@ -334,7 +340,21 @@ const TXT = {
   ov:'Vue d’ensemble', fac:'Formations sanitaires', ins:'Instruments', ahd:'AHD',
   cycle:'Cycle', reg:'Région', dis:'District', site:'Formation sanitaire',
   theme:'Domaine', all:'Tous', allf:'Toutes', clear:'Réinitialiser',
-  verifiedOnly:'Vérifiées', withWaiting:'+ en attente',
+  verifiedOnly:'Validées seulement', withWaiting:'Toutes les soumissions',
+  allSubs:'Toutes les soumissions', valOnly:'Validées seulement',
+  stand:'Où en est le cycle', standSub:'Chaque formation sanitaire prévue, et ce qui bloque',
+  perfTab:'Performance', perfSub:'Scores, sections et évolution',
+  planned2:'Prévues', submitted:'Soumises', verified:'Validées',
+  drafting:'En cours de saisie', notStarted:'Pas commencées',
+  stalled:'Brouillons à l\u2019arrêt', stalledSub:'Aucune modification depuis 14 jours ou plus',
+  stuck:'Ce qui bloque', nothingStuck:'Rien ne bloque sur cette sélection.',
+  lastMoved:'Dernière modification', prog:'Avancement',
+  days:'j', setAside:'mises de côté',
+  returnedNot:'Retournées, pas encore renvoyées',
+  oldestWait:'La plus ancienne attend depuis',
+  approxWarn:'Chiffre reconstitué',
+  whatIsThis:'Ce que montre cette page',
+  whatSub:'Où en est le cycle de mentorat en cours : qui a soumis, qui saisit encore, qui n\u2019a pas commencé, et ce qui attend une décision. Les instruments AHD et Foundational Milestone sont des projets ponctuels et n\u2019apparaissent que tant qu\u2019ils sont ouverts.',
   coverage:'Couverture', covSub:'Supervisées ÷ prévues pour ce cycle',
   score:'Score global', scoreSub:'Pondéré, pas une moyenne de pourcentages',
   waiting:'En attente de vérification', waitingSub:'Soumises, pas encore validées',
@@ -361,7 +381,21 @@ const TXT = {
   ov:'Overview', fac:'Facilities', ins:'Instruments', ahd:'AHD',
   cycle:'Cycle', reg:'Region', dis:'District', site:'Facility',
   theme:'Domain', all:'All', allf:'All', clear:'Reset',
-  verifiedOnly:'Verified', withWaiting:'+ awaiting',
+  verifiedOnly:'Validated only', withWaiting:'All submissions',
+  allSubs:'All submissions', valOnly:'Validated only',
+  stand:'Where the cycle stands', standSub:'Every planned facility, and what is holding it up',
+  perfTab:'Performance', perfSub:'Scores, sections and trend',
+  planned2:'Planned', submitted:'Submitted', verified:'Validated',
+  drafting:'Still being filled in', notStarted:'Not started',
+  stalled:'Drafts that have stopped', stalledSub:'No change for 14 days or more',
+  stuck:'What is holding things up', nothingStuck:'Nothing is holding this selection up.',
+  lastMoved:'Last change', prog:'Progress',
+  days:'d', setAside:'set aside',
+  returnedNot:'Returned, not yet resubmitted',
+  oldestWait:'The oldest has been waiting',
+  approxWarn:'Reconstructed figure',
+  whatIsThis:'What this page shows',
+  whatSub:'Where the current mentorship cycle stands: who has submitted, who is still filling in, who has not started, and what is waiting on a decision. The AHD and Foundational Milestone instruments are one-off projects and appear only while they are open.',
   coverage:'Coverage', covSub:'Supervised ÷ planned for this cycle',
   score:'Overall score', scoreSub:'Weighted — never an average of percentages',
   waiting:'Awaiting verification', waitingSub:'Submitted, not yet verified',
@@ -618,89 +652,9 @@ function lineChart(points, idTag){
   </svg>`;
 }
 
-/* =====================================================================
-   WHAT THESE FIGURES SAY
-
-   Not decoration. Each line below is a sentence somebody could act on this
-   afternoon, built from the same numbers as the charts above it and shown
-   only when it is actually true. A panel that always has five things to say
-   is a panel nobody reads by the third week.
-   ===================================================================== */
-function insights(){
-  const out = [];
-  const cells = cellsFor(), rows = board();
-  const hl = headline(cells);
-  const cyc = cycleById(F.cycle);
-
-  /* not started, and the quarter is open */
-  const none = rows.filter(r => r.state === 'none');
-  if(none.length && cyc && cyc.status === 'OPEN'){
-    const byD = {};
-    none.forEach(r => byD[r.site.district] = (byD[r.site.district] || 0) + 1);
-    const worst = Object.keys(byD).sort((a, b) => byD[b] - byD[a]).slice(0, 3);
-    out.push({c:'var(--crit)', i:'⚠',
-      t: LANG==='fr' ? none.length + ' formation(s) sanitaire(s) pas encore commencée(s)'
-                     : none.length + ' facilit' + (none.length>1?'ies':'y') + ' not started',
-      p: (LANG==='fr' ? 'Sur ' + rows.length + ' prévues. Les districts les plus concernés : '
-                      : 'Out of ' + rows.length + ' planned. The districts most affected: ')
-         + worst.map(d => d + ' (' + byD[d] + ')').join(' · ')});
-  }
-  /* waiting to be verified */
-  const wait = rows.filter(r => r.state === 'waiting');
-  if(wait.length) out.push({c:'var(--warn)', i:'◐',
-    t: LANG==='fr' ? wait.length + ' supervision(s) en attente de vérification'
-                   : wait.length + ' supervision' + (wait.length>1?'s':'') + ' awaiting verification',
-    p: LANG==='fr' ? 'Leurs chiffres ne comptent pas encore dans le score vérifié. Utilisez « + en attente » ci-dessus pour voir ce qu’ils y ajouteraient.'
-                   : 'Their figures do not count in the verified score yet. Use "+ awaiting" above to see what they would add.'});
-  /* overdue recommendations */
-  const late = cells.reduce((a, c) => a + (c.al || 0), 0);
-  const openA = cells.reduce((a, c) => a + ((c.at || 0) - (c.ar || 0)), 0);
-  if(late) out.push({c:'var(--crit)', i:'⏱',
-    t: LANG==='fr' ? late + ' recommandation(s) en retard' : late + ' overdue recommendation' + (late>1?'s':''),
-    p: LANG==='fr' ? 'Sur ' + openA + ' encore ouverte(s) pour cette sélection.'
-                   : 'Out of ' + openA + ' still open for this selection.'});
-  /* the weakest section */
-  const secs = sectionRows();
-  if(secs.length){
-    const w = secs[0];
-    if(w.v !== null && w.v < 90) out.push({c:'var(--seri)', i:'↓',
-      t: (LANG==='fr' ? 'Section la plus faible : ' : 'Weakest section: ') + w.lab,
-      p: (LANG==='fr' ? 'Score ' : 'Score ') + pc(w.v) + ' — '
-         + (LANG==='fr' ? 'c’est là que l’écart est le plus large sur cette sélection.'
-                        : 'this is where the gap is widest for this selection.')});
-  }
-  /* movement since the previous cycle */
-  const tr = trendRows();
-  if(tr.length >= 2){
-    const last = tr[tr.length - 1], prev = tr[tr.length - 2];
-    if(last.v !== null && prev.v !== null){
-      const d = Math.round((last.v - prev.v) * 10) / 10;
-      if(Math.abs(d) >= 1) out.push({c: d > 0 ? 'var(--good)' : 'var(--crit)', i: d > 0 ? '↗' : '↘',
-        t: (LANG==='fr' ? 'Évolution : ' : 'Movement: ') + (d > 0 ? '+' : '') + pc(Math.abs(d)).replace('%','') + ' pts',
-        p: prev.lab + ' ' + pc(prev.v) + ' → ' + last.lab + ' ' + pc(last.v)});
-    }
-  }
-  /* facilities entered twice */
-  const dup = cells.filter(c => c.dup);
-  if(dup.length) out.push({c:'var(--seri)', i:'⧉',
-    t: LANG==='fr' ? dup.length + ' formation(s) sanitaire(s) saisie(s) deux fois'
-                   : dup.length + ' facilit' + (dup.length>1?'ies':'y') + ' entered twice',
-    p: LANG==='fr' ? 'La plus récente compte ; la précédente est mise de côté. À régler dans la console.'
-                   : 'The most recent counts; the earlier one is set aside. To be settled in the console.'});
-  /* off-plan work */
-  const off = cells.filter(c => c.offPlan);
-  if(off.length) out.push({c:'var(--neutral)', i:'◇',
-    t: LANG==='fr' ? off.length + ' supervision(s) hors plan' : off.length + ' off-plan supervision' + (off.length>1?'s':''),
-    p: LANG==='fr' ? 'Faites sur des formations sanitaires que ce cycle n’avait pas prévues. Comptées, et signalées.'
-                   : 'Carried out at facilities this cycle did not plan. Counted, and flagged.'});
-  /* and when there is simply nothing wrong */
-  if(!out.length && hl.d > 0) out.push({c:'var(--good)', i:'✓',
-    t: LANG==='fr' ? 'Rien d’urgent sur cette sélection' : 'Nothing pressing in this selection',
-    p: LANG==='fr' ? 'Couverture complète, aucune recommandation en retard, aucune supervision en attente.'
-                   : 'Coverage complete, no overdue recommendation, nothing waiting to be verified.'});
-  return out;
-}
-
+/* `insights()` lived here. It became "What is holding things up" on the cycle
+   tab, where it belongs: beside the facilities it is talking about rather than
+   under a heading nobody could name. Nothing else used it. */
 function sectionRows(){
   const cells = cellsFor();
   const acc = {};
@@ -763,15 +717,35 @@ function drawFilters(){
       </select></label>` : ''}
     <label>&nbsp;
       <span class="seg">
-        <button class="${F.prov ? '' : 'on'}" onclick="F.prov=false;draw()">${esc(T('verifiedOnly'))}</button>
-        <button class="${F.prov ? 'on' : ''}" onclick="F.prov=true;draw()">${esc(T('withWaiting'))}</button>
+        <button class="${F.prov ? 'on' : ''}" onclick="F.prov=true;draw()">${esc(T('allSubs'))}</button>
+        <button class="${F.prov ? '' : 'on'}" onclick="F.prov=false;draw()">${esc(T('valOnly'))}</button>
       </span></label>
     ${dirty ? `<button class="clearf" onclick="F.region='';F.district='';F.site='';F.section='';F.prov=false;draw()">↺ ${esc(T('clear'))}</button>` : ''}
   </div>`;
 }
 
+/* WHICH INSTRUMENTS ARE STILL RUNNING.
+   The mentorship is continuous and owns this page. AHD readiness and the
+   Foundational Milestone are one-off projects: their tab appears while the
+   instrument is open in the workbook and has pages against it, and it goes
+   away by itself when the instrument is archived. Nothing is redeployed and
+   nothing is edited here — retiring a project is a cell in the workbook, which
+   is the same rule the app has always had. */
+function liveInstruments(){
+  const forms = (A && A.forms) || [], pages = (A && A.pages) || [];
+  const has = {};
+  pages.forEach(p => has[p.k] = (has[p.k] || 0) + 1);
+  return forms.filter(f => (f.kind === 'ahd' || f.kind === 'fm')
+                        && String(f.status).toUpperCase() !== 'ARCHIVED'
+                        && has[f.kind]);
+}
 function drawTabs(){
-  const tabs = [['ov', T('ov')], ['fac', T('fac')], ['ins', T('ins')], ['ahd', T('ahd')]];
+  const inst = liveInstruments();
+  const tabs = [['cy', T('stand')], ['pf', T('perfTab')], ['fac', T('fac')]];
+  if(inst.length) tabs.push(['ins', T('ins')]);
+  if(inst.some(f => f.kind === 'ahd')) tabs.push(['ahd', T('ahd')]);
+  const names = tabs.map(t => t[0]);
+  if(!names.includes(VIEW)) VIEW = 'cy';
   $('#tabs').innerHTML = tabs.map(t =>
     `<button class="${VIEW === t[0] ? 'on' : ''}" onclick="setView('${t[0]}')">${esc(t[1])}</button>`).join('');
 }
@@ -783,62 +757,127 @@ function placeLabel(){
   return (J && J.region) || T('region');
 }
 
-function viewOverview(){
-  const cells = cellsFor(), rows = board();
-  const hl = headline(cells);
-  const done = rows.filter(r => r.state === 'verified' || r.state === 'waiting').length;
+const DAY = 86400000;
+const STALE_DAYS = 14;        /* the app's own threshold for a stalled draft */
+const ago = ts => !ts ? null : Math.floor((Date.now() - ts) / DAY);
+const dmy = ts => !ts ? '—' : new Date(ts).toLocaleDateString(LANG === 'fr' ? 'fr-FR' : 'en-GB');
+
+/* =====================================================================
+   WHERE THE CYCLE STANDS — the first thing on the page
+
+   Not a score. A coordinator opens this to find out who has submitted, who is
+   still typing, who has not begun, and what is waiting on somebody. The score
+   is a different question and has its own tab.
+   ===================================================================== */
+function viewCycle(){
+  const rows = board(), cells = cellsFor();
+  const cyc = cycleById(F.cycle) || {};
+
+  const st = k => rows.filter(r => r.state === k);
+  const verified = st('verified'), waiting = st('waiting'),
+        returned = st('returned'), drafting = st('started'), none = st('none');
   const planned = rows.filter(r => !r.offPlan).length;
-  const cov = planned ? (done / planned) * 100 : null;
-  const wait = rows.filter(r => r.state === 'waiting').length;
+  const submitted = verified.length + waiting.length;
+  const cov = planned ? (submitted / planned) * 100 : null;
+
+  /* drafts that have stopped moving, and how far each had got */
+  const stalled = drafting.map(r => {
+    const c = r.cell || {};
+    return {r, days: ago(c.drUp), pct: c.drTot ? Math.round((c.drAns / c.drTot) * 100) : null,
+            inc: c.drInc || 0};
+  }).filter(x => x.days !== null && x.days >= STALE_DAYS)
+    .sort((a, b) => b.days - a.days);
+
   const late = cells.reduce((a, c) => a + (c.al || 0), 0);
-  const act = cells.reduce((a, c) => a + (c.at || 0), 0);
-  const res = cells.reduce((a, c) => a + (c.ar || 0), 0);
+  const openA = cells.reduce((a, c) => a + ((c.at || 0) - (c.ar || 0)), 0);
+  const dup = cells.filter(c => c.dup);
+  /* A submitted_at that is blank, or an epoch value from a row written before the
+     column existed, turns into "waiting 20749 days" — a number that destroys the
+     credibility of every other number on the page. An age outside a plausible range
+     is not shown at all; the count still is. */
+  const oldestWait = waiting.map(r => ago((r.cell || {}).sat))
+                            .filter(d => d !== null && d >= 0 && d <= 400)
+                            .sort((a, b) => b - a)[0];
 
-  const counts = {};
-  rows.forEach(r => counts[r.state] = (counts[r.state] || 0) + 1);
-
-  /* progress by district — or by facility when one district is chosen */
-  const groupKey = F.district || F.site ? 'name' : 'district';
+  /* ---- by district, or by facility once a district is chosen ---- */
+  const key = (F.district || F.site) ? 'name' : 'district';
   const groups = {};
   rows.forEach(r => {
-    const k = groupKey === 'district' ? r.site.district : r.site.name;
+    const k = key === 'district' ? r.site.district : r.site.name;
     const g = groups[k] || (groups[k] = {t:0});
     g[r.state] = (g[r.state] || 0) + 1; g.t++;
   });
   const gnames = Object.keys(groups).sort();
 
-  const ins = insights();
-  const secs = sectionRows();
-  const tr = trendRows();
+  /* ---- what is holding things up: only what is actually true ---- */
+  const stuck = [];
+  if(none.length) stuck.push({c:'var(--crit)', i:'○',
+    t:(LANG === 'fr' ? none.length + ' pas commencée(s)' : none.length + ' not started'),
+    p:(LANG === 'fr' ? 'Prévues pour ce cycle, aucune saisie ouverte : '
+                     : 'Planned for this cycle with nothing opened: ')
+      + namesOf(none, 6)});
+  if(stalled.length) stuck.push({c:'var(--seri)', i:'⏸',
+    t:(LANG === 'fr' ? stalled.length + ' brouillon(s) à l’arrêt' : stalled.length + ' draft' + (stalled.length > 1 ? 's' : '') + ' stopped'),
+    p: stalled.slice(0, 5).map(x => x.r.site.name + ' — '
+        + (LANG === 'fr' ? 'rien depuis ' : 'nothing for ') + x.days + ' ' + T('days')
+        + (x.pct === null ? '' : ', ' + x.pct + '%')).join(' · ')
+       + (stalled.length > 5 ? ' …' : '')});
+  if(returned.length) stuck.push({c:'var(--seri)', i:'↩',
+    t:(LANG === 'fr' ? returned.length + ' retournée(s) au superviseur' : returned.length + ' returned to the supervisor'),
+    p:(LANG === 'fr' ? 'Renvoyées pour correction et pas encore resoumises : '
+                     : 'Sent back for correction and not yet resubmitted: ') + namesOf(returned, 6)});
+  if(waiting.length) stuck.push({c:'var(--warn)', i:'◐',
+    t:(LANG === 'fr' ? waiting.length + ' en attente de validation' : waiting.length + ' awaiting validation'),
+    p:(oldestWait ? T('oldestWait') + ' ' + oldestWait + ' ' + T('days') + '. ' : '')
+      + (LANG === 'fr' ? 'Leurs chiffres comptent déjà ici ; passez à « Validées seulement » pour voir sans elles.'
+                       : 'Their figures already count here; switch to "Validated only" to see without them.')});
+  if(late) stuck.push({c:'var(--crit)', i:'⏱',
+    t:(LANG === 'fr' ? late + ' recommandation(s) en retard' : late + ' overdue recommendation' + (late > 1 ? 's' : '')),
+    p:(LANG === 'fr' ? 'Sur ' + openA + ' encore ouverte(s) pour cette sélection.'
+                     : 'Out of ' + openA + ' still open for this selection.')});
+  if(dup.length) stuck.push({c:'var(--seri)', i:'⧉',
+    t:(LANG === 'fr' ? dup.length + ' saisie(s) en double' : dup.length + ' entered twice'),
+    p:(LANG === 'fr' ? 'La plus récente compte, la précédente est mise de côté. À régler dans la console.'
+                     : 'The most recent counts, the earlier one is set aside. To be settled in the console.')});
+  const off = cells.filter(c => c.offPlan);
+  if(off.length) stuck.push({c:'var(--neutral)', i:'◇',
+    t:(LANG === 'fr' ? off.length + ' supervision(s) hors plan' : off.length + ' off-plan supervision' + (off.length > 1 ? 's' : '')),
+    p:(LANG === 'fr' ? 'Faites sur des formations sanitaires que ce cycle n’avait pas prévues. Comptées, et signalées.'
+                     : 'Carried out at facilities this cycle did not plan. Counted, and flagged.')});
 
   return `
+  <div class="note" style="margin:16px 0 0">
+    <b>${esc(T('whatIsThis'))}</b> — ${esc(T('whatSub'))}</div>
+
   <div class="tiles">
     <div class="tile"><span class="edge" style="background:${COLOR[band(cov)]}"></span>
-      <div class="k">${esc(T('coverage'))}</div>
-      <div class="v">${done} <span style="font-size:1.05rem;color:var(--ink-3)">/ ${planned}</span></div>
-      <div class="n">${esc(T('covSub'))}${cov === null ? '' : ' · ' + pc(cov)}</div></div>
-    <div class="tile"><span class="edge" style="background:${COLOR[band(hl.pct)]}"></span>
-      <div class="k">${esc(T('score'))}</div>
-      <div class="v">${pc(hl.pct)}</div>
-      <div class="n">${esc(bandWord(hl.pct))}${F.prov ? ' · ' + esc(T('prov')) : ''}</div></div>
-    <div class="tile"><span class="edge" style="background:var(--warn)"></span>
-      <div class="k">${esc(T('waiting'))}</div>
-      <div class="v">${wait}</div>
-      <div class="n">${esc(T('waitingSub'))}</div></div>
-    <div class="tile"><span class="edge" style="background:${late ? 'var(--crit)' : 'var(--good)'}"></span>
-      <div class="k">${esc(T('overdue'))}</div>
-      <div class="v">${late}</div>
-      <div class="n">${res}/${act} ${LANG === 'fr' ? 'résolues' : 'resolved'}</div></div>
+      <div class="k">${esc(T('submitted'))}</div>
+      <div class="v">${submitted} <span style="font-size:1.05rem;color:var(--ink-3)">/ ${planned}</span></div>
+      <div class="n">${LANG === 'fr' ? 'des ' + planned + ' prévues' : 'of the ' + planned + ' planned'}${
+        cov === null ? '' : ' · ' + pc(cov)}</div></div>
+    <div class="tile"><span class="edge" style="background:var(--good)"></span>
+      <div class="k">${esc(T('verified'))}</div>
+      <div class="v">${verified.length}</div>
+      <div class="n">${waiting.length} ${LANG === 'fr' ? 'en attente' : 'awaiting'}</div></div>
+    <div class="tile"><span class="edge" style="background:var(--neutral)"></span>
+      <div class="k">${esc(T('drafting'))}</div>
+      <div class="v">${drafting.length}</div>
+      <div class="n">${stalled.length ? stalled.length + ' ' + (LANG === 'fr' ? 'à l’arrêt' : 'stopped') : esc(T('lastMoved')) + ' ' + dmy(Math.max(0, ...drafting.map(r => (r.cell || {}).drUp || 0)))}</div></div>
+    <div class="tile"><span class="edge" style="background:${none.length ? 'var(--crit)' : 'var(--good)'}"></span>
+      <div class="k">${esc(T('notStarted'))}</div>
+      <div class="v">${none.length}</div>
+      <div class="n">${esc(cyc.name || '')}</div></div>
   </div>
 
-  ${ins.length ? `<h2>${esc(T('insights'))}</h2>
-  <p class="sub">${esc(placeLabel())} · ${esc((cycleById(F.cycle) || {}).name || '')}</p>
-  <div class="ins">${ins.map(x => `<div class="i" style="border-left-color:${x.c}">
+  <h2>${esc(T('stuck'))}</h2>
+  <p class="sub">${esc(placeLabel())} · ${esc(cyc.name || '')}</p>
+  ${stuck.length ? `<div class="ins">${stuck.map(x => `<div class="i" style="border-left-color:${x.c}">
     <span class="ic" style="color:${x.c}">${x.i}</span>
-    <div><b>${esc(x.t)}</b><p>${esc(x.p)}</p></div></div>`).join('')}</div>` : ''}
+    <div><b>${esc(x.t)}</b><p>${esc(x.p)}</p></div></div>`).join('')}</div>`
+    : `<div class="card"><div class="empty">✓ ${esc(T('nothingStuck'))}</div></div>`}
 
-  <h2>${esc(T('progress'))}</h2>
-  <p class="sub">${esc(T('progressSub'))}</p>
+  <h2>${esc(T('stand'))}</h2>
+  <p class="sub">${esc(T('standSub'))}</p>
   <div class="card">
     ${gnames.length ? gnames.map(k => {
       const g = groups[k];
@@ -847,9 +886,98 @@ function viewOverview(){
         ${stack(g, g.t)}
         <span class="val">${(g.verified || 0) + (g.waiting || 0)}/${g.t}</span></div>`;
     }).join('') : `<div class="empty">${esc(T('noData'))}</div>`}
-    <div class="legend">${ORDER.slice().reverse().map(k =>
-      `<span><i style="background:${STATE[k].c};${k==='none'?'box-shadow:inset 0 0 0 1px var(--ring)':''}"></i>${
-        esc(T(STATE[k].w))} · ${counts[k] || 0}</span>`).join('')}</div>
+    <div class="legend">${ORDER.slice().reverse().map(k => {
+      const n = rows.filter(r => r.state === k).length;
+      return `<span><i style="background:${STATE[k].c};${k === 'none' ? 'box-shadow:inset 0 0 0 1px var(--ring)' : ''}"></i>${
+        esc(T(STATE[k].w))} · ${n}</span>`;
+    }).join('')}</div>
+  </div>
+
+  ${drafting.length ? `
+  <h2>${esc(T('drafting'))}</h2>
+  <p class="sub">${LANG === 'fr'
+    ? 'Chaque brouillon ouvert : jusqu\u2019où il est allé, et quand il a bougé pour la dernière fois. Ceux qui n\u2019ont pas bougé depuis ' + STALE_DAYS + ' jours sont en rouge.'
+    : 'Every draft open: how far it has got, and when it last moved. Those that have not moved for ' + STALE_DAYS + ' days are in red.'}</p>
+  <div class="card"><div class="scrollx"><table>
+    <thead><tr><th style="cursor:default">${esc(T('facility'))}</th>
+      <th class="hide-s" style="cursor:default">${esc(T('dis'))}</th>
+      <th class="num" style="cursor:default">${esc(T('prog'))}</th>
+      <th style="cursor:default">${esc(T('lastMoved'))}</th></tr></thead>
+    <tbody>${drafting.map(r => {
+      const c = r.cell || {};
+      const d = ago(c.drUp), stale = d !== null && d >= STALE_DAYS;
+      const p = c.drTot ? Math.round((c.drAns / c.drTot) * 100) : null;
+      return `<tr>
+        <td class="nm">${esc(r.site.name)}
+          ${c.drInc ? `<span class="pill">${LANG === 'fr' ? 'incomplet' : 'incomplete'}</span>` : ''}
+          ${c.dr > 1 ? `<span class="pill">${c.dr} ${LANG === 'fr' ? 'brouillons' : 'drafts'}</span>` : ''}
+          <span class="s-only">${esc(r.site.district)}</span></td>
+        <td class="hide-s">${esc(r.site.district)}</td>
+        <td class="num">${p === null ? '—' : p + '%'}</td>
+        <td style="${stale ? 'color:var(--crit);font-weight:650' : ''}">${dmy(c.drUp)}${
+          d === null ? '' : ' · ' + d + ' ' + T('days')}</td></tr>`;
+    }).join('')}</tbody></table></div>
+    <p class="xs" style="color:var(--ink-3);margin:10px 0 0">${LANG === 'fr'
+      ? 'L’avancement est le nombre de questions répondues sur le total du questionnaire, tel que le téléphone l’a envoyé. Un brouillon poussé par une version antérieure à v5.3.0 n’en porte pas et affiche « — ».'
+      : 'Progress is the questions answered out of the whole questionnaire, as the phone sent it. A draft pushed by a version before v5.3.0 does not carry it and shows "—".'}</p>
+  </div>` : ''}`;
+}
+function namesOf(rows, n){
+  const a = rows.map(r => r.site.name).sort();
+  return a.slice(0, n).join(' · ') + (a.length > n ? ' … (+' + (a.length - n) + ')' : '');
+}
+
+/* =====================================================================
+   PERFORMANCE — the scores, which are a different question
+   ===================================================================== */
+function viewPerformance(){
+  const cells = cellsFor();
+  const hl = headline(cells);
+  const a = pool(cells, 'a'), p = pool(cells, 'p');
+  const secs = sectionRows(), tr = trendRows();
+  const approx = cells.some(c => c.approx);
+  const cyc = cycleById(F.cycle) || {};
+
+  /* clinical / M&E halves, pooled the same way */
+  const half = which => {
+    let n = 0, d = 0;
+    cells.forEach(c => {
+      if(which === 'c'){ n += c.cn || 0; d += c.cd || 0; if(F.prov){ n += c.pcn || 0; d += c.pcd || 0; } }
+      else { n += c.mn || 0; d += c.md || 0; if(F.prov){ n += c.pmn || 0; d += c.pmd || 0; } }
+    });
+    return pct(n, d);
+  };
+  const clin = half('c'), mne = half('m');
+
+  return `
+  <h2>${esc(T('perfTab'))}</h2>
+  <p class="sub">${esc(placeLabel())} · ${esc(cyc.name || '')} · ${
+    F.prov ? esc(T('allSubs')) : esc(T('valOnly'))}</p>
+
+  ${!F.prov && p.d > 0 ? `<div class="note" style="margin-top:0">${LANG === 'fr'
+    ? '<b>Validées seulement.</b> ' + cells.filter(c => c.pd > 0).length
+      + ' supervision(s) soumise(s) et pas encore vérifiée(s) sont ' + T('setAside')
+      + ' — elles auraient porté le score à <b>' + pc(pct(a.n + p.n, a.d + p.d))
+      + '</b>. Repassez à « Toutes les soumissions » pour les inclure.'
+    : '<b>Validated only.</b> ' + cells.filter(c => c.pd > 0).length
+      + ' supervision(s) submitted and not yet checked are ' + T('setAside')
+      + ' — they would have put the score at <b>' + pc(pct(a.n + p.n, a.d + p.d))
+      + '</b>. Switch back to "All submissions" to include them.'}</div>` : ''}
+
+  <div class="tiles">
+    <div class="tile"><span class="edge" style="background:${COLOR[band(hl.pct)]}"></span>
+      <div class="k">${esc(T('score'))}</div><div class="v">${pc(hl.pct)}</div>
+      <div class="n">${esc(bandWord(hl.pct))}</div></div>
+    <div class="tile"><span class="edge" style="background:${COLOR[band(clin)]}"></span>
+      <div class="k">${LANG === 'fr' ? 'Clinique' : 'Clinical'}</div><div class="v">${pc(clin)}</div>
+      <div class="n">${esc(bandWord(clin))}</div></div>
+    <div class="tile"><span class="edge" style="background:${COLOR[band(mne)]}"></span>
+      <div class="k">${LANG === 'fr' ? 'S&E (DQA)' : 'M&E (DQA)'}</div><div class="v">${pc(mne)}</div>
+      <div class="n">${esc(bandWord(mne))}</div></div>
+    <div class="tile"><span class="edge" style="background:var(--neutral)"></span>
+      <div class="k">${LANG === 'fr' ? 'Supervisions comptées' : 'Supervisions counted'}</div>
+      <div class="v">${cells.filter(c => (c.d > 0) || (F.prov && c.pd > 0)).length}</div>
+      <div class="n">${J.superseded ? J.superseded + ' ' + T('setAside') : esc(cyc.name || '')}</div></div>
   </div>
 
   <div class="cards two">
@@ -861,15 +989,20 @@ function viewOverview(){
       <h3>${esc(T('trend'))}</h3><p class="sub">${esc(T('trendSub'))}</p>
       ${lineChart(tr, 'tr')}
       ${tr.length >= 2 ? `<div class="scrollx" style="margin-top:10px"><table style="min-width:0">
-        <thead><tr><th>${esc(T('cycle'))}</th><th class="num">${esc(T('score'))}</th></tr></thead>
+        <thead><tr><th style="cursor:default">${esc(T('cycle'))}</th>
+          <th class="num" style="cursor:default">${esc(T('score'))}</th></tr></thead>
         <tbody>${tr.map(r => `<tr><td>${esc(r.lab)}</td><td class="num">${pc(r.v)}</td></tr>`).join('')}</tbody>
         </table></div>` : ''}
     </div>
   </div>
 
+  ${approx ? `<div class="note"><b>${esc(T('approxWarn'))}.</b> ${LANG === 'fr'
+    ? 'Au moins une supervision de cette sélection ne porte pas ses propres scores et a été reconstituée à partir des colonnes simplifiées du classeur, qui ne rendent pas les questions à délai, les listes de vérification ni les questions de concordance. Resoumettez-la depuis l’application pour corriger son chiffre.'
+    : 'At least one supervision in this selection does not carry its own scores and was reconstructed from the workbook’s simplified columns, which do not represent the delay questions, the checklists or the concordance questions. Resubmit it from the app to correct its figure.'}</div>` : ''}
+
   <div class="note">${LANG === 'fr'
-    ? 'Les scores sont <b>pondérés</b> : Σ(numérateur × poids) ÷ Σ(dénominateur × poids), jamais une moyenne de pourcentages — une petite formation sanitaire ne pèse donc pas autant qu’une grande. Les questions « sans objet » ne comptent ni au numérateur ni au dénominateur. Une seule supervision par formation sanitaire et par cycle est retenue : la plus récente.'
-    : 'Scores are <b>weighted</b>: Σ(numerator × weight) ÷ Σ(denominator × weight), never an average of percentages — so a small facility does not weigh the same as a large one. "Not applicable" questions count in neither half. One supervision per facility per cycle is kept: the most recent.'}</div>`;
+    ? 'Les scores viennent de l’application, qui les calcule au moment de la soumission avec le questionnaire, ses portes et ses dénominateurs reportés. Cette page ne les recalcule pas : il n’y a qu’un seul moteur de notation pour tout le projet. Ils sont <b>poolés</b> — Σ(numérateur) ÷ Σ(dénominateur) — jamais une moyenne de pourcentages. Les questions « sans objet » ne comptent ni au numérateur ni au dénominateur, et une seule supervision par formation sanitaire et par cycle est retenue : la plus récente.'
+    : 'The scores come from the app, which computes them at the moment of submission using the questionnaire, its gates and its carried denominators. This page does not recompute them: there is one scoring engine for the whole project. They are <b>pooled</b> — Σ(numerator) ÷ Σ(denominator) — never an average of percentages. "Not applicable" questions count in neither half, and one supervision per facility per cycle is kept: the most recent.'}</div>`;
 }
 
 /* ---------- the facility table: every name, every state, every number ---------- */
@@ -891,6 +1024,12 @@ function facRows(){
          score yet" — and the state chip in the next column already says so. */
       v: shown, provOnly: shown !== null && a.pct === null,
       date: c ? (c.dt || '') : '',
+      /* the draft half: how far it got, when it last moved, and whether the
+         supervisor still has questions left to answer in it */
+      drafts: c ? (c.dr || 0) : 0,
+      drUp: c ? (c.drUp || 0) : 0,
+      drPct: (c && c.drTot) ? Math.round((c.drAns / c.drTot) * 100) : null,
+      drInc: c ? (c.drInc || 0) : 0,
       open: c ? ((c.at || 0) - (c.ar || 0)) : 0,
       late: c ? (c.al || 0) : 0,
       ahd: pageState(r.site.id, 'ahd'), fm: pageState(r.site.id, 'fm')
@@ -941,6 +1080,7 @@ function viewFacilities(){
         ${th('state', T('state'))}
         ${th('v', T('score'), 'num')}
         ${th('date', T('date'), 'hide-s')}
+        ${th('drUp', T('lastMoved'), 'hide-s')}
         ${th('open', T('open'), 'num')}
         ${th('late', T('late'), 'num')}
       </tr></thead>
@@ -948,15 +1088,23 @@ function viewFacilities(){
         <td class="nm">${esc(r.name)}
           ${r.offPlan ? `<span class="pill">${esc(T('notPlanned'))}</span>` : ''}
           ${r.dup ? `<span class="pill">${esc(T('dup'))}</span>` : ''}
+          ${r.drInc ? `<span class="pill">${LANG === 'fr' ? 'incomplet' : 'incomplete'}</span>` : ''}
+          ${r.drafts > 1 ? `<span class="pill">${r.drafts} ${LANG === 'fr' ? 'brouillons' : 'drafts'}</span>` : ''}
           <span class="s-only">${esc(r.district)} · ${esc(bandWord(r.v))}</span></td>
         <td class="hide-s">${esc(r.district)}</td>
         <td>${chip(r.state)}</td>
         <td class="num" style="color:${r.v === null ? 'var(--ink-3)' : COLOR[band(r.v)]};font-weight:650">
-          ${pc(r.v)}${r.provOnly ? ` <span class="pill">${esc(T('prov'))}</span>` : ''}</td>
+          ${pc(r.v)}${r.provOnly ? ` <span class="pill" title="${esc(
+            LANG === 'fr' ? 'Soumise, pas encore validée' : 'Submitted, not yet validated')
+          }">${esc(T('prov'))}</span>` : ''}</td>
         <td class="hide-s">${esc(r.date || '—')}</td>
+        <td class="hide-s">${r.drafts
+          ? dmy(r.drUp) + (ago(r.drUp) === null ? '' : ' · ' + ago(r.drUp) + ' ' + T('days'))
+            + (r.drPct === null ? '' : ' · ' + r.drPct + '%')
+          : '—'}</td>
         <td class="num">${r.open || '—'}</td>
         <td class="num" style="${r.late ? 'color:var(--crit);font-weight:650' : ''}">${r.late || '—'}</td>
-      </tr>`).join('') : `<tr><td colspan="7" class="empty">${esc(T('noData'))}</td></tr>`}</tbody>
+      </tr>`).join('') : `<tr><td colspan="8" class="empty">${esc(T('noData'))}</td></tr>`}</tbody>
     </table></div>
   </div>
   <div class="note">${LANG === 'fr'
@@ -1087,11 +1235,15 @@ function viewAhd(){
 function exportCsv(){
   const rows = facRows();
   const head = ['facility','district','region','area','state','score','provisional',
-                'date','open_recommendations','overdue','off_plan','duplicate','ahd','milestone'];
+                'visit_date','drafts','draft_last_change','draft_progress_pct',
+                'draft_incomplete','open_recommendations','overdue','off_plan',
+                'duplicate','ahd','milestone'];
   const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   const body = rows.map(r => [r.name, r.district, r.region, r.area, T(STATE[r.state].w),
-    r.v === null ? '' : r.v, r.provOnly ? 'yes' : '', r.date, r.open, r.late,
-    r.offPlan ? 'yes' : '', r.dup ? 'yes' : '',
+    r.v === null ? '' : r.v, r.provOnly ? 'yes' : '', r.date,
+    r.drafts || '', r.drUp ? new Date(r.drUp).toISOString().slice(0, 10) : '',
+    r.drPct === null ? '' : r.drPct, r.drInc ? 'yes' : '',
+    r.open, r.late, r.offPlan ? 'yes' : '', r.dup ? 'yes' : '',
     T(STATE[r.ahd].w), T(STATE[r.fm].w)].map(q).join(','));
   /* A BOM, because Excel on a French Windows reads a UTF-8 CSV without one as
      Latin-1 and turns every accented facility name into mojibake. */
@@ -1107,9 +1259,10 @@ function exportCsv(){
 function drawBody(){
   $('#app').innerHTML =
       VIEW === 'fac' ? viewFacilities()
+    : VIEW === 'pf'  ? viewPerformance()
     : VIEW === 'ins' ? viewInstruments()
     : VIEW === 'ahd' ? viewAhd()
-    : viewOverview();
+    : viewCycle();
   /* the stacked segments carry their own tooltip text */
   [...document.querySelectorAll('.stack i[data-t]')].forEach(el => {
     el.onmousemove = e => tip(e, esc(el.getAttribute('data-t')));
