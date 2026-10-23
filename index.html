@@ -1041,7 +1041,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.4.0';
+const APP_VERSION = '5.5.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -7551,6 +7551,20 @@ function viewDashRegional(){
   let vs=DB.d.visits.filter(countable);
   if(cid) vs=vs.filter(v=>v.cycleId===cid);
   vs=vs.filter(inScope);
+  /* ═══════════════════════════════════════════════════════════════════════
+     A FACILITY THIS CYCLE DID NOT PLAN IS NOT IN THIS CYCLE'S FIGURES
+
+     It used to be counted in the score and left out of the coverage, which is
+     why the ring and the coverage card could never be reconciled. The rule is
+     now one rule: the cycle's plan decides what the cycle's numbers are about.
+
+     THE WORK ITSELF IS NOT TOUCHED. The supervision stays in the approval
+     queue, stays visible in the lists, and its recommendations stay closable —
+     a supervisor's day in the field is never thrown away because a plan changed
+     behind them. It is the FIGURES it leaves, and the screen says so. */
+  const dropped = cid ? vs.filter(v => !siteInCycle(v.siteId, cid)) : [];
+  const droppedSites = new Set(dropped.map(v => v.siteId)).size;
+  if(cid) vs = vs.filter(v => siteInCycle(v.siteId, cid));
   const agg=vs.filter(v=>{ const s=siteById(v.siteId); return s && s.status==='ACTIVE'; });
   /* ═══════════════════════════════════════════════════════════════════════
      SEVENTEEN AND EIGHTEEN
@@ -7570,10 +7584,7 @@ function viewDashRegional(){
      The ring now counts FACILITIES, and the difference is written underneath
      it in words rather than left for the reader to find. */
   const aggSites = new Set(agg.map(v => v.siteId));
-  const cycNow0  = cycles.filter(c => c.id === cid)[0] || null;
-  const planSet0 = new Set((cycNow0 && cyclePlanned(cycNow0) ? cyclePlan(cycNow0) : []).map(String));
-  const offPlanN = planSet0.size
-      ? [...aggSites].filter(id => !planSet0.has(String(id))).length : 0;
+  const offPlanN = 0;                      /* nothing off-plan survives into agg now */
   const twiceN   = agg.length - aggSites.size;
   const mineD=myDistricts();
   const dis=[...new Set(DB.d.sites.filter(s=>siteInScope(s.id)).map(s=>s.district))].sort();
@@ -7673,11 +7684,21 @@ function viewDashRegional(){
     </div>
     <p class="xs muted" style="margin:6px 0 0">${L?'Chiffres affichés pour : ':'Figures shown for: '}
       <b>${esc(scopeLabelTxt)}</b>${(agg.length?'':' · '+(L?'aucune supervision soumise sur cette période':'no supervision submitted for this period'))}</p>
+    ${dropped.length ? `<div class="banner b-warn xs" style="margin-top:8px">${L
+      ? '<b>' + dropped.length + ' supervision(s)</b> sur <b>' + droppedSites + '</b> formation(s) sanitaire(s) '
+        + 'sont <b>écartées de tous les chiffres de cet écran</b> : ces formations sanitaires ne sont pas dans le '
+        + 'plan de ce cycle. Le travail n\'est pas perdu — il reste à valider et ses recommandations restent à '
+        + 'suivre. Pour qu\'il compte, ajoutez la formation sanitaire au plan : Console ▸ Cycles ▸ Choisir.'
+      : '<b>' + dropped.length + ' supervision' + (dropped.length>1?'s':'') + '</b> at <b>' + droppedSites
+        + '</b> facilit' + (droppedSites===1?'y':'ies') + ' ' + (dropped.length>1?'are':'is')
+        + ' <b>left out of every figure on this screen</b>: those facilities are not in this cycle\'s plan. '
+        + 'The work is not lost — it is still there to approve and its recommendations are still followed up. '
+        + 'To make it count, add the facility to the plan: Console ▸ Cycles ▸ Choose.'}</div>` : ''}
     ${agg.length ? `<p class="xs muted" style="margin:6px 0 0">${
       (L ? 'Le score porte sur <b>' + aggSites.size + '</b> formation(s) sanitaire(s)'
          : 'The score covers <b>' + aggSites.size + '</b> facilit' + (aggSites.size===1?'y':'ies'))
-      + (offPlanN ? (L ? ', dont <b>' + offPlanN + '</b> hors du plan de ce cycle — comptée(s) ici, pas dans la couverture'
-                       : ', of which <b>' + offPlanN + '</b> outside this cycle\'s plan — counted here, not in coverage') : '')
+      + (droppedSites ? (L ? ' · <b>' + droppedSites + '</b> FS hors plan écartée(s) des chiffres'
+                           : ' · <b>' + droppedSites + '</b> off-plan facilit' + (droppedSites===1?'y':'ies') + ' left out of the figures') : '')
       + (twiceN ? (L ? ' · <b>' + twiceN + '</b> saisie(s) en double restent à départager'
                      : ' · <b>' + twiceN + '</b> duplicate entr' + (twiceN===1?'y':'ies') + ' still to be settled') : '')
       + '.'}</p>` : ''}
