@@ -1041,7 +1041,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.3.0';
+const APP_VERSION = '5.4.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -2105,6 +2105,7 @@ const POWERS = {
   cyclePlan:       'region',
   questionEdit:    'region',
   questionPublish: 'region',
+  siteRegister:    'region',
   formPublish:     'region',
   formDelete:      'region',
   formOfficers:    'region',
@@ -7551,6 +7552,29 @@ function viewDashRegional(){
   if(cid) vs=vs.filter(v=>v.cycleId===cid);
   vs=vs.filter(inScope);
   const agg=vs.filter(v=>{ const s=siteById(v.siteId); return s && s.status==='ACTIVE'; });
+  /* ═══════════════════════════════════════════════════════════════════════
+     SEVENTEEN AND EIGHTEEN
+
+     The ring said "18 site(s)" and the coverage card said "17 / 28", and
+     nothing on the screen could reconcile them. They were counting two
+     different things under one word:
+
+       · the ring counted SUPERVISIONS — agg.length — and called them sites;
+       · coverage counted PLANNED FACILITIES that have one.
+
+     A supervision carried out at a facility this cycle did not plan is in the
+     first and not the second; a facility entered twice is in the first twice.
+     Both are real situations and both are worth knowing about. Neither is
+     worth discovering by subtracting two numbers on a screen.
+
+     The ring now counts FACILITIES, and the difference is written underneath
+     it in words rather than left for the reader to find. */
+  const aggSites = new Set(agg.map(v => v.siteId));
+  const cycNow0  = cycles.filter(c => c.id === cid)[0] || null;
+  const planSet0 = new Set((cycNow0 && cyclePlanned(cycNow0) ? cyclePlan(cycNow0) : []).map(String));
+  const offPlanN = planSet0.size
+      ? [...aggSites].filter(id => !planSet0.has(String(id))).length : 0;
+  const twiceN   = agg.length - aggSites.size;
   const mineD=myDistricts();
   const dis=[...new Set(DB.d.sites.filter(s=>siteInScope(s.id)).map(s=>s.district))].sort();
   const scopeLabelTxt = DASH.district
@@ -7599,7 +7623,7 @@ function viewDashRegional(){
     .sort((a,b)=>String(a.facility).localeCompare(String(b.facility)));
   const covCard = `<div class="card tight">
     <div class="spread">
-      <div><b>${L?'Couverture':'Coverage'}</b>
+      <div><b>${L?'Couverture':'Coverage'}</b>${iBtn('cov')}
         <div class="xs muted">${L?'Supervisées ÷ prévues pour ce cycle':'Supervised ÷ planned for this cycle'}${
           cycObj && !cyclePlanned(cycObj)
             ? ' · ' + (L?'aucune liste définie : registre entier':'no list set: whole register')
@@ -7607,6 +7631,17 @@ function viewDashRegional(){
       <span class="chip ${covPct===null?'n':band(covPct)}">${
         covDone} / ${planInScope.length}${covPct===null?'':' · '+pc(covPct)}</span>
     </div>
+    ${iNote('cov', L
+      ? '<b>' + covDone + ' ÷ ' + planInScope.length + '</b> — au numérateur, les formations sanitaires '
+        + 'PRÉVUES pour ce cycle qui ont au moins une supervision retenue (soumise ou validée, '
+        + 'doublons départagés). Au dénominateur, toutes celles que le plan du cycle prévoit, '
+        + 'après les filtres ci-dessus. Une FS supervisée mais non prévue n\'entre dans aucun des '
+        + 'deux : elle est comptée dans le score et signalée « hors plan ». Un brouillon ne compte pas.'
+      : '<b>' + covDone + ' ÷ ' + planInScope.length + '</b> — the numerator is the facilities this '
+        + 'cycle PLANNED that have at least one supervision kept (submitted or validated, duplicates '
+        + 'settled). The denominator is every facility the cycle plans, after the filters above. A '
+        + 'facility supervised but not planned is in neither: it counts in the score and is flagged '
+        + '"off plan". A draft does not count.')}
     ${notYet.length?`<details style="margin-top:8px">
       <summary class="small" style="cursor:pointer">${notYet.length} ${
         L?'pas encore supervisée(s)':'not yet supervised'}</summary>
@@ -7638,14 +7673,22 @@ function viewDashRegional(){
     </div>
     <p class="xs muted" style="margin:6px 0 0">${L?'Chiffres affichés pour : ':'Figures shown for: '}
       <b>${esc(scopeLabelTxt)}</b>${(agg.length?'':' · '+(L?'aucune supervision soumise sur cette période':'no supervision submitted for this period'))}</p>
+    ${agg.length ? `<p class="xs muted" style="margin:6px 0 0">${
+      (L ? 'Le score porte sur <b>' + aggSites.size + '</b> formation(s) sanitaire(s)'
+         : 'The score covers <b>' + aggSites.size + '</b> facilit' + (aggSites.size===1?'y':'ies'))
+      + (offPlanN ? (L ? ', dont <b>' + offPlanN + '</b> hors du plan de ce cycle — comptée(s) ici, pas dans la couverture'
+                       : ', of which <b>' + offPlanN + '</b> outside this cycle\'s plan — counted here, not in coverage') : '')
+      + (twiceN ? (L ? ' · <b>' + twiceN + '</b> saisie(s) en double restent à départager'
+                     : ' · <b>' + twiceN + '</b> duplicate entr' + (twiceN===1?'y':'ies') + ' still to be settled') : '')
+      + '.'}</p>` : ''}
   </div>
 
   ${covCard}
 
   <div class="grid g3 rings" style="margin-bottom:13px">
     <div class="stat">${ring(rOverall,58,LANG==='fr'?'Score régional':'Regional score',
-      (agg.length||0)+(LANG==='fr'?' site(s)':' site(s)'),
-      `explainRegional(${rOverall},${meanSite},${agg.length})`)}</div>
+      (aggSites.size||0)+(LANG==='fr'?' FS':' facilities'),
+      `explainRegional(${rOverall},${meanSite},${agg.length},${aggSites.size},${offPlanN},${twiceN})`)}</div>
     <div class="stat">${ring(rClin,58,T('clinical'))}</div>
     <div class="stat">${ring(rMne,58,T('mne'))}</div>
   </div>
@@ -7658,7 +7701,18 @@ function viewDashRegional(){
       <div class="stat ${late.length?'fill-r':''}"><b>${late.length}</b><span>${LANG==='fr'?'EN RETARD':'OVERDUE'}</span></div>
     </div>
     <div style="margin-top:10px">
-      <div class="spread small"><span>${LANG==='fr'?'Taux de résolution':'Resolution rate'}</span><b class="sc">${pc(resPct)}</b></div>
+      <div class="spread small"><span>${LANG==='fr'?'Taux de résolution':'Resolution rate'}${iBtn('res')}</span><b class="sc">${pc(resPct)}</b></div>
+    ${iNote('res', LANG==='fr'
+      ? '<b>' + (acts.length-unres.length) + ' ÷ ' + acts.length + '</b> — recommandations marquées '
+        + 'RÉSOLUES, sur le total des recommandations rattachées aux supervisions retenues ci-dessus. '
+        + '« Non résolues » (' + unres.length + ') regroupe les recommandations ouvertes et en cours. '
+        + '« En retard » (' + late.length + ') en est un sous-ensemble : non résolues dont l\'échéance '
+        + 'est passée — elles sont donc déjà comptées dans les non résolues, jamais en plus.'
+      : '<b>' + (acts.length-unres.length) + ' ÷ ' + acts.length + '</b> — recommendations marked '
+        + 'RESOLVED, over every recommendation attached to the supervisions kept above. '
+        + '"Unresolved" (' + unres.length + ') covers open and ongoing together. "Overdue" ('
+        + late.length + ') is a subset of it: unresolved ones past their deadline — already inside '
+        + 'the unresolved figure, never added to it.')}
       <div class="bar"><i style="width:${resPct||0}%;background:${resPct>=90?'var(--green)':resPct>=50?'var(--amber)':'var(--red)'}"></i></div>
     </div>
     ${unres.length?`<div class="tw" style="margin-top:12px"><table>
@@ -7708,11 +7762,61 @@ function viewDashRegional(){
     <button class="btn sec blk sm" style="margin-top:10px" onclick="exportAll()">⇩ CSV</button>
   </div>`;
 }
-function explainRegional(pooledPct, meanPct, n){
+function explainRegional(pooledPct, meanPct, nVisits, nSites, offPlan, twice){
   const L=LANG==='fr';
-  infoModal(T('howCalc'), L
-   ?`SCORE RÉGIONAL — deux lectures\n\n1) Ratio agrégé (affiché en titre) : ${pc(pooledPct)}\n   Tous les numérateurs et dénominateurs des ${n} supervisions sont additionnés puis divisés. Un gros site pèse davantage — c'est la performance réelle de la région.\n\n2) Moyenne des scores de site : ${pc(meanPct)}\n   Chaque site compte pour un. Répond à la question « le site moyen se porte-t-il bien ? ».\n\nLes sites PROVISOIRES sont exclus des agrégats tant qu'ils ne sont pas validés.`
-   :`REGIONAL SCORE — two readings\n\n1) Pooled ratio (headline): ${pc(pooledPct)}\n   All numerators and denominators from the ${n} visits are summed then divided. A large site weighs more — this is the region's real performance.\n\n2) Mean of site scores: ${pc(meanPct)}\n   Every site counts once. Answers "how is the average site doing?".\n\nPROVISIONAL sites are excluded from aggregates until approved.`);
+  const fr = `SCORE RÉGIONAL — comment il est calculé
+
+1) Ratio agrégé (le chiffre affiché) : ${pc(pooledPct)}
+   Tous les numérateurs et tous les dénominateurs des ${nVisits} supervision(s) retenues sont
+   additionnés, puis divisés : Σ(numérateur) ÷ Σ(dénominateur).
+   Une grosse formation sanitaire pèse donc plus qu'une petite — c'est la performance
+   réelle de la région, et non la moyenne de ses sites.
+
+2) Moyenne des scores de site : ${pc(meanPct)}
+   Chaque site compte pour un, quelle que soit sa taille. Répond à une autre question :
+   « le site moyen se porte-t-il bien ? ». Les deux chiffres diffèrent normalement.
+
+CE QUI EST COMPTÉ
+   ${nVisits} supervision(s), portant sur ${nSites} formation(s) sanitaire(s).${
+   twice ? '\n   ' + twice + ' supervision(s) en double : deux saisies pour une même FS, à départager dans la console.' : ''}${
+   offPlan ? '\n   ' + offPlan + ' FS hors du plan de ce cycle : comptée(s) dans ce score, pas dans la couverture.' : ''}
+
+CE QUI EST EXCLU
+   · les brouillons et les supervisions retournées — rien qui ne soit pas soumis ;
+   · la plus ancienne de deux saisies pour une même FS, une fois départagée ;
+   · les questions marquées « sans objet » : ni au numérateur ni au dénominateur ;
+   · les formations sanitaires PROVISOIRES, tant qu'elles ne sont pas validées.
+
+POURQUOI 17 ET 18 NE SONT PAS LE MÊME CHIFFRE
+   La couverture compte les FS PRÉVUES qui ont été supervisées.
+   Ce score compte les SUPERVISIONS retenues, où qu'elles aient eu lieu.`;
+  const en = `REGIONAL SCORE — how it is worked out
+
+1) Pooled ratio (the figure shown): ${pc(pooledPct)}
+   Every numerator and every denominator from the ${nVisits} supervision(s) kept is summed,
+   then divided: Σ(numerator) ÷ Σ(denominator).
+   A large facility therefore weighs more than a small one — this is the region's real
+   performance, not the average of its sites.
+
+2) Mean of site scores: ${pc(meanPct)}
+   Each site counts once, whatever its size. It answers a different question:
+   "how is the average site doing?". The two figures differ normally.
+
+WHAT IS COUNTED
+   ${nVisits} supervision(s), covering ${nSites} facilit${nSites===1?'y':'ies'}.${
+   twice ? '\n   ' + twice + ' duplicate supervision(s): two entries for one facility, to be settled in the console.' : ''}${
+   offPlan ? '\n   ' + offPlan + ' facilit' + (offPlan===1?'y':'ies') + ' outside this cycle\'s plan: counted in this score, not in coverage.' : ''}
+
+WHAT IS LEFT OUT
+   · drafts and returned supervisions — nothing that has not been submitted;
+   · the older of two entries for one facility, once settled;
+   · questions marked "not applicable": in neither the numerator nor the denominator;
+   · PROVISIONAL facilities, until they are approved.
+
+WHY 17 AND 18 ARE NOT THE SAME NUMBER
+   Coverage counts PLANNED facilities that have been supervised.
+   This score counts the SUPERVISIONS kept, wherever they took place.`;
+  infoModal(T('howCalc'), L ? fr : en);
 }
 
 /* ===================== CHAT ===================== */
@@ -10592,6 +10696,9 @@ window.addEventListener('load', ()=>{ if(ONLINE){ pullRemote(); syncNow(true); r
   if(typeof refreshSlots==='function') refreshSlots(false);
   if(u){
     if(isSlot(u)) refreshRoster(false); else refreshMyState(false);
+    /* The register goes up on the same pass as the questionnaire, from the same
+       kind of console, once per change rather than once per sync. */
+    if(typeof publishSites === 'function') setTimeout(() => publishSites(false), 2500);
     /* first launch of the session: bring down everything, including anything
        submitted from another phone while this one was closed */
     pullData(true).then(r=>{ if(r && r.changed) render(); });
@@ -10644,6 +10751,58 @@ function publishQuestionnaire(force, stamp){
   DB.d.config.qserver = mark; DB.save();
   return true;
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   PUBLISHING THE FACILITY REGISTER TO THE WORKBOOK
+
+   The eighty-four facilities have always been inside index.html, so the app has
+   never needed the server to hold them — and the workbook's SITES tab was never
+   filled in. That was invisible until the public dashboard tried to name a
+   facility that nobody had supervised yet, and found nothing: no districts in
+   its filters, no facilities, and — because the page looked a facility up before
+   counting its supervision — no figures at all, behind a layout that rendered
+   perfectly.
+
+   One console publishes it, exactly as it publishes the questionnaire, and for
+   the same reason: on the morning of an upgrade, twenty phones each sending
+   eighty-four rows queue behind one script lock and take the writes down across
+   the region while the reads carry on working.
+
+   The server only ever adds or updates a row, keyed on the facility's id. A
+   facility that has left the app's register is left alone there, because that
+   row may be the only remaining record of where a supervision was carried out.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function siteRegisterStamp(){
+  /* changes when the register changes, so it is published once and not on every
+     sync for the rest of the quarter */
+  const list = (DB.d.sites || []);
+  let h = list.length + ':';
+  list.forEach(s => { h += (s.id || '') + '|' + (s.facility || '') + '|'
+                        + (s.district || '') + '|' + (s.status || '') + ';'; });
+  let n = 0;
+  for(let i = 0; i < h.length; i++){ n = ((n << 5) - n + h.charCodeAt(i)) | 0; }
+  return list.length + '-' + (n >>> 0).toString(36);
+}
+function publishSites(force){
+  if(!ONLINE || !DB.d.config.api) return false;
+  if(!can('siteRegister')) return false;
+  const list = (DB.d.sites || []).filter(s => s && s.id);
+  if(!list.length) return false;
+  const stamp = siteRegisterStamp();
+  if(!force && String(DB.d.config.sitesPublished || '') === stamp) return false;
+  if(publishSites._busy) return false;
+  publishSites._busy = true;
+  setTimeout(() => { publishSites._busy = false; }, 30000);
+  const u = me() || {};
+  queue('sites', {who:u.name || '', byId:u.id || '', stamp:stamp,
+    sites: list.map(s => ({id:s.id, district:s.district || '', area:s.area || '',
+                           facility:s.facility || '', status:s.status || 'ACTIVE',
+                           version:Number(s.version) || 1,
+                           region:s.region || REGION_DEFAULT}))});
+  DB.d.config.sitesPublished = stamp; DB.save();
+  audit('SITES_PUBLISH','site', list.length + ' facilities published to the workbook');
+  return true;
+}
+
 /* A change made in the console is newer than the build it was made on, by definition.
    The full timestamp sorts after the build's date-only stamp, so the workbook becomes
    authoritative the moment a super user edits the questionnaire — which is what makes an

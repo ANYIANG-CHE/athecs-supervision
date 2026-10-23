@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B3C71">
+<title>ATHECS — Tableau de bord · Région de l'Ouest</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<style>
+/* =====================================================================
+   ATHECS — PUBLIC DASHBOARD
+
+   COLOUR IS ASSIGNED BY THE JOB IT DOES, AND VALIDATED, NOT CHOSEN BY EYE.
+
+   · THREE CATEGORICAL SLOTS, and three is the cap on this page — one per
+     instrument. Supervision blue, Foundational Milestone orange, AHD
+     readiness aqua. They are the app's own instrument colours, carried over
+     so the two screens never disagree about which is which.
+       light #2a78d6 / #eb6834 / #1baf7a      dark #3987e5 / #d95926 / #199e70
+     Validated under --pairs all in both modes: worst CVD ΔE 9.2 light /
+     9.4 dark (≥8 target), worst normal-vision ΔE 24.0 light / 20.9 dark
+     (≥15 floor). Aqua sits at 2.82:1 on the light surface, so the relief
+     rule applies and is honoured everywhere: every instrument is named in
+     words beside its colour and every figure exists again in a table.
+
+   · THREE STATUS COLOURS, reserved, never used for a series:
+       verified #0ca30c · awaiting #fab219 · returned #ec835a
+     and two NEUTRALS for the two states that are an absence rather than a
+     condition: started (a draft) and not started. A state ladder built out
+     of five hues would be a rainbow; this one spends hue only where it
+     means something.
+
+   · THE SCORE BANDS are the app's own: ≥100 performant, ≥90 acceptable,
+     below that critical. Nothing invented, so the public figure and the
+     report a supervisor is holding use the same three words.
+
+   NOTHING ON THIS PAGE IS KNOWABLE ONLY BY ITS COLOUR. Every bar carries
+   its number, every state carries its word, every chart has a table.
+
+   NO DUAL AXIS ANYWHERE. Coverage and score are two measures and never
+   share a scale; they are two charts.
+   ===================================================================== */
+:root{
+  color-scheme: light;
+  --page:#F5F8FC; --surface:#FFFFFF; --surface-2:#FAFCFE; --surface-3:#F0F5FB;
+  --line:#E3EAF3; --grid:#EDF1F7; --axis:#C3C2B7;
+  --ink:#0F1723; --ink-2:#52514E; --ink-3:#898781;
+  --brand:#0B3C71; --brand-2:#1B6EC2;
+  --sup:#2a78d6; --fm:#eb6834; --ahd:#1baf7a;
+  --good:#0ca30c; --warn:#fab219; --seri:#ec835a; --crit:#d03b3b;
+  --neutral:#898781; --track:#E8EEF6;
+  --ring:rgba(11,11,11,.10);
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --page:#080C12; --surface:#111823; --surface-2:#151E2B; --surface-3:#19232F;
+    --line:#232F40; --grid:#1B2634; --axis:#383835;
+    --ink:#E9EFF8; --ink-2:#A7B4C7; --ink-3:#78889E;
+    --brand:#5AA2E8; --brand-2:#79B6F0;
+    --sup:#3987e5; --fm:#d95926; --ahd:#199e70;
+    --neutral:#78889E; --track:#1B2634;
+    --ring:rgba(255,255,255,.10);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --page:#080C12; --surface:#111823; --surface-2:#151E2B; --surface-3:#19232F;
+  --line:#232F40; --grid:#1B2634; --axis:#383835;
+  --ink:#E9EFF8; --ink-2:#A7B4C7; --ink-3:#78889E;
+  --brand:#5AA2E8; --brand-2:#79B6F0;
+  --sup:#3987e5; --fm:#d95926; --ahd:#199e70;
+  --neutral:#78889E; --track:#1B2634;
+  --ring:rgba(255,255,255,.10);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);
+     font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+     -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 64px}
+
+/* THE HEADER IS NOT STICKY AND THE FILTER STRIP IS.
+   Both claiming top:0 put the strip underneath the header, where it was
+   invisible and still intercepting taps. Only one of them can own the top of
+   the screen, and the filters earn it: the tabs are chosen once and the
+   filters are changed constantly. On a narrow screen the strip wraps to three
+   rows, which would eat half a telephone, so there it does not stick either. */
+header{background:linear-gradient(180deg,#0A3565,#0B3C71);color:#fff;
+       padding:env(safe-area-inset-top) 0 0}
+:root[data-theme="dark"] header,
+:root:where(:not([data-theme="light"])) header{background:linear-gradient(180deg,#0C1725,#0F1E30)}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]) header{background:linear-gradient(180deg,#0A3565,#0B3C71)} }
+.hin{max-width:1180px;margin:0 auto;padding:12px 16px;display:flex;gap:10px;
+     align-items:center;flex-wrap:wrap}
+.hin h1{font-size:1.02rem;margin:0;font-weight:680;letter-spacing:.005em;line-height:1.2}
+.hin p{margin:2px 0 0;font-size:.72rem;opacity:.78;letter-spacing:.09em}
+.spacer{flex:1}
+.tb{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.12);
+     color:#fff;border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:600;
+     cursor:pointer;min-height:36px}
+.tb.on{background:#fff;color:#0B3C71}
+a.tb{text-decoration:none;font-size:1.05rem;line-height:1;padding:7px 12px}
+a.tb:hover{background:rgba(255,255,255,.26)}
+
+.tabs{display:flex;gap:6px;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;
+      padding-bottom:2px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:0 0 auto;background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:999px;
+  padding:7px 15px;font-size:.78rem;font-weight:650;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;min-height:38px;white-space:nowrap;
+  transition:background .14s ease,color .14s ease}
+.tabs button.on{background:#fff;color:#0B3C71}
+
+/* ---------- the filter strip ----------------------------------------------
+   One row, above the charts, in the order a person narrows: WHEN, then
+   WHERE (region ▸ district ▸ facility), then WHAT. Each control repopulates
+   the ones to its right, and a choice that would show nothing is simply not
+   offered. Everything on the page answers through them, so there is never a
+   chart that quietly ignores the filter above it. */
+.fbar{position:sticky;top:0;z-index:20;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r);padding:11px 12px;margin-top:16px;
+  box-shadow:0 1px 2px rgba(16,32,56,.04);display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.fbar select,.fbar input{background:var(--surface);color:var(--ink);border:1px solid var(--line);
+  border-radius:9px;padding:8px 10px;font-size:.8rem;max-width:100%;min-height:38px}
+.fbar select{font-weight:600}
+.fbar label{display:flex;flex-direction:column;gap:3px;font-size:.66rem;
+  text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);font-weight:650}
+.fbar .grow{flex:1 1 150px;min-width:0}
+.fbar .grow select{width:100%}
+.clearf{background:none;border:1px solid var(--line);color:var(--ink-2);border-radius:9px;
+  padding:8px 11px;font-size:.76rem;font-weight:650;cursor:pointer;min-height:38px}
+.clearf:hover{background:var(--surface-2)}
+
+/* a two-state switch: a toggle is a question with one answer, so it says both */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg button{background:var(--surface);border:0;color:var(--ink-2);font-size:.75rem;
+  font-weight:650;padding:8px 13px;cursor:pointer;min-height:38px;white-space:nowrap}
+.seg button.on{background:var(--brand);color:#fff}
+:root[data-theme="dark"] .seg button.on,
+:root:where(:not([data-theme="light"])) .seg button.on{background:var(--brand-2);color:#08131f}
+
+h2{font-size:.95rem;margin:26px 0 3px;letter-spacing:-.01em}
+h3{font-size:.84rem;margin:0 0 2px;letter-spacing:-.005em}
+.sub{font-size:.78rem;color:var(--ink-2);margin:0 0 12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+      padding:16px;box-shadow:0 1px 2px rgba(16,32,56,.04)}
+.cards{display:grid;gap:14px;margin-top:12px}
+@media (min-width:900px){ .cards.two{grid-template-columns:1fr 1fr} }
+
+/* ---------- stat tiles: a number is a form, not a failed chart ---------- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr));gap:12px;margin-top:14px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;
+  position:relative;overflow:hidden}
+.tile .k{font-size:.7rem;color:var(--ink-2);letter-spacing:.04em;text-transform:uppercase}
+.tile .v{font-size:1.9rem;font-weight:660;line-height:1.15;margin-top:4px;letter-spacing:-.02em}
+.tile .n{font-size:.75rem;color:var(--ink-3);margin-top:2px}
+.tile .edge{position:absolute;left:0;top:0;bottom:0;width:3px}
+
+/* ---------- bars ---------- */
+.row{display:grid;grid-template-columns:minmax(96px,160px) 1fr auto;gap:10px;
+     align-items:center;padding:5px 0}
+.row .lab{font-size:.82rem;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.wide{grid-template-columns:minmax(150px,240px) 1fr auto}
+.row.wide .lab{color:var(--ink);font-weight:650}
+.bar{height:15px;background:var(--track);border-radius:4px;overflow:hidden;position:relative}
+.bar i{display:block;height:100%;border-radius:4px}
+.row .val{font-size:.82rem;font-variant-numeric:tabular-nums;min-width:78px;text-align:right}
+
+/* a stacked progress bar: 2px of surface between segments, never a hairline
+   of a third colour, so the gap reads as a gap and not as a category */
+.stack{display:flex;height:17px;border-radius:5px;overflow:hidden;background:var(--track);
+  gap:2px;padding:0}
+.stack i{display:block;height:100%;min-width:0}
+.stack i:first-child{border-radius:5px 0 0 5px}
+.stack i:last-child{border-radius:0 5px 5px 0}
+
+.pill{display:inline-block;font-size:.68rem;font-weight:650;padding:1px 7px;border-radius:999px;
+      border:1px solid var(--line);color:var(--ink-2);margin-left:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;font-weight:650;
+  padding:2px 9px;border-radius:999px;border:1px solid var(--ring);white-space:nowrap}
+.chip .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin:10px 0 0;font-size:.74rem;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+/* ---------- tables ---------- */
+.scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+.scrollx table{min-width:560px}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);
+   font-weight:640;cursor:pointer;white-space:nowrap;position:sticky;top:0;background:var(--surface);z-index:1}
+th.sorted{color:var(--ink)}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.nm{font-weight:620;color:var(--ink)}
+.s-only{display:none}
+@media (max-width:620px){ .s-only{display:block;font-size:.72rem;color:var(--ink-2);margin-top:2px} }
+tbody tr:hover{background:var(--surface-2)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:-1px}
+
+/* ---------- the cross-instrument matrix ----------------------------------
+   One row per facility, one column per instrument, one cell per state. It is
+   a table and not a heatmap: a state is a word with a colour beside it, and
+   the word is in the cell. A grid of coloured squares would be unreadable to
+   the person who most needs it and unprintable for everybody. */
+.mx td{padding:7px 9px}
+.mx .cell{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:620;
+  white-space:nowrap}
+
+/* ---------- insights ---------- */
+.ins{display:grid;gap:10px}
+.ins .i{display:flex;gap:11px;align-items:flex-start;background:var(--surface-2);
+  border:1px solid var(--line);border-left-width:3px;border-radius:10px;padding:11px 13px}
+.ins .i b{display:block;font-size:.8rem;margin-bottom:1px}
+.ins .i p{margin:0;font-size:.78rem;color:var(--ink-2);line-height:1.5}
+.ins .i .ic{font-size:1rem;line-height:1.3;flex:0 0 auto}
+
+/* ---- "what is this number?" ------------------------------------------------
+   Every figure on this page is a ratio with a numerator and a denominator that
+   somebody chose. A reader who cannot see that choice cannot trust the figure,
+   and the first time two of them disagree they stop trusting all of them. The
+   icon is small, always in the same place, and the note it opens names the two
+   halves of the fraction and what is left out of each. */
+.info{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;
+  margin-left:6px;border-radius:50%;border:1px solid var(--line);background:var(--surface-2);
+  color:var(--ink-3);font-size:.64rem;font-weight:800;cursor:pointer;vertical-align:1px;
+  font-style:normal;line-height:1;padding:0;-webkit-tap-highlight-color:transparent}
+.info:hover{background:var(--brand);border-color:var(--brand);color:#fff}
+.infonote{margin:8px 0 0;font-size:.75rem;line-height:1.55;color:var(--ink-2);
+  background:var(--surface-2);border:1px solid var(--line);border-left:3px solid var(--brand-2);
+  border-radius:9px;padding:9px 11px}
+.note{font-size:.78rem;color:var(--ink-2);background:var(--surface-2);
+      border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-top:12px}
+.foot{margin-top:34px;font-size:.75rem;color:var(--ink-3);text-align:center;line-height:1.7}
+.err{background:#FCEAE8;border:1px solid #F2B7B2;color:#B3261E;border-radius:10px;padding:14px}
+:root[data-theme="dark"] .err{background:#2C1614;border-color:#7A2F28;color:#FF8A80}
+.skl{height:13px;background:var(--track);border-radius:6px;animation:p 1.3s ease-in-out infinite}
+@keyframes p{0%,100%{opacity:.45}50%{opacity:.9}}
+.empty{font-size:.82rem;color:var(--ink-3);padding:18px 2px;text-align:center}
+
+/* ---------- svg charts ---------- */
+svg.chart{display:block;width:100%;height:auto;overflow:visible;touch-action:pan-y}
+svg.chart .gl{stroke:var(--grid);stroke-width:1}
+svg.chart .ax{stroke:var(--axis);stroke-width:1}
+svg.chart text{fill:var(--ink-3);font-size:10px}
+svg.chart text.v{fill:var(--ink-2);font-size:10.5px;font-weight:650}
+svg.chart .ln{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+svg.chart .mk{stroke:var(--surface);stroke-width:2}
+svg.chart .hit{fill:transparent}
+svg.chart .cross{stroke:var(--axis);stroke-width:1;stroke-dasharray:3 3;opacity:0}
+
+#tip{position:fixed;pointer-events:none;background:var(--surface);color:var(--ink);
+     border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:.78rem;
+     box-shadow:0 8px 24px rgba(16,32,56,.18);opacity:0;transition:opacity .12s;z-index:60;
+     max-width:260px;line-height:1.45}
+#tip b{display:block;margin-bottom:3px}
+
+@media (max-width:620px){
+  .fbar{position:static}
+  .row{grid-template-columns:minmax(78px,118px) 1fr auto}
+  /* A PROGRESS BAR 44 PIXELS WIDE IS NOT A PROGRESS BAR.
+     The wide row keeps a 150–240px label column, which on a 390px telephone
+     leaves the bar the width of a thumbnail — five segments in forty pixels,
+     unreadable and untappable. The label and the count take the first line and
+     the bar takes the whole of the second, where it is 334px wide and the
+     segments can actually be told apart. */
+  .row.wide{grid-template-columns:1fr auto;
+    grid-template-areas:"lab val" "bar bar";row-gap:5px;padding:8px 0}
+  .row.wide .lab{grid-area:lab;white-space:normal}
+  .row.wide .stack{grid-area:bar}
+  .row.wide .val{grid-area:val;min-width:0}
+  .hide-s{display:none}
+  .wrap{padding:0 12px 56px}
+  .fbar{padding:10px}
+}
+@media print{
+  header,.fbar,.tabs,#tip{display:none!important}
+  .card{break-inside:avoid;box-shadow:none}
+  body{background:#fff}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="hin">
+    <!-- An installed app opens an in-scope page inside its own window, where
+         there is no address bar and no back button. Whatever brought a person
+         here, there is always a way back to the application from here. -->
+    <a class="tb" id="back" href="index.html" title="ATHECS">‹</a>
+    <div>
+      <h1 id="t-title">Supervision Intégrée — Tableau de bord</h1>
+      <p>ATHECS · <span id="t-region">Région de l'Ouest</span></p>
+    </div>
+    <span class="spacer"></span>
+    <button class="tb on" id="fr" onclick="setLang('fr')">FR</button>
+    <button class="tb" id="en" onclick="setLang('en')">EN</button>
+    <button class="tb" id="th" onclick="cycleTheme()" title="Thème / Theme">☀</button>
+    <div class="tabs" id="tabs"></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="fbar"></div>
+  <div id="app">
+    <div class="tiles">
+      <div class="tile"><div class="k">&nbsp;</div><div class="skl" style="margin:10px 0"></div></div>
+      <div class="tile"><div class="k">&nbsp;</div><div class="skl" style="margin:10px 0"></div></div>
+      <div class="tile"><div class="k">&nbsp;</div><div class="skl" style="margin:10px 0"></div></div>
+      <div class="tile"><div class="k">&nbsp;</div><div class="skl" style="margin:10px 0"></div></div>
+    </div>
+    <div class="card" style="margin-top:14px"><div class="skl" style="height:150px"></div></div>
+  </div>
+  <div class="foot" id="foot"></div>
+</div>
+<div id="tip" role="status" aria-live="polite"></div>
+
+<script>
+/* =====================================================================
+   ATHECS public dashboard
+
+   READ-ONLY, and read-only by construction: it holds its own token, which
+   is not the supervisors' one, and the endpoint behind it is an ALLOW-LIST
+   — every field it can return is named by hand in Code.gs. No supervisor
+   name, no reviewer, no team, no comment, no root cause, no recommendation
+   text, no SWOT, no account, no identity document, no PIN has a route to
+   this page, whatever this file asks for.
+
+   ONE REQUEST. The atlas carries the undivided numbers — numerator and
+   denominator per facility, per cycle, per section — so every filter on
+   this page is answered locally and instantly, and a percentage is never
+   re-averaged from other percentages.
+   ===================================================================== */
+const API   = 'https://script.google.com/macros/s/AKfycbyAjaQ1yALvefsUxZhvQbUFPo-yXXuDguqV0ni2Iz0UQXENF-uBRNU1I4zrhtQeK-ESbQ/exec';
+const TOKEN = 'ATHECS-DASH-2026';
+
+let J = null, A = null, LANG = 'fr', VIEW = 'cy';
+/* `prov` TRUE BY DEFAULT, and this is a decision rather than an oversight.
+   The page published verified work only, so a quarter in which every facility
+   had been visited and nothing had yet been checked showed an empty dashboard —
+   which is not what happened in the field and told nobody anything. Work feeds
+   this page the moment it is SUBMITTED; whether it has been validated is then a
+   switch, and choosing "validated only" says what it set aside and why. */
+let F = {cycle:'', region:'', district:'', site:'', section:'', prov:true};
+let SORT = {k:'name', dir:1};
+let QTXT = '';
+
+/* ---------- words ---------- */
+const TXT = {
+ fr:{
+  title:'Supervision Intégrée — Tableau de bord', region:'Région de l’Ouest',
+  ov:'Vue d’ensemble', fac:'Formations sanitaires', ins:'Instruments', ahd:'AHD',
+  cycle:'Cycle', reg:'Région', dis:'District', site:'Formation sanitaire',
+  theme:'Domaine', all:'Tous', allf:'Toutes', clear:'Réinitialiser',
+  verifiedOnly:'Validées seulement', withWaiting:'Toutes les soumissions',
+  allSubs:'Toutes les soumissions', valOnly:'Validées seulement',
+  stand:'Où en est le cycle', standSub:'Chaque formation sanitaire prévue, et ce qui bloque',
+  perfTab:'Performance', perfSub:'Scores, sections et évolution',
+  planned2:'Prévues', submitted:'Soumises', verified:'Validées',
+  drafting:'En cours de saisie', notStarted:'Pas commencées',
+  stalled:'Brouillons à l\u2019arrêt', stalledSub:'Aucune modification depuis 14 jours ou plus',
+  stuck:'Ce qui bloque', nothingStuck:'Rien ne bloque sur cette sélection.',
+  lastMoved:'Dernière modification', prog:'Avancement',
+  days:'j', setAside:'mises de côté',
+  returnedNot:'Retournées, pas encore renvoyées',
+  oldestWait:'La plus ancienne attend depuis',
+  approxWarn:'Chiffre reconstitué',
+  whatIsThis:'Ce que montre cette page',
+  whatSub:'Où en est le cycle de mentorat en cours : qui a soumis, qui saisit encore, qui n\u2019a pas commencé, et ce qui attend une décision. Les instruments AHD et Foundational Milestone sont des projets ponctuels et n\u2019apparaissent que tant qu\u2019ils sont ouverts.',
+  coverage:'Couverture', covSub:'Supervisées ÷ prévues pour ce cycle',
+  score:'Score global', scoreSub:'Pondéré, pas une moyenne de pourcentages',
+  waiting:'En attente de vérification', waitingSub:'Soumises, pas encore validées',
+  overdue:'Recommandations en retard', overdueSub:'Échéance dépassée, non résolues',
+  progress:'Avancement par district', progressSub:'Chaque formation sanitaire prévue, dans son état',
+  sections:'Score par section', sectionsSub:'De la plus faible à la plus forte',
+  trend:'Évolution', trendSub:'Score global par cycle, sur la sélection',
+  recos:'Recommandations', byInst:'Les trois instruments',
+  stVerified:'Vérifiée', stWaiting:'En attente', stReturned:'Retournée',
+  stStarted:'Commencée', stNone:'Pas commencée',
+  notPlanned:'Hors plan',
+  perf:'Performant', acc:'Acceptable', crit:'Critique', nodata:'Pas de données',
+  search:'Rechercher une formation sanitaire', rows:'ligne(s)',
+  facility:'Formation sanitaire', state:'État', date:'Date', open:'Ouvertes', late:'En retard',
+  exportCsv:'Exporter (CSV)',
+  insights:'Ce que disent ces chiffres', noData:'Aucune donnée pour cette sélection.',
+  supervision:'Supervision intégrée', milestone:'Foundational Milestone', ahdFull:'Préparation AHD',
+  prov:'provisoire', planned:'prévues', done:'faites', of:'sur',
+  never:'Jamais supervisée', lastSeen:'Dernière supervision',
+  dup:'Doublon', refresh:'Actualiser', updated:'Mis à jour'
+ },
+ en:{
+  title:'Integrated Supervision — Dashboard', region:'West Region',
+  ov:'Overview', fac:'Facilities', ins:'Instruments', ahd:'AHD',
+  cycle:'Cycle', reg:'Region', dis:'District', site:'Facility',
+  theme:'Domain', all:'All', allf:'All', clear:'Reset',
+  verifiedOnly:'Validated only', withWaiting:'All submissions',
+  allSubs:'All submissions', valOnly:'Validated only',
+  stand:'Where the cycle stands', standSub:'Every planned facility, and what is holding it up',
+  perfTab:'Performance', perfSub:'Scores, sections and trend',
+  planned2:'Planned', submitted:'Submitted', verified:'Validated',
+  drafting:'Still being filled in', notStarted:'Not started',
+  stalled:'Drafts that have stopped', stalledSub:'No change for 14 days or more',
+  stuck:'What is holding things up', nothingStuck:'Nothing is holding this selection up.',
+  lastMoved:'Last change', prog:'Progress',
+  days:'d', setAside:'set aside',
+  returnedNot:'Returned, not yet resubmitted',
+  oldestWait:'The oldest has been waiting',
+  approxWarn:'Reconstructed figure',
+  whatIsThis:'What this page shows',
+  whatSub:'Where the current mentorship cycle stands: who has submitted, who is still filling in, who has not started, and what is waiting on a decision. The AHD and Foundational Milestone instruments are one-off projects and appear only while they are open.',
+  coverage:'Coverage', covSub:'Supervised ÷ planned for this cycle',
+  score:'Overall score', scoreSub:'Weighted — never an average of percentages',
+  waiting:'Awaiting verification', waitingSub:'Submitted, not yet verified',
+  overdue:'Overdue recommendations', overdueSub:'Past deadline, unresolved',
+  progress:'Progress by district', progressSub:'Every planned facility, in its state',
+  sections:'Score by section', sectionsSub:'Weakest to strongest',
+  trend:'Trend', trendSub:'Overall score by cycle, for this selection',
+  recos:'Recommendations', byInst:'The three instruments',
+  stVerified:'Verified', stWaiting:'Awaiting', stReturned:'Returned',
+  stStarted:'Started', stNone:'Not started',
+  notPlanned:'Off plan',
+  perf:'Performing', acc:'Acceptable', crit:'Critical', nodata:'No data',
+  search:'Search a facility', rows:'row(s)',
+  facility:'Facility', state:'State', date:'Date', open:'Open', late:'Overdue',
+  exportCsv:'Export (CSV)',
+  insights:'What these figures say', noData:'No data for this selection.',
+  supervision:'Integrated supervision', milestone:'Foundational Milestone', ahdFull:'AHD readiness',
+  prov:'provisional', planned:'planned', done:'done', of:'of',
+  never:'Never supervised', lastSeen:'Last supervision',
+  dup:'Duplicate', refresh:'Refresh', updated:'Updated'
+ }
+};
+const T = k => (TXT[LANG] && TXT[LANG][k]) || TXT.fr[k] || k;
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const $ = s => document.querySelector(s);
+/* The same pair as the app's iBtn/iNote, so the two screens explain a figure
+   the same way and a person who has learnt one has learnt the other. */
+const iB = id => `<button class="info" type="button" id="ib-${id}" aria-expanded="false"
+  aria-controls="note-${id}" title="What this means" onclick="iT('${id}')">i</button>`;
+const iN = (id, html) => `<p class="infonote" id="note-${id}" hidden>${html}</p>`;
+function iT(id){
+  const n = document.getElementById('note-' + id); if(!n) return;
+  const open = n.hasAttribute('hidden');
+  if(open) n.removeAttribute('hidden'); else n.setAttribute('hidden', '');
+  const b = document.getElementById('ib-' + id);
+  if(b) b.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+/* ---------- numbers ---------- */
+const pct = (n, d) => (d > 0) ? Math.round((n / d) * 1000) / 10 : null;
+const pc  = v => v === null || v === undefined ? '—' : v.toFixed(1).replace('.', LANG==='fr'?',':'.') + '%';
+const band = v => v === null ? 'none' : v >= 100 ? 'good' : v >= 90 ? 'warn' : 'crit';
+/* ---- COVERAGE IS NOT A SCORE, AND MUST NOT BORROW ITS BANDS -------------------
+   The questionnaire's bands are ≥100 green, ≥90 amber — right for a score the
+   region is expected to reach in full, and badly wrong for coverage, which is
+   SUPPOSED to climb through a quarter. Two-thirds of facilities supervised in
+   mid-cycle was being painted the same red as a failing facility, which is the
+   kind of signal a management team reacts to once and then stops trusting. */
+const covBand = v => v === null ? 'none' : v >= 90 ? 'good' : v >= 50 ? 'warn' : 'crit';
+const bandWord = v => v === null ? T('nodata') : v >= 100 ? T('perf') : v >= 90 ? T('acc') : T('crit');
+const COLOR = {good:'var(--good)', warn:'var(--warn)', crit:'var(--crit)', none:'var(--neutral)'};
+const STATE = {
+  verified:{c:'var(--good)',    w:'stVerified', i:'✓'},
+  waiting: {c:'var(--warn)',    w:'stWaiting',  i:'◐'},
+  returned:{c:'var(--seri)',    w:'stReturned', i:'↩'},
+  started: {c:'var(--neutral)', w:'stStarted',  i:'✎'},
+  none:    {c:'var(--track)',   w:'stNone',     i:'·'}
+};
+const ORDER = ['none','started','returned','waiting','verified'];
+
+/* ---------- theme & language ---------- */
+function cycleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : cur === 'light' ? '' : 'dark';
+  if(next) document.documentElement.setAttribute('data-theme', next);
+  else document.documentElement.removeAttribute('data-theme');
+  try{ localStorage.setItem('ath_dash_theme', next); }catch(e){}
+  $('#th').textContent = next === 'dark' ? '☾' : next === 'light' ? '☀' : '◐';
+  draw();
+}
+function setLang(l){
+  LANG = l;
+  $('#fr').className = 'tb' + (l === 'fr' ? ' on' : '');
+  $('#en').className = 'tb' + (l === 'en' ? ' on' : '');
+  document.documentElement.lang = l;
+  try{ localStorage.setItem('ath_dash_lang', l); }catch(e){}
+  $('#t-title').textContent = T('title');
+  $('#t-region').textContent = (J && J.region) || T('region');
+  draw();
+}
+function setView(v){ VIEW = v; draw(); }
+
+/* =====================================================================
+   THE FILTER, AND WHAT IT MEANS
+
+   Every chart and every table on this page reads cellsFor(). There is no
+   second path and no chart that quietly ignores the controls above it —
+   that is the one thing a dashboard with filters must never do.
+   ===================================================================== */
+function sitesAll(){ return (A && A.sites) || []; }
+function siteById(id){ return sitesAll().filter(s => s.id === id)[0] || null; }
+function cycleById(id){ return ((A && A.cycles) || []).filter(c => c.id === id)[0] || null; }
+
+/* The facilities the chosen cycle planned, inside the chosen place. A cycle
+   with no list set means the whole register, exactly as in the app. */
+function planFor(cid){
+  const p = (A && A.plans && A.plans[cid]) || null;
+  const set = p ? new Set(p) : null;
+  return sitesAll().filter(s => !set || set.has(s.id));
+}
+function placeOk(s){
+  if(!s) return false;
+  if(F.region && s.region !== F.region) return false;
+  if(F.district && s.district !== F.district) return false;
+  if(F.site && s.id !== F.site) return false;
+  return true;
+}
+/* The facilities this screen is about: planned for the cycle AND in the place. */
+function scopeSites(){ return planFor(F.cycle).filter(placeOk); }
+
+/* The cells of the chosen cycle, in the place. A facility supervised this
+   cycle but not in its plan is kept and marked — it is work that happened,
+   and a figure that silently drops it is a figure nobody can reconcile. */
+function cellsFor(cid){
+  cid = cid || F.cycle;
+  const plan = new Set(planFor(cid).map(s => s.id));
+  return ((A && A.cells) || []).filter(c => {
+    if(c.c !== cid) return false;
+    const s = siteById(c.s);
+    return s && placeOk(s);
+  }).map(c => Object.assign({}, c, {offPlan: !plan.has(c.s), site: siteById(c.s)}));
+}
+
+/* Pool, never average. Σn ÷ Σd, with the section filter applied to both halves
+   so the numerator and the denominator always describe the same questions. */
+function pool(cells, which){
+  let n = 0, d = 0;
+  const prov = which === 'p';
+  cells.forEach(c => {
+    if(F.section){
+      const sec = (prov ? c.psec : c.sec) || {};
+      const v = sec[F.section];
+      if(v){ n += v[0]; d += v[1]; }
+      return;
+    }
+    if(prov){ n += c.pn || 0; d += c.pd || 0; }
+    else { n += c.n || 0; d += c.d || 0; }
+  });
+  return {n, d, pct: pct(n, d)};
+}
+/* The headline figure. "Verified" uses approved work only. "+ awaiting" adds
+   the supervisions that have been submitted and not yet checked — which is a
+   different question, so it is a choice the person makes and never a default. */
+function headline(cells){
+  const a = pool(cells, 'a');
+  if(!F.prov) return a;
+  const p = pool(cells, 'p');
+  return {n:a.n + p.n, d:a.d + p.d, pct: pct(a.n + p.n, a.d + p.d)};
+}
+function sectionNames(){
+  const set = {};
+  ((A && A.cells) || []).forEach(c => {
+    Object.keys(c.sec || {}).forEach(k => set[k] = 1);
+    Object.keys(c.psec || {}).forEach(k => set[k] = 1);
+  });
+  return Object.keys(set).sort();
+}
+
+/* ---------- the state of every planned facility, in the place ---------- */
+function board(cid){
+  cid = cid || F.cycle;
+  const byId = {};
+  cellsFor(cid).forEach(c => byId[c.s] = c);
+  const rows = scopeSites().map(s => {
+    const c = byId[s.id];
+    return {site:s, cell:c || null, state: c ? c.st : 'none', offPlan:false};
+  });
+  /* work against a facility this cycle did not plan: kept, and marked */
+  cellsFor(cid).forEach(c => {
+    if(c.offPlan && !rows.some(r => r.site.id === c.s))
+      rows.push({site:c.site, cell:c, state:c.st, offPlan:true});
+  });
+  return rows;
+}
+
+/* ---------- the declarations, per facility ---------- */
+function pageState(siteId, kind){
+  const rows = ((A && A.pages) || []).filter(p => p.s === siteId && p.k === kind);
+  if(!rows.length) return 'none';
+  const rank = {APPROVED:4, SIGNED:4, SUBMITTED:3, RETURNED:2, DRAFT:1};
+  let best = 'none', bv = 0;
+  rows.forEach(p => {
+    const v = rank[p.st] || 0;
+    if(v > bv){ bv = v; best = v >= 4 ? 'verified' : v === 3 ? 'waiting' : v === 2 ? 'returned' : 'started'; }
+  });
+  return best;
+}
+
+/* =====================================================================
+   CHARTS
+
+   Written as inline SVG rather than pulled from a library: the marks are
+   exactly the ones the method calls for — thin, 4px rounded data-ends
+   anchored to the baseline, a 2px surface gap between fills, selective
+   direct labels, recessive grid — and nothing arrives over the network to
+   draw a bar.
+   ===================================================================== */
+function tip(e, html){
+  const t = $('#tip');
+  if(!html){ t.style.opacity = 0; return; }
+  t.innerHTML = html;
+  t.style.opacity = 1;
+  const r = t.getBoundingClientRect();
+  let x = e.clientX + 14, y = e.clientY - r.height - 12;
+  if(x + r.width > innerWidth - 8) x = e.clientX - r.width - 14;
+  if(y < 8) y = e.clientY + 18;
+  t.style.left = x + 'px'; t.style.top = y + 'px';
+}
+window.addEventListener('scroll', () => tip(null, ''), {passive:true});
+
+/* Horizontal bars, one series, direct value on every row. */
+function barsH(rows){
+  if(!rows.length) return `<div class="empty">${esc(T('noData'))}</div>`;
+  const max = Math.max(100, ...rows.map(r => r.v === null ? 0 : r.v));
+  return rows.map(r => {
+    const b = band(r.v), w = r.v === null ? 0 : Math.max(1.5, (r.v / max) * 100);
+    return `<div class="row" title="${esc(r.lab)}">
+      <span class="lab">${esc(r.lab)}</span>
+      <span class="bar"><i style="width:${w}%;background:${COLOR[b]}"></i></span>
+      <span class="val">${pc(r.v)}</span></div>`;
+  }).join('');
+}
+
+/* A stacked progress bar. Counts, in words, with a 2px gap between fills. */
+function stack(counts, total){
+  if(!total) return `<span class="stack"></span>`;
+  return `<span class="stack">${ORDER.map(k => {
+    const n = counts[k] || 0;
+    if(!n) return '';
+    const w = (n / total) * 100;
+    const st = STATE[k];
+    return `<i style="width:${w}%;background:${st.c};${k==='none'?'box-shadow:inset 0 0 0 1px var(--ring)':''}"
+      data-t="${esc(T(st.w))} — ${n}"></i>`;
+  }).join('')}</span>`;
+}
+
+/* The trend. One line, a crosshair, a tooltip; no second axis, ever. */
+function lineChart(points, idTag){
+  /* A trend needs two points. Saying "no data" when there is one cycle of data
+     is not true and sends somebody looking for a fault that is not there. */
+  if(points.length === 1) return `<div class="empty">${esc(points[0].lab)} · ${
+    pc(points[0].v)}<br><span style="font-size:.76rem">${esc(
+      LANG === 'fr' ? 'Un seul cycle pour l\u2019instant — l\u2019évolution apparaîtra au suivant.'
+                    : 'One cycle so far — the trend appears with the next one.')}</span></div>`;
+  if(!points.length) return `<div class="empty">${esc(T('noData'))}</div>`;
+  const W = 680, H = 190, PL = 34, PR = 14, PT = 14, PB = 26;
+  const iw = W - PL - PR, ih = H - PT - PB;
+  const vals = points.map(p => p.v).filter(v => v !== null);
+  const lo = Math.max(0, Math.min(...vals) - 8), hi = Math.min(110, Math.max(...vals) + 8);
+  const span = Math.max(1, hi - lo);
+  const X = i => PL + (points.length === 1 ? iw / 2 : (i / (points.length - 1)) * iw);
+  const Y = v => PT + ih - ((v - lo) / span) * ih;
+  const ticks = [lo, lo + span / 2, hi].map(v => Math.round(v));
+  const d = points.map((p, i) => (p.v === null ? null : (i ? 'L' : 'M') + X(i) + ' ' + Y(p.v)))
+                  .filter(Boolean).join(' ');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+      role="img" aria-label="${esc(T('trendSub'))}" onmouseleave="tip(null,'')">
+    ${ticks.map(t => `<line class="gl" x1="${PL}" x2="${W-PR}" y1="${Y(t)}" y2="${Y(t)}"/>
+      <text x="${PL-6}" y="${Y(t)+3}" text-anchor="end">${t}</text>`).join('')}
+    <line class="ax" x1="${PL}" x2="${W-PR}" y1="${PT+ih}" y2="${PT+ih}"/>
+    <path class="ln" d="${d}" stroke="var(--sup)"/>
+    ${points.map((p, i) => p.v === null ? '' : `
+      <circle class="mk" cx="${X(i)}" cy="${Y(p.v)}" r="4.5" fill="${COLOR[band(p.v)]}"/>`).join('')}
+    ${points.map((p, i) => `
+      <text x="${X(i)}" y="${H-8}" text-anchor="${i===0?'start':i===points.length-1?'end':'middle'}">${esc(p.lab)}</text>
+      <rect class="hit" x="${X(i)-iw/(points.length*2)-2}" y="${PT}"
+        width="${iw/points.length+4}" height="${ih}"
+        onmousemove="tip(event,'<b>${esc(p.lab)}</b>${esc(p.tip||'')}')"
+        onmouseleave="tip(null,'')"></rect>`).join('')}
+    ${points.map((p, i) => p.v === null || (i && i < points.length-1) ? '' :
+      `<text class="v" x="${X(i)}" y="${Y(p.v)-10}" text-anchor="middle">${pc(p.v)}</text>`).join('')}
+  </svg>`;
+}
+
+/* `insights()` lived here. It became "What is holding things up" on the cycle
+   tab, where it belongs: beside the facilities it is talking about rather than
+   under a heading nobody could name. Nothing else used it. */
+function sectionRows(){
+  const cells = cellsFor();
+  const acc = {};
+  cells.forEach(c => {
+    const add = (sec, w) => Object.keys(sec || {}).forEach(k => {
+      const o = acc[k] || (acc[k] = [0, 0]);
+      o[0] += sec[k][0]; o[1] += sec[k][1];
+    });
+    add(c.sec);
+    if(F.prov) add(c.psec);
+  });
+  return Object.keys(acc).map(k => ({lab:k, v:pct(acc[k][0], acc[k][1])}))
+    .filter(r => r.v !== null)
+    .sort((a, b) => a.v - b.v);
+}
+function trendRows(){
+  return ((A && A.cycles) || []).map(c => {
+    const cells = cellsFor(c.id);
+    const h = headline(cells);
+    return {lab:c.name, v:h.pct, id:c.id,
+            tip: h.pct === null ? '' : '<br>' + pc(h.pct) + ' · ' + bandWord(h.pct)};
+  }).filter(r => r.v !== null);
+}
+
+/* =====================================================================
+   RENDER
+   ===================================================================== */
+function drawFilters(){
+  const regions = (A && A.regions) || [];
+  /* .filter(Boolean): a facility known only from a cycle's plan has no district
+     yet, which put a SECOND blank <option value=""> into this select — and the
+     browser selects the last one, so the District box rendered empty with no "All"
+     in it and no way to tell what it was filtering by. */
+  const dis = [...new Set(sitesAll().filter(s => !F.region || s.region === F.region)
+                 .map(s => s.district))].filter(Boolean).sort();
+  const facs = sitesAll()
+    .filter(s => (!F.region || s.region === F.region) && (!F.district || s.district === F.district))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  const secs = sectionNames();
+  const opt = (v, cur, lab) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(lab)}</option>`;
+  const dirty = F.region || F.district || F.site || F.section || F.prov;
+  $('#fbar').innerHTML = `
+  <div class="fbar">
+    <label class="grow">${esc(T('cycle'))}
+      <select onchange="F.cycle=this.value;F.site=F.site;draw()">
+        ${((A && A.cycles) || []).slice().reverse().map(c =>
+          opt(c.id, F.cycle, c.name + (c.status === 'OPEN' ? ' ●' : ''))).join('')}
+      </select></label>
+    ${regions.length > 1 ? `<label class="grow">${esc(T('reg'))}
+      <select onchange="F.region=this.value;F.district='';F.site='';draw()">
+        ${opt('', F.region, T('allf'))}${regions.map(r => opt(r, F.region, r)).join('')}
+      </select></label>` : ''}
+    <label class="grow">${esc(T('dis'))}
+      <select onchange="F.district=this.value;F.site='';draw()">
+        ${opt('', F.district, T('all'))}${dis.map(d => opt(d, F.district, d)).join('')}
+      </select></label>
+    <label class="grow">${esc(T('site'))}
+      <select onchange="F.site=this.value;draw()">
+        ${opt('', F.site, T('allf'))}${facs.map(s => opt(s.id, F.site, s.name)).join('')}
+      </select></label>
+    ${secs.length ? `<label class="grow">${esc(T('theme'))}
+      <select onchange="F.section=this.value;draw()">
+        ${opt('', F.section, T('all'))}${secs.map(s => opt(s, F.section, s)).join('')}
+      </select></label>` : ''}
+    <label>&nbsp;
+      <span class="seg">
+        <button class="${F.prov ? 'on' : ''}" onclick="F.prov=true;draw()">${esc(T('allSubs'))}</button>
+        <button class="${F.prov ? '' : 'on'}" onclick="F.prov=false;draw()">${esc(T('valOnly'))}</button>
+      </span></label>
+    ${dirty ? `<button class="clearf" onclick="F.region='';F.district='';F.site='';F.section='';F.prov=false;draw()">↺ ${esc(T('clear'))}</button>` : ''}
+  </div>`;
+}
+
+/* WHICH INSTRUMENTS ARE STILL RUNNING.
+   The mentorship is continuous and owns this page. AHD readiness and the
+   Foundational Milestone are one-off projects: their tab appears while the
+   instrument is open in the workbook and has pages against it, and it goes
+   away by itself when the instrument is archived. Nothing is redeployed and
+   nothing is edited here — retiring a project is a cell in the workbook, which
+   is the same rule the app has always had. */
+function liveInstruments(){
+  const forms = (A && A.forms) || [], pages = (A && A.pages) || [];
+  const has = {};
+  pages.forEach(p => has[p.k] = (has[p.k] || 0) + 1);
+  return forms.filter(f => (f.kind === 'ahd' || f.kind === 'fm')
+                        && String(f.status).toUpperCase() !== 'ARCHIVED'
+                        && has[f.kind]);
+}
+function drawTabs(){
+  const inst = liveInstruments();
+  const tabs = [['cy', T('stand')], ['pf', T('perfTab')], ['fac', T('fac')]];
+  if(inst.length) tabs.push(['ins', T('ins')]);
+  if(inst.some(f => f.kind === 'ahd')) tabs.push(['ahd', T('ahd')]);
+  const names = tabs.map(t => t[0]);
+  if(!names.includes(VIEW)) VIEW = 'cy';
+  $('#tabs').innerHTML = tabs.map(t =>
+    `<button class="${VIEW === t[0] ? 'on' : ''}" onclick="setView('${t[0]}')">${esc(t[1])}</button>`).join('');
+}
+
+function placeLabel(){
+  if(F.site){ const s = siteById(F.site); return s ? s.name : ''; }
+  if(F.district) return F.district;
+  if(F.region) return F.region;
+  return (J && J.region) || T('region');
+}
+
+const DAY = 86400000;
+const STALE_DAYS = 14;        /* the app's own threshold for a stalled draft */
+const ago = ts => !ts ? null : Math.floor((Date.now() - ts) / DAY);
+const dmy = ts => !ts ? '—' : new Date(ts).toLocaleDateString(LANG === 'fr' ? 'fr-FR' : 'en-GB');
+
+/* =====================================================================
+   WHERE THE CYCLE STANDS — the first thing on the page
+
+   Not a score. A coordinator opens this to find out who has submitted, who is
+   still typing, who has not begun, and what is waiting on somebody. The score
+   is a different question and has its own tab.
+   ===================================================================== */
+function viewCycle(){
+  const rows = board(), cells = cellsFor();
+  const cyc = cycleById(F.cycle) || {};
+
+  const st = k => rows.filter(r => r.state === k);
+  const verified = st('verified'), waiting = st('waiting'),
+        returned = st('returned'), drafting = st('started'), none = st('none');
+  const planned = rows.filter(r => !r.offPlan).length;
+  const submitted = verified.length + waiting.length;
+  const cov = planned ? (submitted / planned) * 100 : null;
+
+  /* drafts that have stopped moving, and how far each had got */
+  const stalled = drafting.map(r => {
+    const c = r.cell || {};
+    return {r, days: ago(c.drUp), pct: c.drTot ? Math.round((c.drAns / c.drTot) * 100) : null,
+            inc: c.drInc || 0};
+  }).filter(x => x.days !== null && x.days >= STALE_DAYS)
+    .sort((a, b) => b.days - a.days);
+
+  const late = cells.reduce((a, c) => a + (c.al || 0), 0);
+  const openA = cells.reduce((a, c) => a + ((c.at || 0) - (c.ar || 0)), 0);
+  const dup = cells.filter(c => c.dup);
+  /* A submitted_at that is blank, or an epoch value from a row written before the
+     column existed, turns into "waiting 20749 days" — a number that destroys the
+     credibility of every other number on the page. An age outside a plausible range
+     is not shown at all; the count still is. */
+  const oldestWait = waiting.map(r => ago((r.cell || {}).sat))
+                            .filter(d => d !== null && d >= 0 && d <= 400)
+                            .sort((a, b) => b - a)[0];
+
+  /* ---- by district, or by facility once a district is chosen ---- */
+  const key = (F.district || F.site) ? 'name' : 'district';
+  const groups = {};
+  rows.forEach(r => {
+    const k = key === 'district' ? r.site.district : r.site.name;
+    const g = groups[k] || (groups[k] = {t:0, n:0, d:0, late:0});
+    g[r.state] = (g[r.state] || 0) + 1; g.t++;
+    const c = r.cell; if(!c) return;
+    /* pooled per group, from the same halves the headline uses — so a district's
+       score and the regional score are the same arithmetic at two scales */
+    g.n += (c.n || 0) + (F.prov ? (c.pn || 0) : 0);
+    g.d += (c.d || 0) + (F.prov ? (c.pd || 0) : 0);
+    g.late += (c.al || 0);
+  });
+  Object.keys(groups).forEach(k => { groups[k].pct = pct(groups[k].n, groups[k].d); });
+  const gnames = Object.keys(groups).sort();
+
+  /* ---- what is holding things up: only what is actually true ---- */
+  const stuck = [];
+  if(none.length) stuck.push({c:'var(--crit)', i:'○',
+    t:(LANG === 'fr' ? none.length + ' pas commencée(s)' : none.length + ' not started'),
+    p:(LANG === 'fr' ? 'Prévues pour ce cycle, aucune saisie ouverte : '
+                     : 'Planned for this cycle with nothing opened: ')
+      + namesOf(none, 6)});
+  if(stalled.length) stuck.push({c:'var(--seri)', i:'⏸',
+    t:(LANG === 'fr' ? stalled.length + ' brouillon(s) à l’arrêt' : stalled.length + ' draft' + (stalled.length > 1 ? 's' : '') + ' stopped'),
+    p: stalled.slice(0, 5).map(x => x.r.site.name + ' — '
+        + (LANG === 'fr' ? 'rien depuis ' : 'nothing for ') + x.days + ' ' + T('days')
+        + (x.pct === null ? '' : ', ' + x.pct + '%')).join(' · ')
+       + (stalled.length > 5 ? ' …' : '')});
+  if(returned.length) stuck.push({c:'var(--seri)', i:'↩',
+    t:(LANG === 'fr' ? returned.length + ' retournée(s) au superviseur' : returned.length + ' returned to the supervisor'),
+    p:(LANG === 'fr' ? 'Renvoyées pour correction et pas encore resoumises : '
+                     : 'Sent back for correction and not yet resubmitted: ') + namesOf(returned, 6)});
+  if(waiting.length) stuck.push({c:'var(--warn)', i:'◐',
+    t:(LANG === 'fr' ? waiting.length + ' en attente de validation' : waiting.length + ' awaiting validation'),
+    p:(oldestWait ? T('oldestWait') + ' ' + oldestWait + ' ' + T('days') + '. ' : '')
+      + (LANG === 'fr' ? 'Leurs chiffres comptent déjà ici ; passez à « Validées seulement » pour voir sans elles.'
+                       : 'Their figures already count here; switch to "Validated only" to see without them.')});
+  if(late) stuck.push({c:'var(--crit)', i:'⏱',
+    t:(LANG === 'fr' ? late + ' recommandation(s) en retard' : late + ' overdue recommendation' + (late > 1 ? 's' : '')),
+    p:(LANG === 'fr' ? 'Sur ' + openA + ' encore ouverte(s) pour cette sélection.'
+                     : 'Out of ' + openA + ' still open for this selection.')});
+  if(dup.length) stuck.push({c:'var(--seri)', i:'⧉',
+    t:(LANG === 'fr' ? dup.length + ' saisie(s) en double' : dup.length + ' entered twice'),
+    p:(LANG === 'fr' ? 'La plus récente compte, la précédente est mise de côté. À régler dans la console.'
+                     : 'The most recent counts, the earlier one is set aside. To be settled in the console.')});
+  const off = cells.filter(c => c.offPlan);
+  if(off.length) stuck.push({c:'var(--neutral)', i:'◇',
+    t:(LANG === 'fr' ? off.length + ' supervision(s) hors plan' : off.length + ' off-plan supervision' + (off.length > 1 ? 's' : '')),
+    p:(LANG === 'fr' ? 'Faites sur des formations sanitaires que ce cycle n’avait pas prévues. Comptées, et signalées.'
+                     : 'Carried out at facilities this cycle did not plan. Counted, and flagged.')});
+
+  /* ---- THE REGISTER, WHEN IT IS NOT THERE -----------------------------------
+     A facility known only from a cycle's plan has an id and no name. Saying so
+     once, with the remedy, beats printing an id in a table as though it were a
+     health facility and leaving somebody to work out what happened. */
+  const cvg = (J && J.coverage) || {};
+  const unnamed = rows.filter(r => r.site.named === false);
+  const regNote = (cvg.registerEmpty || unnamed.length) ? `<div class="note"
+      style="margin:16px 0 0;border-left:3px solid var(--warn)">
+    <b>${LANG === 'fr' ? 'Registre des formations sanitaires incomplet'
+                       : 'The facility register is incomplete'}</b> — ${LANG === 'fr'
+      ? (cvg.registerEmpty
+          ? 'l\u2019onglet <b>SITES</b> du classeur est vide. '
+          : unnamed.length + ' formation(s) sanitaire(s) prévue(s) n\u2019y figurent pas encore. ')
+        + 'Les supervisions déjà faites portent le nom de leur formation sanitaire et s\u2019affichent normalement ; celles qui sont prévues et pas encore visitées n\u2019ont qu\u2019un identifiant. '
+        + 'Pour les nommer définitivement : ouvrez la console sur un compte régional, connectez-vous une fois — le registre est publié automatiquement.'
+      : (cvg.registerEmpty
+          ? 'the workbook\u2019s <b>SITES</b> tab is empty. '
+          : unnamed.length + ' planned facilit' + (unnamed.length > 1 ? 'ies are' : 'y is') + ' not in it yet. ')
+        + 'Supervisions already carried out carry their facility\u2019s name and show normally; facilities planned but not yet visited have only an id. '
+        + 'To give them their names for good: open the console on a regional account and sign in once — the register publishes itself.'}</div>` : '';
+
+  /* One sentence, before any chart. It is what somebody reads out at a meeting,
+     and it is assembled from the same numbers as everything below it. */
+  const head1 = LANG === 'fr'
+    ? `<b>${esc(cyc.name || '')}</b> — ${submitted} des ${planned} formations sanitaires prévues ont soumis`
+      + (verified.length ? `, ${verified.length} validée(s)` : ', aucune validée pour l\u2019instant')
+      + (drafting.length ? ` · ${drafting.length} encore en saisie` : '')
+      + (none.length ? ` · ${none.length} pas commencée(s)` : '')
+      + (late ? ` · ${late} recommandation(s) en retard` : '') + '.'
+    : `<b>${esc(cyc.name || '')}</b> — ${submitted} of the ${planned} planned facilities have submitted`
+      + (verified.length ? `, ${verified.length} validated` : ', none validated yet')
+      + (drafting.length ? ` · ${drafting.length} still being filled in` : '')
+      + (none.length ? ` · ${none.length} not started` : '')
+      + (late ? ` · ${late} overdue recommendation${late > 1 ? 's' : ''}` : '') + '.';
+
+  return `
+  <div class="card" style="margin-top:16px;border-left:3px solid var(--brand-2)">
+    <div style="font-size:.95rem;line-height:1.5">${head1}</div>
+    <div class="xs" style="color:var(--ink-3);margin-top:5px">${esc(placeLabel())} · ${
+      F.prov ? esc(T('allSubs')) : esc(T('valOnly'))}</div>
+  </div>
+  <div class="note" style="margin:12px 0 0">
+    <b>${esc(T('whatIsThis'))}</b> — ${esc(T('whatSub'))}</div>
+  ${regNote}
+
+  <div class="tiles">
+    <div class="tile"><span class="edge" style="background:${COLOR[covBand(cov)]}"></span>
+      <div class="k">${esc(T('submitted'))}${iB('t1')}</div>
+      <div class="v">${submitted} <span style="font-size:1.05rem;color:var(--ink-3)">/ ${planned}</span></div>
+      <div class="n">${LANG === 'fr' ? 'des ' + planned + ' prévues' : 'of the ' + planned + ' planned'}${
+        cov === null ? '' : ' · ' + pc(cov)}</div>
+      ${iN('t1', LANG === 'fr'
+        ? '<b>' + submitted + ' ÷ ' + planned + '</b> — au numérateur, les formations sanitaires PRÉVUES '
+          + 'pour ce cycle dont la supervision a été <b>soumise ou validée</b>. Au dénominateur, toutes '
+          + 'celles que le plan du cycle prévoit, après les filtres ci-dessus. Un brouillon ne compte pas : '
+          + 'il est dans « en cours de saisie ». Une FS supervisée mais non prévue n\u2019entre dans aucun '
+          + 'des deux et porte la mention « hors plan ».'
+        : '<b>' + submitted + ' ÷ ' + planned + '</b> — the numerator is the facilities this cycle PLANNED '
+          + 'whose supervision has been <b>submitted or validated</b>. The denominator is every facility '
+          + 'the cycle plans, after the filters above. A draft does not count — it sits in "still being '
+          + 'filled in". A facility supervised but not planned is in neither, and carries an "off plan" mark.')}
+      </div>
+    <div class="tile"><span class="edge" style="background:var(--good)"></span>
+      <div class="k">${esc(T('verified'))}${iB('t2')}</div>
+      <div class="v">${verified.length}</div>
+      <div class="n">${waiting.length} ${LANG === 'fr' ? 'en attente' : 'awaiting'}</div>
+      ${iN('t2', LANG === 'fr'
+        ? 'Formations sanitaires dont la supervision a été <b>vérifiée et approuvée</b> par la coordination. '
+          + 'Les <b>' + waiting.length + '</b> « en attente » sont soumises et pas encore contrôlées : elles '
+          + 'sont déjà comptées dans « Soumises » ci-dessus, jamais en plus. Les deux chiffres se recoupent, '
+          + 'ils ne s\u2019additionnent pas.'
+        : 'Facilities whose supervision has been <b>checked and approved</b> by the coordination team. The '
+          + '<b>' + waiting.length + '</b> "awaiting" are submitted and not yet checked: they are already '
+          + 'inside "Submitted" above, never added to it. The two overlap; they do not sum.')}
+      </div>
+    <div class="tile"><span class="edge" style="background:var(--neutral)"></span>
+      <div class="k">${esc(T('drafting'))}</div>
+      <div class="v">${drafting.length}</div>
+      <div class="n">${stalled.length ? stalled.length + ' ' + (LANG === 'fr' ? 'à l’arrêt' : 'stopped') : esc(T('lastMoved')) + ' ' + dmy(Math.max(0, ...drafting.map(r => (r.cell || {}).drUp || 0)))}</div></div>
+    <div class="tile"><span class="edge" style="background:${none.length ? 'var(--crit)' : 'var(--good)'}"></span>
+      <div class="k">${esc(T('notStarted'))}</div>
+      <div class="v">${none.length}</div>
+      <div class="n">${esc(cyc.name || '')}</div></div>
+  </div>
+
+  <h2>${esc(T('stuck'))}</h2>
+  <p class="sub">${esc(placeLabel())} · ${esc(cyc.name || '')}</p>
+  ${stuck.length ? `<div class="ins">${stuck.map(x => `<div class="i" style="border-left-color:${x.c}">
+    <span class="ic" style="color:${x.c}">${x.i}</span>
+    <div><b>${esc(x.t)}</b><p>${esc(x.p)}</p></div></div>`).join('')}</div>`
+    : `<div class="card"><div class="empty">✓ ${esc(T('nothingStuck'))}</div></div>`}
+
+  <h2>${esc(T('stand'))}</h2>
+  <p class="sub">${esc(T('standSub'))}</p>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="scrollx"><table>
+      <thead><tr>
+        <th style="cursor:default">${esc(key === 'district' ? T('dis') : T('facility'))}${iB('grid')}</th>
+        <th class="num" style="cursor:default">${esc(T('planned2'))}</th>
+        <th class="num" style="cursor:default">${esc(T('submitted'))}</th>
+        <th class="num" style="cursor:default">${esc(T('verified'))}</th>
+        <th class="num hide-s" style="cursor:default">${esc(T('drafting'))}</th>
+        <th class="num" style="cursor:default">${esc(T('notStarted'))}</th>
+        <th class="num" style="cursor:default">${esc(T('coverage'))}</th>
+        <th class="num" style="cursor:default">${esc(T('score'))}</th>
+        <th class="num hide-s" style="cursor:default">${esc(T('late'))}</th>
+      </tr></thead>
+      <tbody>${gnames.map(k => {
+        const g = groups[k];
+        const sub = (g.verified || 0) + (g.waiting || 0);
+        const c = g.t ? (sub / g.t) * 100 : null;
+        return `<tr>
+          <td class="nm">${esc(k)}</td>
+          <td class="num">${g.t}</td>
+          <td class="num">${sub || '—'}</td>
+          <td class="num" style="${g.verified ? 'color:var(--good);font-weight:650' : ''}">${g.verified || '—'}</td>
+          <td class="num hide-s">${g.started || '—'}</td>
+          <td class="num" style="${g.none ? 'color:var(--crit);font-weight:650' : ''}">${g.none || '—'}</td>
+          <td class="num" style="color:${COLOR[covBand(c)]};font-weight:650">${pc(c)}</td>
+          <td class="num" style="color:${COLOR[band(g.pct)]};font-weight:650">${pc(g.pct)}</td>
+          <td class="num hide-s" style="${g.late ? 'color:var(--crit);font-weight:650' : ''}">${
+            g.late || '—'}</td></tr>`;
+      }).join('')}
+      <tr style="border-top:2px solid var(--line)">
+        <td class="nm">${LANG === 'fr' ? 'Total' : 'Total'}</td>
+        <td class="num">${planned}</td>
+        <td class="num">${submitted || '—'}</td>
+        <td class="num">${verified.length || '—'}</td>
+        <td class="num hide-s">${drafting.length || '—'}</td>
+        <td class="num">${none.length || '—'}</td>
+        <td class="num" style="color:${COLOR[covBand(cov)]};font-weight:650">${pc(cov)}</td>
+        <td class="num" style="color:${COLOR[band(headline(cells).pct)]};font-weight:650">${
+          pc(headline(cells).pct)}</td>
+        <td class="num hide-s" style="${late ? 'color:var(--crit);font-weight:650' : ''}">${late || '—'}</td></tr>
+      </tbody></table>
+      ${iN('grid', LANG === 'fr'
+        ? '<b>Couverture</b> = soumises ou validées ÷ prévues, par district. <b>Score</b> = Σ(numérateur) ÷ '
+          + 'Σ(dénominateur) sur les supervisions retenues de ce district — pondéré, jamais une moyenne de '
+          + 'pourcentages, donc une grosse FS y pèse plus qu\u2019une petite. <b>En retard</b> = recommandations '
+          + 'non résolues dont l\u2019échéance est passée. La ligne Total recalcule chaque colonne sur l\u2019ensemble, '
+          + 'elle n\u2019additionne pas les pourcentages des lignes.'
+        : '<b>Coverage</b> = submitted or validated ÷ planned, per district. <b>Score</b> = Σ(numerator) ÷ '
+          + 'Σ(denominator) over that district\u2019s supervisions — weighted, never an average of percentages, '
+          + 'so a large facility weighs more than a small one. <b>Overdue</b> = unresolved recommendations past '
+          + 'their deadline. The Total row recomputes each column over everything; it does not add up the '
+          + 'percentages above it.')}</div>
+  </div>
+
+  <div class="card">
+    ${gnames.length ? gnames.map(k => {
+      const g = groups[k];
+      return `<div class="row wide">
+        <span class="lab">${esc(k)}</span>
+        ${stack(g, g.t)}
+        <span class="val">${(g.verified || 0) + (g.waiting || 0)}/${g.t}</span></div>`;
+    }).join('') : `<div class="empty">${esc(T('noData'))}</div>`}
+    <div class="legend">${ORDER.slice().reverse().map(k => {
+      const n = rows.filter(r => r.state === k).length;
+      return `<span><i style="background:${STATE[k].c};${k === 'none' ? 'box-shadow:inset 0 0 0 1px var(--ring)' : ''}"></i>${
+        esc(T(STATE[k].w))} · ${n}</span>`;
+    }).join('')}</div>
+  </div>
+
+  ${drafting.length ? `
+  <h2>${esc(T('drafting'))}</h2>
+  <p class="sub">${LANG === 'fr'
+    ? 'Chaque brouillon ouvert : jusqu\u2019où il est allé, et quand il a bougé pour la dernière fois. Ceux qui n\u2019ont pas bougé depuis ' + STALE_DAYS + ' jours sont en rouge.'
+    : 'Every draft open: how far it has got, and when it last moved. Those that have not moved for ' + STALE_DAYS + ' days are in red.'}</p>
+  <div class="card"><div class="scrollx"><table>
+    <thead><tr><th style="cursor:default">${esc(T('facility'))}</th>
+      <th class="hide-s" style="cursor:default">${esc(T('dis'))}</th>
+      <th class="num" style="cursor:default">${esc(T('prog'))}</th>
+      <th style="cursor:default">${esc(T('lastMoved'))}</th></tr></thead>
+    <tbody>${drafting.map(r => {
+      const c = r.cell || {};
+      const d = ago(c.drUp), stale = d !== null && d >= STALE_DAYS;
+      const p = c.drTot ? Math.round((c.drAns / c.drTot) * 100) : null;
+      return `<tr>
+        <td class="nm">${esc(r.site.name)}
+          ${c.drInc ? `<span class="pill">${LANG === 'fr' ? 'incomplet' : 'incomplete'}</span>` : ''}
+          ${c.dr > 1 ? `<span class="pill">${c.dr} ${LANG === 'fr' ? 'brouillons' : 'drafts'}</span>` : ''}
+          <span class="s-only">${esc(r.site.district)}</span></td>
+        <td class="hide-s">${esc(r.site.district)}</td>
+        <td class="num">${p === null ? '—' : p + '%'}</td>
+        <td style="${stale ? 'color:var(--crit);font-weight:650' : ''}">${dmy(c.drUp)}${
+          d === null ? '' : ' · ' + d + ' ' + T('days')}</td></tr>`;
+    }).join('')}</tbody></table></div>
+    <p class="xs" style="color:var(--ink-3);margin:10px 0 0">${LANG === 'fr'
+      ? 'L’avancement est le nombre de questions répondues sur le total du questionnaire, tel que le téléphone l’a envoyé. Un brouillon poussé par une version antérieure à v5.3.0 n’en porte pas et affiche « — ».'
+      : 'Progress is the questions answered out of the whole questionnaire, as the phone sent it. A draft pushed by a version before v5.3.0 does not carry it and shows "—".'}</p>
+  </div>` : ''}`;
+}
+function namesOf(rows, n){
+  const a = rows.map(r => r.site.name).sort();
+  return a.slice(0, n).join(' · ') + (a.length > n ? ' … (+' + (a.length - n) + ')' : '');
+}
+
+/* =====================================================================
+   PERFORMANCE — the scores, which are a different question
+   ===================================================================== */
+function viewPerformance(){
+  const cells = cellsFor();
+  const hl = headline(cells);
+  const a = pool(cells, 'a'), p = pool(cells, 'p');
+  const secs = sectionRows(), tr = trendRows();
+  const approx = cells.some(c => c.approx);
+  const nKept = cells.filter(c => (c.d > 0) || (F.prov && c.pd > 0)).length;
+  /* recommendations, counts only — the text never leaves the app */
+  const rcT = cells.reduce((a, c) => a + (c.at || 0), 0);
+  const rcR = cells.reduce((a, c) => a + (c.ar || 0), 0);
+  const rcO = cells.reduce((a, c) => a + (c.ao || 0), 0);
+  const rcL = cells.reduce((a, c) => a + (c.al || 0), 0);
+  const cyc = cycleById(F.cycle) || {};
+
+  /* clinical / M&E halves, pooled the same way */
+  const half = which => {
+    let n = 0, d = 0;
+    cells.forEach(c => {
+      if(which === 'c'){ n += c.cn || 0; d += c.cd || 0; if(F.prov){ n += c.pcn || 0; d += c.pcd || 0; } }
+      else { n += c.mn || 0; d += c.md || 0; if(F.prov){ n += c.pmn || 0; d += c.pmd || 0; } }
+    });
+    return pct(n, d);
+  };
+  const clin = half('c'), mne = half('m');
+
+  /* ---- THE EMPTY SELECTION, EXPLAINED ------------------------------------------
+     Switching to "Validated only" before anything has been validated emptied this
+     whole tab — four dashes and two "No data" boxes, with nothing saying that the
+     work exists and is simply not checked yet. An empty answer is a legitimate
+     answer; an empty answer that does not say why is a bug report waiting to be
+     written. It names the filters that are narrowing, too, because a Domain left on
+     one section is the commonest reason a screen goes quiet. */
+  if(!hl.d){
+    const narrowed = [];
+    if(F.region)   narrowed.push(T('reg') + ' = ' + F.region);
+    if(F.district) narrowed.push(T('dis') + ' = ' + F.district);
+    if(F.site)     narrowed.push(T('site') + ' = ' + ((siteById(F.site) || {}).name || F.site));
+    if(F.section)  narrowed.push(T('theme') + ' = ' + F.section);
+    const waiting = cells.filter(c => c.pd > 0).length;
+    return `
+    <h2>${esc(T('perfTab'))}</h2>
+    <p class="sub">${esc(placeLabel())} · ${esc(cyc.name || '')}</p>
+    <div class="card"><div class="ins"><div class="i" style="border-left-color:var(--warn)">
+      <span class="ic" style="color:var(--warn)">◐</span>
+      <div><b>${LANG === 'fr' ? 'Aucun score à afficher pour cette sélection'
+                              : 'No score to show for this selection'}</b>
+      <p>${
+        (!F.prov && waiting)
+          ? (LANG === 'fr'
+              ? '<b>' + waiting + ' supervision(s)</b> ont été soumises et ne sont pas encore validées. Vous regardez « Validées seulement » — repassez à <b>« Toutes les soumissions »</b> pour voir leurs chiffres.'
+              : '<b>' + waiting + ' supervision' + (waiting > 1 ? 's have' : ' has') + '</b> been submitted and not yet validated. You are on "Validated only" — switch back to <b>"All submissions"</b> to see their figures.')
+          : (LANG === 'fr'
+              ? 'Aucune supervision de cette sélection ne porte encore de chiffres. L\u2019onglet <b>Où en est le cycle</b> montre où en est chaque formation sanitaire.'
+              : 'No supervision in this selection carries figures yet. The <b>Where the cycle stands</b> tab shows where each facility has got to.')
+      }${narrowed.length ? '<br><span style="opacity:.8">' + (LANG === 'fr' ? 'Filtres actifs : ' : 'Filters in force: ')
+          + esc(narrowed.join(' · ')) + '</span>' : ''}</p></div></div></div>
+      <div class="row" style="margin-top:12px;justify-content:center;gap:8px">
+        ${!F.prov ? `<button class="clearf" onclick="F.prov=true;draw()">${
+          esc(T('allSubs'))} →</button>` : ''}
+        ${narrowed.length ? `<button class="clearf" onclick="F.region='';F.district='';F.site='';F.section='';draw()">↺ ${
+          esc(T('clear'))}</button>` : ''}
+        <button class="clearf" onclick="setView('cy')">${esc(T('stand'))} →</button>
+      </div></div>`;
+  }
+
+  return `
+  <h2>${esc(T('perfTab'))}</h2>
+  <p class="sub">${esc(placeLabel())} · ${esc(cyc.name || '')} · ${
+    F.prov ? esc(T('allSubs')) : esc(T('valOnly'))}</p>
+
+  ${!F.prov && p.d > 0 ? `<div class="note" style="margin-top:0">${LANG === 'fr'
+    ? '<b>Validées seulement.</b> ' + cells.filter(c => c.pd > 0).length
+      + ' supervision(s) soumise(s) et pas encore vérifiée(s) sont ' + T('setAside')
+      + ' — elles auraient porté le score à <b>' + pc(pct(a.n + p.n, a.d + p.d))
+      + '</b>. Repassez à « Toutes les soumissions » pour les inclure.'
+    : '<b>Validated only.</b> ' + cells.filter(c => c.pd > 0).length
+      + ' supervision(s) submitted and not yet checked are ' + T('setAside')
+      + ' — they would have put the score at <b>' + pc(pct(a.n + p.n, a.d + p.d))
+      + '</b>. Switch back to "All submissions" to include them.'}</div>` : ''}
+
+  <div class="tiles">
+    <div class="tile"><span class="edge" style="background:${COLOR[band(hl.pct)]}"></span>
+      <div class="k">${esc(T('score'))}${iB('s1')}</div><div class="v">${pc(hl.pct)}</div>
+      <div class="n">${esc(bandWord(hl.pct))}</div>
+      ${iN('s1', LANG === 'fr'
+        ? '<b>Σ(numérateur) ÷ Σ(dénominateur)</b> sur les <b>' + nKept + '</b> supervision(s) retenues — '
+          + 'jamais une moyenne de pourcentages, donc une grosse formation sanitaire y pèse plus qu\u2019une '
+          + 'petite. Les chiffres viennent de l\u2019application, qui les calcule à la soumission avec le '
+          + 'questionnaire, ses portes et ses dénominateurs reportés ; cette page ne les recalcule pas.'
+          + '<br>EXCLUS : les brouillons et les supervisions retournées ; la plus ancienne de deux saisies '
+          + 'pour une même FS ; les questions « sans objet », ni au numérateur ni au dénominateur.'
+          + '<br>Bandes : ≥ 100 % performant, ≥ 90 % acceptable, en dessous critique — les bandes de '
+          + 'l\u2019application, pas d\u2019autres.'
+        : '<b>Σ(numerator) ÷ Σ(denominator)</b> over the <b>' + nKept + '</b> supervision(s) kept — never an '
+          + 'average of percentages, so a large facility weighs more than a small one. The figures come from '
+          + 'the app, which computes them at submission using the questionnaire, its gates and its carried '
+          + 'denominators; this page does not recompute them.'
+          + '<br>LEFT OUT: drafts and returned supervisions; the older of two entries for one facility; '
+          + '"not applicable" questions, in neither the numerator nor the denominator.'
+          + '<br>Bands: ≥ 100% performing, ≥ 90% acceptable, below that critical — the app\u2019s bands, not '
+          + 'some other set.')}
+      </div>
+    <div class="tile"><span class="edge" style="background:${COLOR[band(clin)]}"></span>
+      <div class="k">${LANG === 'fr' ? 'Clinique' : 'Clinical'}</div><div class="v">${pc(clin)}</div>
+      <div class="n">${esc(bandWord(clin))}</div></div>
+    <div class="tile"><span class="edge" style="background:${COLOR[band(mne)]}"></span>
+      <div class="k">${LANG === 'fr' ? 'S&E (DQA)' : 'M&E (DQA)'}</div><div class="v">${pc(mne)}</div>
+      <div class="n">${esc(bandWord(mne))}</div></div>
+    <div class="tile"><span class="edge" style="background:var(--neutral)"></span>
+      <div class="k">${LANG === 'fr' ? 'Supervisions comptées' : 'Supervisions counted'}${iB('s2')}</div>
+      <div class="v">${nKept}</div>
+      <div class="n">${J.superseded ? J.superseded + ' ' + T('setAside') : esc(cyc.name || '')}</div>
+      ${iN('s2', LANG === 'fr'
+        ? 'Une supervision par formation sanitaire et par cycle : la plus récente. '
+          + (J.superseded ? '<b>' + J.superseded + '</b> saisie(s) plus ancienne(s) ont été mises de côté dans toute la région. ' : '')
+          + 'C\u2019est un décompte de SUPERVISIONS. La couverture, elle, compte les FORMATIONS SANITAIRES '
+          + 'prévues qui en ont une — les deux chiffres diffèrent dès qu\u2019une supervision a été faite hors '
+          + 'du plan du cycle.'
+        : 'One supervision per facility per cycle: the most recent. '
+          + (J.superseded ? '<b>' + J.superseded + '</b> earlier entr' + (J.superseded>1?'ies have':'y has') + ' been set aside across the region. ' : '')
+          + 'This counts SUPERVISIONS. Coverage counts planned FACILITIES that have one — the two differ as '
+          + 'soon as a supervision has been carried out outside the cycle\u2019s plan.')}
+      </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3>${esc(T('recos'))}${iB('rc')}</h3>
+    <p class="sub">${LANG === 'fr'
+      ? 'Rattachées aux supervisions comptées ci-dessus. Aucun texte de recommandation ne quitte l\u2019application.'
+      : 'Attached to the supervisions counted above. No recommendation text leaves the app.'}</p>
+    <div class="tiles" style="margin-top:0">
+      <div class="tile"><span class="edge" style="background:var(--neutral)"></span>
+        <div class="k">${LANG === 'fr' ? 'Total' : 'Total'}</div><div class="v">${rcT}</div>
+        <div class="n">${esc(cyc.name || '')}</div></div>
+      <div class="tile"><span class="edge" style="background:var(--good)"></span>
+        <div class="k">${LANG === 'fr' ? 'Résolues' : 'Resolved'}</div><div class="v">${rcR}</div>
+        <div class="n">${pc(rcT ? (rcR / rcT) * 100 : null)}</div></div>
+      <div class="tile"><span class="edge" style="background:var(--warn)"></span>
+        <div class="k">${LANG === 'fr' ? 'Non résolues' : 'Unresolved'}</div><div class="v">${rcT - rcR}</div>
+        <div class="n">${rcO} ${LANG === 'fr' ? 'en cours' : 'ongoing'}</div></div>
+      <div class="tile"><span class="edge" style="background:${rcL ? 'var(--crit)' : 'var(--good)'}"></span>
+        <div class="k">${esc(T('late'))}</div><div class="v">${rcL}</div>
+        <div class="n">${LANG === 'fr' ? 'échéance dépassée' : 'past the deadline'}</div></div>
+    </div>
+    ${iN('rc', LANG === 'fr'
+      ? '<b>Taux de résolution = ' + rcR + ' ÷ ' + rcT + '</b>. « Non résolues » regroupe les recommandations '
+        + 'ouvertes et en cours. « En retard » (<b>' + rcL + '</b>) en est un SOUS-ENSEMBLE : non résolues dont '
+        + 'l\u2019échéance est passée — déjà comptées dans les non résolues, jamais en plus. Les trois chiffres '
+        + 'ne s\u2019additionnent donc pas au total.'
+      : '<b>Resolution rate = ' + rcR + ' ÷ ' + rcT + '</b>. "Unresolved" covers open and ongoing together. '
+        + '"Overdue" (<b>' + rcL + '</b>) is a SUBSET of it: unresolved ones past their deadline — already '
+        + 'inside the unresolved figure, never added to it. So the three figures do not sum to the total.')}
+  </div>
+
+  <div class="cards two">
+    <div class="card">
+      <h3>${esc(T('sections'))}</h3><p class="sub">${esc(T('sectionsSub'))}</p>
+      ${barsH(secs)}
+    </div>
+    <div class="card">
+      <h3>${esc(T('trend'))}</h3><p class="sub">${esc(T('trendSub'))}</p>
+      ${lineChart(tr, 'tr')}
+      ${tr.length >= 2 ? `<div class="scrollx" style="margin-top:10px"><table style="min-width:0">
+        <thead><tr><th style="cursor:default">${esc(T('cycle'))}</th>
+          <th class="num" style="cursor:default">${esc(T('score'))}</th></tr></thead>
+        <tbody>${tr.map(r => `<tr><td>${esc(r.lab)}</td><td class="num">${pc(r.v)}</td></tr>`).join('')}</tbody>
+        </table></div>` : ''}
+    </div>
+  </div>
+
+  ${approx ? `<div class="note"><b>${esc(T('approxWarn'))}.</b> ${LANG === 'fr'
+    ? 'Au moins une supervision de cette sélection ne porte pas ses propres scores et a été reconstituée à partir des colonnes simplifiées du classeur, qui ne rendent pas les questions à délai, les listes de vérification ni les questions de concordance. Resoumettez-la depuis l’application pour corriger son chiffre.'
+    : 'At least one supervision in this selection does not carry its own scores and was reconstructed from the workbook’s simplified columns, which do not represent the delay questions, the checklists or the concordance questions. Resubmit it from the app to correct its figure.'}</div>` : ''}
+
+  <div class="note">${LANG === 'fr'
+    ? 'Les scores viennent de l’application, qui les calcule au moment de la soumission avec le questionnaire, ses portes et ses dénominateurs reportés. Cette page ne les recalcule pas : il n’y a qu’un seul moteur de notation pour tout le projet. Ils sont <b>poolés</b> — Σ(numérateur) ÷ Σ(dénominateur) — jamais une moyenne de pourcentages. Les questions « sans objet » ne comptent ni au numérateur ni au dénominateur, et une seule supervision par formation sanitaire et par cycle est retenue : la plus récente.'
+    : 'The scores come from the app, which computes them at the moment of submission using the questionnaire, its gates and its carried denominators. This page does not recompute them: there is one scoring engine for the whole project. They are <b>pooled</b> — Σ(numerator) ÷ Σ(denominator) — never an average of percentages. "Not applicable" questions count in neither half, and one supervision per facility per cycle is kept: the most recent.'}</div>`;
+}
+
+/* ---------- the facility table: every name, every state, every number ---------- */
+function facRows(){
+  const rows = board().map(r => {
+    const c = r.cell;
+    const a = c ? pool([c], 'a') : {n:0, d:0, pct:null};
+    const p = c ? pool([c], 'p') : {n:0, d:0, pct:null};
+    const shown = F.prov && p.d > 0
+      ? pct(a.n + p.n, a.d + p.d)
+      : a.pct !== null ? a.pct : (F.prov ? p.pct : null);
+    return {
+      id:r.site.id, name:r.site.name, district:r.site.district,
+      region:r.site.region, area:r.site.area,
+      state:r.state, offPlan:r.offPlan, dup: c ? !!c.dup : false,
+      /* The pill marks the NUMBER as provisional, so it belongs only where a number
+         is actually shown. Printed beside an em-dash it labelled an absence, which
+         reads as "the score is provisional" when the truth is "there is no verified
+         score yet" — and the state chip in the next column already says so. */
+      v: shown, provOnly: shown !== null && a.pct === null,
+      date: c ? (c.dt || '') : '',
+      /* the draft half: how far it got, when it last moved, and whether the
+         supervisor still has questions left to answer in it */
+      drafts: c ? (c.dr || 0) : 0,
+      drUp: c ? (c.drUp || 0) : 0,
+      drPct: (c && c.drTot) ? Math.round((c.drAns / c.drTot) * 100) : null,
+      drInc: c ? (c.drInc || 0) : 0,
+      open: c ? ((c.at || 0) - (c.ar || 0)) : 0,
+      late: c ? (c.al || 0) : 0,
+      ahd: pageState(r.site.id, 'ahd'), fm: pageState(r.site.id, 'fm')
+    };
+  });
+  const q = QTXT.trim().toLowerCase();
+  const hit = q ? rows.filter(r =>
+    (r.name + ' ' + r.district + ' ' + r.area).toLowerCase().indexOf(q) >= 0) : rows;
+  const k = SORT.k, dir = SORT.dir;
+  return hit.sort((a, b) => {
+    let x = a[k], y = b[k];
+    if(k === 'state'){ x = ORDER.indexOf(a.state); y = ORDER.indexOf(b.state); }
+    if(x === null || x === undefined) x = (typeof y === 'number') ? -1 : '';
+    if(y === null || y === undefined) y = (typeof x === 'number') ? -1 : '';
+    if(typeof x === 'number' && typeof y === 'number') return (x - y) * dir;
+    return String(x).localeCompare(String(y)) * dir;
+  });
+}
+function sortBy(k){
+  if(SORT.k === k) SORT.dir = -SORT.dir; else { SORT.k = k; SORT.dir = 1; }
+  draw();
+}
+function search(v){ QTXT = v; drawBody(); const el = $('#q'); if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
+
+function chip(state){
+  const s = STATE[state];
+  return `<span class="chip"><span class="dot" style="background:${s.c};${
+    state==='none'?'box-shadow:inset 0 0 0 1px var(--ring)':''}"></span>${esc(T(s.w))}</span>`;
+}
+function viewFacilities(){
+  const rows = facRows();
+  const th = (k, lab, cls) => `<th class="${cls || ''}${SORT.k === k ? ' sorted' : ''}"
+    onclick="sortBy('${k}')">${esc(lab)}${SORT.k === k ? (SORT.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+  return `
+  <h2>${esc(T('fac'))}</h2>
+  <p class="sub">${esc(placeLabel())} · ${esc((cycleById(F.cycle) || {}).name || '')}</p>
+  <div class="card">
+    <div class="fbar" style="position:static;border:0;padding:0;box-shadow:none;margin:0 0 11px">
+      <input id="q" class="grow" type="search" placeholder="${esc(T('search'))}"
+        value="${esc(QTXT)}" oninput="search(this.value)">
+      <button class="clearf" onclick="exportCsv()">⬇ ${esc(T('exportCsv'))}</button>
+      <span style="margin-left:auto;font-size:.74rem;color:var(--ink-3)">${rows.length} ${esc(T('rows'))}</span>
+    </div>
+    <div class="scrollx"><table>
+      <thead><tr>
+        ${th('name', T('facility'))}
+        ${th('district', T('dis'), 'hide-s')}
+        ${th('state', T('state'))}
+        ${th('v', T('score'), 'num')}
+        ${th('date', T('date'), 'hide-s')}
+        ${th('drUp', T('lastMoved'), 'hide-s')}
+        ${th('open', T('open'), 'num')}
+        ${th('late', T('late'), 'num')}
+      </tr></thead>
+      <tbody>${rows.length ? rows.map(r => `<tr>
+        <td class="nm">${esc(r.name)}
+          ${r.offPlan ? `<span class="pill">${esc(T('notPlanned'))}</span>` : ''}
+          ${r.dup ? `<span class="pill">${esc(T('dup'))}</span>` : ''}
+          ${r.drInc ? `<span class="pill">${LANG === 'fr' ? 'incomplet' : 'incomplete'}</span>` : ''}
+          ${r.drafts > 1 ? `<span class="pill">${r.drafts} ${LANG === 'fr' ? 'brouillons' : 'drafts'}</span>` : ''}
+          <span class="s-only">${esc(r.district)} · ${esc(bandWord(r.v))}</span></td>
+        <td class="hide-s">${esc(r.district)}</td>
+        <td>${chip(r.state)}</td>
+        <td class="num" style="color:${r.v === null ? 'var(--ink-3)' : COLOR[band(r.v)]};font-weight:650">
+          ${pc(r.v)}${r.provOnly ? ` <span class="pill" title="${esc(
+            LANG === 'fr' ? 'Soumise, pas encore validée' : 'Submitted, not yet validated')
+          }">${esc(T('prov'))}</span>` : ''}</td>
+        <td class="hide-s">${esc(r.date || '—')}</td>
+        <td class="hide-s">${r.drafts
+          ? dmy(r.drUp) + (ago(r.drUp) === null ? '' : ' · ' + ago(r.drUp) + ' ' + T('days'))
+            + (r.drPct === null ? '' : ' · ' + r.drPct + '%')
+          : '—'}</td>
+        <td class="num">${r.open || '—'}</td>
+        <td class="num" style="${r.late ? 'color:var(--crit);font-weight:650' : ''}">${r.late || '—'}</td>
+      </tr>`).join('') : `<tr><td colspan="8" class="empty">${esc(T('noData'))}</td></tr>`}</tbody>
+    </table></div>
+  </div>
+  <div class="note">${LANG === 'fr'
+    ? 'Un score marqué « provisoire » vient d’une supervision soumise mais pas encore vérifiée. « Hors plan » : la formation sanitaire n’était pas prévue pour ce cycle — le travail est compté et signalé. Aucun nom de superviseur, aucun commentaire et aucune recommandation écrite ne sort de l’application : cette page n’y a pas accès.'
+    : 'A score marked "provisional" comes from a supervision submitted but not yet verified. "Off plan": the facility was not planned for this cycle — the work is counted and flagged. No supervisor name, no comment and no written recommendation leaves the app: this page has no route to them.'}</div>`;
+}
+
+/* ---------- the three instruments, side by side ---------- */
+function viewInstruments(){
+  const rows = board();
+  const inst = [
+    {k:'sup', c:'var(--sup)', lab:T('supervision')},
+    {k:'ahd', c:'var(--ahd)', lab:T('ahdFull')},
+    {k:'fm',  c:'var(--fm)',  lab:T('milestone')}
+  ];
+  const stateOf = (r, k) => k === 'sup' ? r.state : pageState(r.site.id, k);
+  const tally = {};
+  inst.forEach(i => {
+    tally[i.k] = {t:0};
+    rows.forEach(r => { const s = stateOf(r, i.k);
+      tally[i.k][s] = (tally[i.k][s] || 0) + 1; tally[i.k].t++; });
+  });
+  return `
+  <h2>${esc(T('byInst'))}</h2>
+  <p class="sub">${esc(placeLabel())} · ${esc((cycleById(F.cycle) || {}).name || '')}</p>
+  <div class="card">
+    ${inst.map(i => {
+      const g = tally[i.k];
+      /* "0/34" beside a bar that is mostly amber read as "nothing has happened",
+         when what had happened was thirty-four submissions waiting to be checked.
+         The number now says which state it is counting. */
+      const subm = (g.verified || 0) + (g.waiting || 0);
+      return `<div class="row wide">
+        <span class="lab"><span class="dot" style="background:${i.c}"></span>${esc(i.lab)}</span>
+        ${stack(g, g.t)}
+        <span class="val" title="${esc(T('verified'))}">${subm}/${g.t}</span></div>`;
+    }).join('')}
+    <div class="legend">${ORDER.slice().reverse().map(k =>
+      `<span><i style="background:${STATE[k].c};${k==='none'?'box-shadow:inset 0 0 0 1px var(--ring)':''}"></i>${
+        esc(T(STATE[k].w))}</span>`).join('')}</div>
+    <p class="xs" style="color:var(--ink-3);margin:9px 0 0">${LANG === 'fr'
+      ? 'Le chiffre à droite compte les formations sanitaires <b>soumises ou validées</b>, sur le nombre prévu.'
+      : 'The figure on the right counts facilities <b>submitted or validated</b>, out of the number planned.'}</p>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3>${LANG === 'fr' ? 'Où en est chaque formation sanitaire' : 'Where each facility stands'}</h3>
+    <p class="sub">${LANG === 'fr' ? 'Une ligne par formation sanitaire, une colonne par instrument.'
+                                   : 'One row per facility, one column per instrument.'}</p>
+    <div class="scrollx"><table class="mx">
+      <thead><tr><th style="cursor:default">${esc(T('facility'))}</th>
+        ${inst.map(i => `<th style="cursor:default"><span class="dot" style="background:${i.c}"></span>${esc(i.lab)}</th>`).join('')}
+      </tr></thead>
+      <tbody>${rows.length ? rows.slice().sort((a, b) => String(a.site.name).localeCompare(String(b.site.name)))
+        .map(r => `<tr>
+          <td class="nm">${esc(r.site.name)}<span class="s-only">${esc(r.site.district)}</span></td>
+          ${inst.map(i => { const s = stateOf(r, i.k); const st = STATE[s];
+            return `<td><span class="cell"><span class="dot" style="background:${st.c};${
+              s==='none'?'box-shadow:inset 0 0 0 1px var(--ring)':''}"></span>${esc(T(st.w))}</span></td>`;
+          }).join('')}
+        </tr>`).join('') : `<tr><td colspan="4" class="empty">${esc(T('noData'))}</td></tr>`}</tbody>
+    </table></div>
+  </div>
+  <div class="note">${LANG === 'fr'
+    ? 'Pour les instruments AHD et Foundational Milestone, cette page publie <b>l’état d’avancement et rien d’autre</b> : pas une réponse, pas une preuve, pas une action corrective. Les scores de préparation AHD ont leur propre onglet et leurs propres règles.'
+    : 'For the AHD and Foundational Milestone instruments this page publishes <b>progress and nothing else</b>: not one answer, not one piece of evidence, not one corrective action. The AHD readiness scores have their own tab and their own rules.'}</div>`;
+}
+
+/* ---------- AHD readiness: the payload's own section, filtered ---------- */
+function viewAhd(){
+  const a = J && J.ahd;
+  if(!a || !a.present) return `<div class="card"><div class="empty">${
+    LANG === 'fr' ? 'L\u2019outil de préparation AHD n\u2019a pas encore de données publiées.'
+                  : 'The AHD readiness tool has no published data yet.'}</div></div>`;
+  /* The same filter strip as everywhere else. A facility is matched by its site id,
+     which the atlas and the readiness section both carry; a row from a build that
+     predates the id falls back to its name, and is simply not place-filtered if
+     neither matches — never silently dropped from its own total. */
+  const byId = {}; sitesAll().forEach(s2 => byId[s2.id] = s2);
+  const byName = {}; sitesAll().forEach(s2 => byName[s2.name] = s2);
+  const facs = (a.facilities || []).filter(f => {
+    const m = byId[f.id] || byName[f.name];
+    return m ? placeOk(m) : true;
+  });
+  /* POOLED, never an average of percentages — see the note on the overview. */
+  const pooled = pct(facs.reduce((n, f) => n + (f.ready || 0), 0),
+                     facs.reduce((n, f) => n + (f.applicable || 0), 0));
+  const p1 = facs.reduce((n, f) => n + (f.p1 || 0), 0);
+  const gaps = facs.reduce((n, f) => n + (f.gaps || 0), 0);
+  const doms = {};
+  facs.forEach(f => Object.keys(f.dom || {}).forEach(k => {
+    const o = doms[k] || (doms[k] = [0, 0]);
+    o[0] += f.dom[k][0]; o[1] += f.dom[k][1];
+  }));
+  const names = {};
+  (a.domains || []).forEach(d => names[String(d.n)] = d.name || String(d.n));
+  const domRows = Object.keys(doms)
+    .map(k => ({lab: names[k] || k, v: pct(doms[k][0], doms[k][1])}))
+    .filter(r => r.v !== null).sort((x, y) => x.v - y.v);
+  const facRowsAhd = facs.map(f => ({lab:f.name, v:pct(f.ready, f.applicable)}))
+    .filter(r => r.v !== null).sort((x, y) => x.v - y.v);
+
+  return `
+  <h2>${esc(T('ahdFull'))}</h2>
+  <p class="sub">${esc(placeLabel())} · ${facs.length} ${
+    LANG === 'fr' ? 'formation(s) sanitaire(s) évaluée(s)'
+                  : 'facilit' + (facs.length === 1 ? 'y' : 'ies') + ' assessed'}</p>
+  <div class="tiles">
+    <div class="tile"><span class="edge" style="background:var(--ahd)"></span>
+      <div class="k">${LANG === 'fr' ? 'Préparation globale' : 'Overall readiness'}</div>
+      <div class="v">${pc(pooled)}</div><div class="n">${esc(bandWord(pooled))}</div></div>
+    <div class="tile"><span class="edge" style="background:${p1 ? 'var(--crit)' : 'var(--good)'}"></span>
+      <div class="k">${LANG === 'fr' ? 'Écarts prioritaires (P1)' : 'Priority 1 gaps'}</div>
+      <div class="v">${p1}</div>
+      <div class="n">${LANG === 'fr' ? 'Un seul suffit à classer un site critique'
+                                     : 'One alone makes a site critical'}</div></div>
+    <div class="tile"><span class="edge" style="background:var(--neutral)"></span>
+      <div class="k">${LANG === 'fr' ? 'Écarts au total' : 'Gaps in total'}</div>
+      <div class="v">${gaps}</div>
+      <div class="n">${LANG === 'fr' ? 'Réponses Partiel ou Non' : 'Partial or No answers'}</div></div>
+  </div>
+  <div class="cards two">
+    <div class="card"><h3>${LANG === 'fr' ? 'Par domaine' : 'By domain'}</h3>
+      <p class="sub">${esc(T('sectionsSub'))}</p>${barsH(domRows)}</div>
+    <div class="card"><h3>${LANG === 'fr' ? 'Par formation sanitaire' : 'By facility'}</h3>
+      <p class="sub">${esc(T('sectionsSub'))}${facRowsAhd.length > 25
+        ? ' · ' + (LANG === 'fr' ? '25 plus faibles' : '25 weakest') : ''}</p>
+      ${barsH(facRowsAhd.slice(0, 25))}</div>
+  </div>
+  <div class="note">${LANG === 'fr'
+    ? 'Un seul écart prioritaire (P1) classe une formation sanitaire en critique, quel que soit son pourcentage — c\u2019est la règle de l\u2019outil et elle n\u2019est pas moyennable. Les pourcentages ci-dessus sont poolés sur les réponses applicables, pas moyennés entre sites.'
+    : 'A single priority-1 gap puts a facility in the critical band whatever its percentage — that is the instrument\u2019s rule and it cannot be averaged away. The percentages above are pooled over applicable answers, not averaged across sites.'}</div>`;
+}
+
+function exportCsv(){
+  const rows = facRows();
+  const head = ['facility','district','region','area','state','score','provisional',
+                'visit_date','drafts','draft_last_change','draft_progress_pct',
+                'draft_incomplete','open_recommendations','overdue','off_plan',
+                'duplicate','ahd','milestone'];
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const body = rows.map(r => [r.name, r.district, r.region, r.area, T(STATE[r.state].w),
+    r.v === null ? '' : r.v, r.provOnly ? 'yes' : '', r.date,
+    r.drafts || '', r.drUp ? new Date(r.drUp).toISOString().slice(0, 10) : '',
+    r.drPct === null ? '' : r.drPct, r.drInc ? 'yes' : '',
+    r.open, r.late, r.offPlan ? 'yes' : '', r.dup ? 'yes' : '',
+    T(STATE[r.ahd].w), T(STATE[r.fm].w)].map(q).join(','));
+  /* A BOM, because Excel on a French Windows reads a UTF-8 CSV without one as
+     Latin-1 and turns every accented facility name into mojibake. */
+  const blob = new Blob(['﻿' + [head.map(q).join(',')].concat(body).join('\r\n')],
+                        {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url;
+  a.download = 'ATHECS_' + ((cycleById(F.cycle) || {}).name || 'cycle').replace(/\s+/g,'_') + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function drawBody(){
+  $('#app').innerHTML =
+      VIEW === 'fac' ? viewFacilities()
+    : VIEW === 'pf'  ? viewPerformance()
+    : VIEW === 'ins' ? viewInstruments()
+    : VIEW === 'ahd' ? viewAhd()
+    : viewCycle();
+  /* the stacked segments carry their own tooltip text */
+  [...document.querySelectorAll('.stack i[data-t]')].forEach(el => {
+    el.onmousemove = e => tip(e, esc(el.getAttribute('data-t')));
+    el.onmouseleave = () => tip(null, '');
+  });
+}
+function draw(){
+  if(!A) return;
+  drawTabs(); drawFilters(); drawBody();
+  $('#foot').innerHTML = `
+    ${esc(T('updated'))} ${esc(new Date(J.generated).toLocaleString(LANG === 'fr' ? 'fr-FR' : 'en-GB'))}
+    · v${esc(J.version || '')}
+    ${J.superseded ? ' · ' + J.superseded + (LANG === 'fr' ? ' doublon(s) mis de côté' : ' duplicate(s) set aside') : ''}
+    <br>NACC powered by ICAP Global Health © 2025–2026 · ATHECS`;
+}
+
+/* ---------- load ---------- */
+(function boot(){
+  try{
+    const t = localStorage.getItem('ath_dash_theme');
+    if(t) document.documentElement.setAttribute('data-theme', t);
+    $('#th').textContent = t === 'dark' ? '☾' : t === 'light' ? '☀' : '◐';
+    const l = localStorage.getItem('ath_dash_lang');
+    if(l === 'en' || l === 'fr') LANG = l;
+  }catch(e){}
+  $('#fr').className = 'tb' + (LANG === 'fr' ? ' on' : '');
+  $('#en').className = 'tb' + (LANG === 'en' ? ' on' : '');
+  document.documentElement.lang = LANG;
+  $('#t-title').textContent = T('title');
+
+  fetch(API + '?action=dash&rtoken=' + encodeURIComponent(TOKEN))
+    .then(r => r.json())
+    .then(j => {
+      if(!j || !j.ok) throw new Error((j && j.error) || '?');
+      J = j; A = j.atlas || null;
+      if(!A) throw new Error('atlas');
+      $('#t-region').textContent = j.region || T('region');
+      const open = (A.cycles || []).filter(c => c.status === 'OPEN')[0];
+      F.cycle = (j.cycle && j.cycle.id) || (open && open.id)
+             || ((A.cycles || [])[A.cycles.length - 1] || {}).id || '';
+      draw();
+    })
+    .catch(e => {
+      $('#app').innerHTML = `<div class="err"><b>${
+        LANG === 'fr' ? 'Tableau de bord indisponible' : 'Dashboard unavailable'}</b><br>
+        ${LANG === 'fr'
+          ? 'Les données n’ont pas pu être lues. Réessayez dans un instant ; si cela persiste, le déploiement du serveur n’est peut-être pas à jour.'
+          : 'The data could not be read. Try again in a moment; if it persists, the server deployment may not be up to date.'}
+        <br><span style="font-size:.76rem;opacity:.75">${esc(String(e && e.message || e))}</span></div>`;
+      $('#foot').textContent = '';
+    });
+})();
+</script>
+</body>
+</html>
