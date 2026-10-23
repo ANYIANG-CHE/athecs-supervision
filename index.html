@@ -1041,7 +1041,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.1.0';
+const APP_VERSION = '5.2.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -2315,6 +2315,47 @@ function cyclePlan(c){
   return want.filter(id => live[id]);
 }
 function cyclePlanned(c){ return Array.isArray(c && c.planned) && c.planned.length > 0; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   A FACILITY THAT IS NOT IN THIS CYCLE'S PLAN IS NOT IN THIS CYCLE
+
+   The plan used to set the coverage denominator and nothing else, so a facility
+   nobody intended to visit this quarter still sat in the district list, in the
+   facility picker and in the dashboard's filter — and a supervision could be
+   started against it by scrolling past it. The denominator said one thing and
+   every screen said another.
+
+   The gate is PER CYCLE, and that is the whole of it. A facility mentored last
+   quarter and left out of this one keeps its history, keeps its recommendations,
+   and keeps its line in the trend across cycles — which is exactly what the
+   evolution view is for. It is only THIS cycle it is absent from.
+
+   A cycle with no list set still means the whole register, as it always has, so
+   nothing already running changes behaviour until somebody ticks a plan.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function cycleSiteSet(cid){
+  const c = cid ? DB.d.cycles.find(x => x.id === cid) : activeCycle();
+  if(!c || !cyclePlanned(c)) return null;       // null = not narrowed
+  return new Set(cyclePlan(c).map(String));
+}
+function siteInCycle(siteId, cid){
+  const set = cycleSiteSet(cid);
+  return !set || set.has(String(siteId));
+}
+/* The facilities this cycle is about, in this console's scope, by name. */
+function cycleSites(cid){
+  const set = cycleSiteSet(cid);
+  return myActiveSites()
+    .filter(s => !set || set.has(String(s.id)))
+    .sort((a,b) => String(a.facility).localeCompare(String(b.facility)));
+}
+/* Work that exists against a facility the cycle did not plan. Never hidden —
+   a supervision already submitted must stay approvable and a recommendation
+   already open must stay closable — but always marked, so the gap between the
+   plan and what actually happened is visible rather than argued about. */
+function offPlan(v){
+  return !!v && !!v.cycleId && !siteInCycle(v.siteId, v.cycleId);
+}
 /* Planned, and with no supervision that counts. The coverage gap, named. */
 function cycleUnsupervised(c){
   if(!c) return [];
@@ -5182,6 +5223,9 @@ function visitRow(v, tab){
   return `<div class="item" onclick="go('#/visit/${v.id}${tab?'/'+tab:''}')">
     <div style="min-width:0"><b>${esc(s.facility)}</b>
       <div class="s">${esc(s.district)} · ${esc(v.date||'')} · ${statusChip(v.status)}${
+        offPlan(v)?` · <span class="chip a" title="${LANG==='fr'
+          ?'Cette formation sanitaire n\'est pas dans le plan de ce cycle'
+          :'This facility is not in this cycle\'s plan'}">${LANG==='fr'?'hors plan':'off plan'}</span>`:''}${
         notMine?` · 🔒 ${esc(penHolderName(v)||(LANG==='fr'?'un autre superviseur':'another supervisor'))}`:''}</div></div>
     <span class="row" style="gap:6px;flex-wrap:nowrap">
       ${reportReady(v)?`<button class="btn sec sm" title="${LANG==='fr'?'Rapport de supervision':'Supervision report'}"
@@ -5231,6 +5275,14 @@ function viewNewVisit(){
   let sites=DB.d.sites.filter(s=>s.status!=='CLOSED');
   if(!isSuper() && Array.isArray(u.districts) && !NV.showAll)
     sites = sites.filter(s=>u.districts.includes(s.district));
+  /* ---- AND ONLY WHAT THIS CYCLE IS ABOUT ----------------------------------------
+     Refused again in startVisit() and filtered again in nvSearch(), because hiding a
+     facility from a dropdown is not a rule — the search box reaches it, and so does
+     a stored address. Three places, one function. */
+  const cycNow = activeCycle();
+  const planSet = cycleSiteSet(cycNow && cycNow.id);
+  const offCount = planSet ? sites.filter(s=>!planSet.has(String(s.id))).length : 0;
+  if(planSet) sites = sites.filter(s=>planSet.has(String(s.id)));
   /* Nobody grades their own facility. A dual account is the focal person of the
      facilities in u.sites — those are removed from the list here, and refused again
      in startVisit() if the person reaches them another way. */
@@ -5277,6 +5329,10 @@ function viewNewVisit(){
       ?'Vous travaillez hors de votre affectation. Motif enregistré : ':'You are working outside your assignment. Reason recorded: '}
       <b>${esc(NV.whyAll||'—')}</b></div>`:''}`:''}
 
+    ${offCount?`<div class="banner b-info xs">${LANG==='fr'
+      ?'<b>'+offCount+' formation(s) sanitaire(s)</b> ne sont pas dans le plan de ce cycle et n\'apparaissent donc pas ici. Leur historique et leurs recommandations restent accessibles ; elles reviendront dès qu\'un cycle les prévoira. La liste se modifie dans Console ▸ Cycles ▸ Choisir.'
+      :'<b>'+offCount+' facilit'+(offCount>1?'ies are':'y is')+'</b> not in this cycle\'s plan and so not listed here. Their history and their recommendations stay available, and they come back as soon as a cycle plans them. The list is changed in Console ▸ Cycles ▸ Choose.'}</div>`:''}
+
     ${ownFacilityIds().length?`<div class="banner b-info xs">${LANG==='fr'
       ?'<b>'+ownFacilityNames()+'</b> n\'apparaît pas dans cette liste : vous en êtes le point focal, et une supervision ne peut pas être conduite par la personne qui en répond. Demandez à la coordination d\'y affecter un autre superviseur.'
       :'<b>'+ownFacilityNames()+'</b> is not in this list: you are its focal person, and a supervision cannot be run by the person answering for it. Ask the coordination team to assign another supervisor to it.'}</div>`:''}
@@ -5311,7 +5367,10 @@ function nvSearch(q){
   const box=$('#nv-results'); if(!q||q.length<2){ box.innerHTML=''; return; }
   const s=q.toLowerCase();
   const own=ownFacilityIds();
+  const cycNow=activeCycle();
   const hits=DB.d.sites.filter(x=>x.status!=='CLOSED' && !own.includes(x.id) &&
+    /* the search box is the other way into the list, so the plan gate is here too */
+    siteInCycle(x.id, cycNow && cycNow.id) &&
     (x.facility.toLowerCase().includes(s)||x.area.toLowerCase().includes(s)||x.district.toLowerCase().includes(s))).slice(0,12);
   box.innerHTML = hits.map(h=>`<div class="item" onclick="pickSite('${h.id}')">
     <div><b>${esc(h.facility)}</b><div class="s">${esc(h.district)} › ${esc(h.area)}</div></div>
@@ -5319,6 +5378,20 @@ function nvSearch(q){
 }
 function pickSite(id){ const s=siteById(id); NV.district=s.district; NV.area=s.area; NV.siteId=id; render(); }
 
+/* ---- THE RULE, AND NOT MERELY THE LIST ------------------------------------------
+   A stored address, a screen left open since before the plan changed, and an older
+   build can all reach this function with a facility the cycle never planned. The
+   picker and the search box hide it; this is what refuses it. */
+function cycleGateRefusal(siteId, c){
+  if(siteInCycle(siteId, c && c.id)) return false;
+  const L=LANG==='fr', s0=siteById(siteId)||{};
+  infoModal(L?'Hors du plan de ce cycle':'Outside this cycle\'s plan',
+    (L?'« ':'"')+(s0.facility||siteId)+(L?' » n\'est pas prévue pour ':'" is not planned for ')
+    +((c&&c.name)||'')+(L
+     ? '. Son historique et ses recommandations restent accessibles, et elle reviendra dès qu\'un cycle la prévoira. Pour l\'ajouter maintenant : Console ▸ Cycles ▸ Choisir.'
+     : '. Its history and its recommendations stay available, and it comes back as soon as a cycle plans it. To add it now: Console ▸ Cycles ▸ Choose.'));
+  return true;
+}
 async function startVisit(){
   const L=LANG==='fr';
   if(!canSupervise()) return toast(L
@@ -5327,6 +5400,7 @@ async function startVisit(){
   const c=activeCycle();
   if(!c) return toast(L?'Aucun cycle ouvert':'No open cycle');
   if(ownFacilityIds().includes(NV.siteId)) return ownFacilityRefusal(NV.siteId);
+  if(cycleGateRefusal(NV.siteId, c)) return;
 
   const dup=DB.d.visits.find(v=>v.siteId===NV.siteId && v.cycleId===c.id && v.status!=='DRAFT');
   if(dup) return infoModal(L?'Supervision déjà soumise':'Visit already submitted',
@@ -5394,6 +5468,7 @@ function startVisitAnyway(){
   if(!canSupervise()) return;
   if(ownFacilityIds().includes(NV.siteId)) return ownFacilityRefusal(NV.siteId);
   const c=activeCycle(); if(!c) return;
+  if(cycleGateRefusal(NV.siteId, c)) return;
   const v={id:DB.id('V'), siteId:NV.siteId, cycleId:c.id, uid:DB.d.session,
     supervisor:(me()||{}).name, comentors:'', type:'Mentorat intégré', date:today(),
     status:'DRAFT', created:Date.now(), updated:Date.now(),
@@ -7254,10 +7329,23 @@ function viewDashMine(){
   const mine=myDistricts();
   const vs=scopedVisits(cid);
 
-  /* the facilities this person can look at, in their districts, that have been supervised */
+  /* ---- WHAT THE FACILITY FILTER OFFERS -------------------------------------------
+     It used to offer the facilities ALREADY SUPERVISED, built from the visits
+     themselves. So the one facility a supervisor most wants to look up — the one
+     planned for this cycle that nobody has been to yet — was the one facility the
+     filter could not name, and the list grew as the quarter went on instead of being
+     the quarter's list from the first day. It now offers what the cycle PLANNED,
+     which is the same set the coverage figure is counted against, so the filter and
+     the denominator finally describe the same facilities. */
   const seen={}; vs.forEach(v=>{ const s=siteById(v.siteId); if(s) seen[s.id]=s; });
-  const sites=Object.values(seen).sort((a,b)=>a.facility.localeCompare(b.facility));
-  const one = DASH.site ? seen[DASH.site] : null;
+  const byId={};
+  cycleSites(cid).filter(s2 => !mine || mine.includes(s2.district))
+                 .forEach(s2 => { byId[s2.id]=s2; });
+  /* a facility supervised this cycle and since dropped from the plan stays in the
+     filter: its figures are on this screen, so it has to be reachable */
+  Object.values(seen).forEach(s2 => { if(!byId[s2.id]) byId[s2.id]=s2; });
+  const sites=Object.values(byId).sort((a,b)=>a.facility.localeCompare(b.facility));
+  const one = DASH.site ? byId[DASH.site] : null;
   if(DASH.site && !one) DASH.site='';          // the chosen facility left the current cycle
 
   const filters = `
@@ -7284,15 +7372,28 @@ function viewDashMine(){
     const hist=DB.d.visits.filter(v=>v.siteId===one.id && reportReady(v))
                           .sort((a,b)=>(b.submitted||0)-(a.submitted||0));
     const last=hist[0];
-    if(!last) return filters+`<div class="card"><p class="small muted">${
-      L?'Aucune supervision soumise pour cette formation sanitaire sur ce cycle.'
-       :'No supervision submitted for this facility in this cycle.'}</p></div>`;
+    if(!last) return filters+`<div class="card"><div class="banner b-info">${
+      L?'Prévue pour ce cycle, pas encore supervisée — et jamais supervisée auparavant.'
+       :'Planned for this cycle, not yet supervised — and never supervised before.'}</div></div>`;
+    /* ---- THE FILTER NOW OFFERS FACILITIES NOBODY HAS BEEN TO YET -------------------
+       Which is the point of it. But the panel below shows the LATEST report this
+       facility has, whatever cycle it belongs to — so a facility planned for this
+       quarter and not yet visited would have shown last quarter's figures with this
+       quarter's cycle named in the filter above. The screen says which it is reading
+       instead, and that is the evolution view doing its job rather than a mistake. */
+    const lastCyc = DB.d.cycles.find(c=>c.id===last.cycleId) || {};
+    const stale = cid && last.cycleId !== cid;
+    const notYet = stale ? `<div class="banner b-warn">${L
+      ?'Pas encore supervisée sur <b>'+esc((DB.d.cycles.find(c=>c.id===cid)||{}).name||'')
+        +'</b>. Les chiffres ci-dessous sont ceux de <b>'+esc(lastCyc.name||'—')+'</b>, pour l\'évolution.'
+      :'Not yet supervised in <b>'+esc((DB.d.cycles.find(c=>c.id===cid)||{}).name||'')
+        +'</b>. The figures below are from <b>'+esc(lastCyc.name||'—')+'</b>, for comparison.'}</div>` : '';
     const sc=last.scores||visitScores(last);
     const acts=DB.d.actions.filter(a=>a.siteId===one.id);
     const open=acts.filter(a=>a.status!=='RESOLVED');
     const late=open.filter(a=>a.deadline&&a.deadline<today());
     const ranked=rankedSections(last);
-    return filters+`
+    return filters+notYet+`
     <div class="grid g3 rings" style="margin-bottom:13px">
       <div class="stat">${ring(sc.clinical.pct,58,T('clinical'))}</div>
       <div class="stat">${ring(sc.mne.pct,58,T('mne'))}</div>
