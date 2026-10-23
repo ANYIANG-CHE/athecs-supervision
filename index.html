@@ -513,6 +513,18 @@ select.fit.xs{min-width:78px;font-size:.78rem;padding:7px 26px 7px 9px}
 .yn-row:focus-within{border-color:var(--inst,var(--brand-2))}
 .yn-row>span{flex:1 1 auto;min-width:0;font-size:.82rem;line-height:1.3}
 .span-all{grid-column:1/-1}
+/* the filter bar every list now carries */
+.filtbar{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:0 0 11px}
+.filtq{flex:1 1 180px;min-width:150px;padding:8px 11px !important;font-size:.82rem !important}
+.filtn{margin-left:auto;font-size:.72rem;color:var(--ink-3);font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+@media(max-width:560px){ .filtn{margin-left:0} }
+.flag{display:inline-block;font-size:.64rem;font-weight:700;padding:1px 6px;border-radius:999px;
+  margin-left:6px;vertical-align:1px}
+.flag.inc{background:#FDF0D5;color:#845B10}
+.flag.sup{background:#E6EAF0;color:#445060}
+:root[data-theme="dark"] .flag.inc{background:#33280F;color:#F0C675}
+:root[data-theme="dark"] .flag.sup{background:#222C3A;color:#9FB0C6}
 /* in a grid the row gap does the spacing; the field's own margin double-counts */
 .fgrid label.f,.fgrid .f{margin-bottom:0}
 .fgrid>div{min-width:0}
@@ -1022,7 +1034,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '4.14.0';
+const APP_VERSION = '4.15.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -2030,7 +2042,43 @@ function canSupervise(){ return hasSupHat(me()); }
    score holds them out until a supervisor has chosen which one counts. A wrong
    average is worse than a missing one: it is believed. */
 function inConflict(v){ return !!(v && Array.isArray(v.conflict) && v.conflict.length); }
-function countable(v){ return (v.status==='SUBMITTED'||v.status==='APPROVED') && !inConflict(v); }
+
+/* ---------- WHICH OF TWO SUBMISSIONS COUNTS ----------------------------------
+   Until v4.15 a second submission for the same site and cycle flagged BOTH and
+   held BOTH out of every score, waiting for the supervisor who owned one of them
+   to choose. Nobody on the console could see that queue — myConflicts() returns
+   only the conflicts the signed-in person owns — so facilities sat out of every
+   figure in the region with no screen anywhere saying why. Ten of twenty-eight,
+   as it turned out.
+
+   The rule now: of the supervisions for one site in one cycle, the MOST RECENTLY
+   SUBMITTED one counts; the others are SUPERSEDED. Nothing is deleted, nothing is
+   hidden, the flag stays and the queue is now visible on the console — but a
+   facility is never silently absent from the region's figures again.
+
+   The tie-break is the visit id, so the answer is the same every time it is asked
+   and the same on the server, which applies this identical rule in dashAhd's
+   neighbour dashPayload(). Two screens that disagree about one facility is worse
+   than either of them being a day late. */
+function visitStamp(v){ return Number((v && (v.submitted || v.updated)) || 0); }
+function supersededBy(v){
+  if(!v || !inConflict(v)) return null;
+  const g = conflictGroup(v);
+  if(g.length < 2) return null;
+  let best = null;
+  g.forEach(x => {
+    if(x.status !== 'SUBMITTED' && x.status !== 'APPROVED') return;
+    if(!best){ best = x; return; }
+    const a = visitStamp(x), b = visitStamp(best);
+    if(a > b || (a === b && String(x.id) > String(best.id))) best = x;
+  });
+  if(!best || best.id === v.id) return null;
+  return best;
+}
+function countable(v){
+  if(!v || (v.status !== 'SUBMITTED' && v.status !== 'APPROVED')) return false;
+  return !supersededBy(v);
+}
 /* Every supervision caught in the same conflict as this one, this one included. */
 function conflictGroup(v){
   if(!inConflict(v)) return [];
@@ -2900,8 +2948,7 @@ function viewLoginAdmin(){
     <hr>
     ${slots.length ? `
       ${(() => { const cur = slots.some(u=>u.id===DB.d.config.lastAdmPick)
-                             ? DB.d.config.lastAdmPick : slots[0].id;
-                   DB.d.config.lastAdmPick = cur;
+                             ? DB.d.config.lastAdmPick : '';
                    const sel = slots.find(u=>u.id===cur);
         /* Tap your name. This used to be a dropdown whose onchange called render(),
            which rebuilt the list and snapped the choice straight back to the first
@@ -2909,17 +2956,50 @@ function viewLoginAdmin(){
            these accounts, so a list you tap is both simpler and impossible to
            get wrong. The hidden select keeps the same name for anything that
            addresses this screen by it. */
+        /* TWENTY NAMES IS NOT A LIST, IT IS A ROSTER          (v4.15.0)
+           Four accounts could be tapped from a list. Twenty cannot: it is a long
+           screen, and it publishes the name of every super user in the region to
+           anyone who opens the app and taps Administration. So nothing is shown
+           until somebody types, and what they type matches their own name.
+           The input carries a stable id, which is what lets restorePlace() put
+           the caret back after each keystroke — without it the field would empty
+           itself on every letter. */
+        const q = String(ADM_Q || '').trim().toLowerCase();
+        const hits = q.length < 2 ? []
+          : slots.filter(u => String(u.name||'').toLowerCase().indexOf(q) >= 0
+                           || String(u.id||'').toLowerCase().indexOf(q) >= 0)
+                 .slice(0, 8);
         return `
-      <span class="small muted">${T('name')}</span>
-      <div class="list" style="margin:6px 0 12px">${slots.map(u=>`
-        <button class="item admpick ${u.id===cur?'on':''}" onclick="pickAdmSlot('${u.id}')">
-          <div style="min-width:0;text-align:left"><b>${esc(u.name)}</b>
-            <div class="xs muted">${esc(rolesLabel(u))}${
-              u.claimed ? '' : (L?' · à activer':' · to activate')}</div></div>
-          <span class="chip ${u.id===cur?'g':'n'}">${u.id===cur?'✓':'○'}</span>
-        </button>`).join('')}</div>
+      ${sel ? `
+      <div class="list" style="margin:6px 0 12px">
+        <button class="item admpick on" onclick="pickAdmSlot('')">
+          <div style="min-width:0;text-align:left"><b>${esc(sel.name)}</b>
+            <div class="xs muted">${esc(rolesLabel(sel))}${
+              sel.claimed ? '' : (L?' · à activer':' · to activate')}</div></div>
+          <span class="chip n">${L?'changer':'change'}</span>
+        </button></div>`
+      : `
+      <label class="f"><span>${L?'Votre nom':'Your name'}</span>
+        <input type="search" id="lg-find" value="${esc(ADM_Q||'')}" autocomplete="off"
+          placeholder="${L?'Tapez les premières lettres…':'Type the first few letters…'}"
+          oninput="admFind(this.value)"></label>
+      ${q.length < 2 ? `<p class="xs muted" style="margin:-4px 0 12px">${L
+          ?'Tapez au moins deux lettres de votre nom. Les comptes ne sont pas listés ici.'
+          :'Type at least two letters of your name. Accounts are not listed here.'}</p>`
+        : hits.length ? `<div class="list" style="margin:6px 0 12px">${hits.map(u=>`
+          <button class="item admpick" onclick="pickAdmSlot('${u.id}')">
+            <div style="min-width:0;text-align:left"><b>${esc(u.name)}</b>
+              <div class="xs muted">${esc(rolesLabel(u))}${
+                u.claimed ? '' : (L?' · à activer':' · to activate')}</div></div>
+            <span class="chip n">○</span>
+          </button>`).join('')}</div>`
+        : `<p class="xs muted" style="margin:-4px 0 12px">${L
+            ?'Aucun compte ne correspond. Vérifiez l\'orthographe, ou demandez à la coordination.'
+            :'No account matches. Check the spelling, or ask the coordination team.'}</p>`}`}
       <select id="lg-user" style="display:none">${slots.map(u=>
         `<option value="${u.id}" ${u.id===cur?'selected':''}>${esc(u.name)}</option>`).join('')}</select>
+      ${!sel ? '' : ''}
+      ${!sel ? '' : `
       ${sel && !sel.claimed ? `<div class="banner b-info xs" style="margin-bottom:10px">${L
         ?'<b>'+esc(sel.name)+'</b> n\'a pas encore de code PIN. Saisissez le <b>code à 6 chiffres</b> qui vous a été communiqué — l\'application vous fera ensuite choisir votre propre code.'
         :'<b>'+esc(sel.name)+'</b> has no PIN yet. Type the <b>6-digit code</b> you were given — the app will then ask you to choose your own.'}</div>`:''}
@@ -2929,7 +3009,7 @@ function viewLoginAdmin(){
         <input type="password" id="lg-pin" inputmode="numeric"
           placeholder="${sel && !sel.claimed?'••••••':'••••'}" autocomplete="current-password"></label>
       <button class="btn blk" onclick="doLoginAdmin()">${sel && !sel.claimed
-        ? (L?'Activer ce compte':'Activate this account') : T('login')}</button>`; })()}
+        ? (L?'Activer ce compte':'Activate this account') : T('login')}</button>`}`; })()}
     ` : `
       <div class="banner b-warn">${L
         ?'Aucun compte d\'administration n\'est encore attribué pour cette région.'
@@ -2950,8 +3030,18 @@ function viewLoginAdmin(){
 
 /* Choosing which privileged account to sign into. It is remembered before anything is
    redrawn, so the choice survives the redraw instead of being undone by it. */
+/* What has been typed into the Administration search. It lives in memory only:
+   a super user's name must not be left on the device for the next person who
+   opens the app. */
+var ADM_Q = '';
+function admFind(v){ ADM_Q = String(v || ''); render(); }
+
 function pickAdmSlot(id){
+  /* An empty id is "change" — it clears the choice and brings the search back,
+     and it clears what was typed so the previous person's name is not sitting
+     in the box. */
   DB.d.config.lastAdmPick = id; DB.save();
+  if(!id){ ADM_Q = ''; render(); return; }
   const pin = $('#lg-pin'); const typed = pin ? pin.value : '';
   render();
   const again = $('#lg-pin'); if(again){ again.value = typed; again.focus(); }
@@ -5948,6 +6038,17 @@ function missingComments(v){
     return r.answered && (r.band==='r' || (r.d>0 && r.n===0)) && !(a.comment||'').trim();
   });
 }
+/* What is missing from a supervision, for a screen that has to say so in one
+   line. Used by the console on supervisions that arrived before the guard above
+   existed — those are left exactly as they are, and simply marked. */
+function visitGaps(v){
+  try{
+    const q = unanswered(v).length, c = missingComments(v).length;
+    const r = visitActions(v.id).filter(a => !(a.reco || '').trim()).length;
+    return {q, c, r, any: q + c + r};
+  }catch(e){ return {q:0, c:0, r:0, any:0}; }
+}
+
 function visitReview(v, sc){
   const un=unanswered(v), mc=missingComments(v);
   const acts=visitActions(v.id);
@@ -6068,6 +6169,40 @@ function submitVisit(vid){
   if(!canSupervise()) return toast(LANG==='fr'
     ?'Un administrateur ou un super utilisateur ne soumet pas de supervision.'
     :'An administrator or a super user does not submit supervisions.', 4500);
+  /* THE RULE, NOT THE BUTTON.
+     visitReview() disables Submit until every question is answered, every red
+     line carries a comment and every recommendation has its text — and that was
+     the only thing stopping an incomplete supervision. A disabled button is a
+     screen, not a rule: it does not survive a questionnaire that changed after
+     the page was drawn, and it is not consulted at all by anything that calls
+     this function. Supervisions did arrive incomplete. They cannot now. */
+  /* visitGaps() answers through a try/catch and reports nothing on a throw.
+     That matters: the completeness check walks the questionnaire, and a cycle
+     with no month list — which exists in the field, on older rows — makes it
+     throw. A guard that crashes the submission it was added to protect would
+     be worse than the problem. If the check cannot be computed, the supervision
+     goes through exactly as it did before this guard existed. */
+  const gaps = visitGaps(v);
+  if(gaps.any){
+    const L = LANG === 'fr';
+    const bits = [];
+    if(gaps.q) bits.push(gaps.q + (L ? ' question(s) sans réponse'
+                                     : ' unanswered question(s)'));
+    if(gaps.c) bits.push(gaps.c + (L ? ' commentaire(s) obligatoire(s) manquant(s)'
+                                     : ' required comment(s) missing'));
+    if(gaps.r) bits.push(gaps.r + (L ? ' recommandation(s) sans texte'
+                                     : ' recommendation(s) with no text'));
+    return modal(L ? 'Supervision incomplète' : 'Supervision incomplete',
+      `<div class="banner b-warn">${L
+        ? 'Cette supervision ne peut pas être soumise telle quelle.'
+        : 'This supervision cannot be submitted as it stands.'}</div>
+       <ul class="small" style="margin:10px 0 0;padding-left:18px">${
+         bits.map(x => '<li>' + esc(x) + '</li>').join('')}</ul>
+       <p class="xs muted" style="margin:10px 0 0">${L
+        ? 'Rien n\'est perdu : tout reste enregistré sur ce téléphone.'
+        : 'Nothing is lost: everything stays saved on this phone.'}</p>`,
+      `<button class="btn" onclick="closeModal()">${L ? 'Compléter' : 'Finish it'}</button>`);
+  }
   v.status='SUBMITTED'; v.submitted=Date.now(); v.scores=visitScores(v); v.updated=Date.now();
   DB.save(); audit('VISIT_SUBMIT','visit',siteById(v.siteId).facility);
   const c=DB.d.cycles.find(x=>x.id===v.cycleId);
@@ -6239,9 +6374,9 @@ function conflictBanner(){
     return `<div class="banner b-err">
       <b>${L?'Double soumission à régler':'Double submission to settle'}</b><br>
       ${L?'<b>'+esc(s.facility)+'</b> a été soumise '+g.length+' fois pour '+esc(c.name)+
-          '. Tant que vous n\'avez pas choisi celle qui compte, cette formation sanitaire ne figure dans aucun score.'
+          '. En attendant votre choix, c\'est la plus récente qui compte. Choisissez celle qui doit rester.'
         :'<b>'+esc(s.facility)+'</b> was submitted '+g.length+' times for '+esc(c.name)+
-          '. Until you choose which one counts, this facility appears in no score.'}
+          '. Until you choose, the most recent one counts. Choose the one that should stand.'}
       <div style="margin-top:8px"><button class="btn dan sm" onclick="resolveConflictModal('${v.id}')">
         ${L?'Choisir celle qui compte':'Choose the one that counts'}</button></div>
     </div>`;
@@ -7455,22 +7590,124 @@ function penRefuse(vid){
     }});
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   ONE FILTER BAR, FOR EVERY LIST THAT OUTGREW READING          (v4.15.0)
+
+   Every screen that lists more than a handful of rows asks the same three
+   questions — which district, which facility, and what am I looking for — so
+   one component answers them rather than four slightly different ones.
+
+   The state is per screen and lives only for this session. A filter that
+   survives a reload is a filter somebody forgets they set, and then reports as
+   missing data — which is the class of problem this release exists to end.
+   ═══════════════════════════════════════════════════════════════════════════ */
+var FILT = {};
+function filt(g){ return FILT[g] || (FILT[g] = {q:'', district:'', site:'', status:'', cycle:''}); }
+function filtSet(g, k, v){ filt(g)[k] = v; render(); }
+function filtClear(g){ delete FILT[g]; render(); }
+function filtOn(g){ const f = filt(g);
+  return !!(f.q || f.district || f.site || f.status || f.cycle); }
+/* One haystack per row: whatever a person might reasonably type. */
+function filtHit(g, hay){
+  const q = String(filt(g).q || '').trim().toLowerCase();
+  if(!q) return true;
+  return q.split(/\s+/).every(w => String(hay || '').toLowerCase().indexOf(w) >= 0);
+}
+function filtSel(g, k, label, opts){
+  const f = filt(g);
+  return `<select class="fit xs" aria-label="${esc(label)}"
+    onchange="filtSet('${g}','${k}',this.value)">
+    <option value="">${esc(label)}</option>
+    ${opts.map(o => {
+      const val = (typeof o === 'string') ? o : o.v, txt = (typeof o === 'string') ? o : o.t;
+      return `<option value="${esc(val)}" ${f[k] === val ? 'selected' : ''}>${esc(txt)}</option>`;
+    }).join('')}</select>`;
+}
+function filtBar(g, parts, shown, total){
+  const L = LANG === 'fr', f = filt(g);
+  return `<div class="filtbar">
+    <input class="filtq" type="search" id="filtq-${g}" value="${esc(f.q)}"
+      placeholder="${L ? 'Rechercher un nom, une formation sanitaire…' : 'Search a name, a facility…'}"
+      oninput="filtSet('${g}','q',this.value)">
+    ${parts.join('')}
+    ${filtOn(g) ? `<button class="btn sec sm" onclick="filtClear('${g}')">✕ ${
+      L ? 'Effacer' : 'Clear'}</button>` : ''}
+    <span class="filtn">${shown === total ? total
+      : shown + ' / ' + total}</span>
+  </div>`;
+}
+/* The districts and facilities actually present in a set of rows — never the
+   whole register, so a filter can never offer a choice that returns nothing. */
+function filtDistricts(list, idOf){
+  const seen = {};
+  list.forEach(x => { const s = idOf(x); if(s && s.district) seen[s.district] = 1; });
+  return Object.keys(seen).sort();
+}
+
 function admVisits(){
   const L=LANG==='fr';
-  const all=DB.d.visits.slice().sort((a,b)=>(b.submitted||b.updated||0)-(a.submitted||a.updated||0));
+  const G='visits';
+  const every=DB.d.visits.slice().sort((a,b)=>(b.submitted||b.updated||0)-(a.submitted||a.updated||0));
+
+  /* The filter is applied ONCE, here, and every list below reads the result.
+     Filtering each list separately is how two counts on one screen start to
+     disagree. */
+  const f=filt(G);
+  const all=every.filter(v=>{
+    const s=siteById(v.siteId)||{};
+    if(f.district && s.district!==f.district) return false;
+    if(f.cycle && v.cycleId!==f.cycle) return false;
+    return filtHit(G, [s.facility, s.district, v.supervisor, v.date,
+                       (DB.d.cycles.find(c=>c.id===v.cycleId)||{}).name].join(' '));
+  });
   const sub=all.filter(v=>v.status==='SUBMITTED');
   const app=all.filter(v=>v.status==='APPROVED');
   const ret=all.filter(v=>v.status==='RETURNED');
   const dr =all.filter(v=>v.status==='DRAFT');
+
+  /* The two things that were happening in silence. */
+  const supers=all.filter(v=>supersededBy(v));
+  const incomp=all.filter(v=>(v.status==='SUBMITTED'||v.status==='APPROVED')
+                            && visitGaps(v).any);
+
   const row=v=>{
     const s=siteById(v.siteId)||{facility:'?',district:'?'};
     const sc=(v.scores||visitScores(v)).overall;
+    const g=visitGaps(v), sup=supersededBy(v);
     return `<div class="item" onclick="go('#/visit/${v.id}/rev')">
-      <div style="min-width:0"><b>${esc(s.facility)}</b>
+      <div style="min-width:0"><b>${esc(s.facility)}</b>${
+        g.any?`<span class="flag inc" title="${esc(L?'Incomplète':'Incomplete')}">${
+          L?'incomplète':'incomplete'}</span>`:''}${
+        sup?`<span class="flag sup" title="${esc(L
+          ?'Une soumission plus récente existe pour ce site et ce cycle'
+          :'A more recent submission exists for this site and cycle')}">${
+          L?'remplacée':'superseded'}</span>`:''}
         <div class="s">${esc(s.district)} · ${esc(v.date||'')} · ${esc(v.supervisor||'')}
-          ${v.submitted?' · '+(L?'soumise ':'submitted ')+fmtDT(v.submitted):''}</div></div>
+          ${v.submitted?' · '+(L?'soumise ':'submitted ')+fmtDT(v.submitted):''}${
+          g.any?' · '+(L?'manque ':'missing ')+g.any:''}</div></div>
       <span class="chip ${sc.pct===null?'n':band(sc.pct)}">${pc(sc.pct)}</span></div>`;
   };
+
+  const bar=filtBar(G, [
+    filtSel(G,'district', L?'District':'District', filtDistricts(every, v=>siteById(v.siteId))),
+    filtSel(G,'cycle', L?'Cycle':'Cycle',
+      DB.d.cycles.map(c=>({v:c.id, t:c.name})))
+  ], all.length, every.length);
+
+  const attention = (supers.length || incomp.length) ? `<div class="card">
+    <h3>${L?'À regarder':'Needs attention'}
+      <span class="badge">${supers.length+incomp.length}</span></h3>
+    ${supers.length?`<div class="banner b-warn">
+      <b>${supers.length} ${L?'soumission(s) remplacée(s)':'superseded submission(s)'}</b><br>
+      ${L?'Ces formations sanitaires ont été soumises plus d\'une fois pour le même cycle. C\'est la plus récente qui compte ; celles-ci sont conservées et consultables, mais ne sont dans aucun score.'
+         :'These facilities were submitted more than once for the same cycle. The most recent one counts; these are kept and readable, but are in no score.'}
+      <div class="list" style="margin-top:8px">${supers.map(row).join('')}</div></div>`:''}
+    ${incomp.length?`<div class="banner b-warn" style="margin-top:10px">
+      <b>${incomp.length} ${L?'supervision(s) incomplète(s)':'incomplete supervision(s)'}</b><br>
+      ${L?'Soumises avant que la règle ne soit appliquée, ou complétées après un changement du questionnaire. Elles comptent normalement ; ce repère dit seulement ce qui manque.'
+         :'Submitted before the rule was enforced, or made incomplete by a later change to the questionnaire. They still count; this marker only says what is missing.'}
+      <div class="list" style="margin-top:8px">${incomp.map(row).join('')}</div></div>`:''}
+  </div>` : '';
   /* ---- SOMEBODY IS ASKING FOR THE PEN ----------------------------------------------
      This is the route that works when the supervisor holding a facility cannot be
      reached — which is the whole reason the transfer exists. It lands here. */
@@ -7494,7 +7731,8 @@ function admVisits(){
           <button class="btn sec sm" onclick="go('#/visit/${v.id}/rev')">${L?'Voir':'Open'}</button>
         </div></div>`; }).join('')}</div></div>` : '';
 
-  return `${penCard}<div class="card">
+  return `${penCard}${attention}<div class="card">
+    ${bar}
     <div class="spread"><h3>${L?'À approuver':'To approve'}
       ${sub.length?`<span class="badge">${sub.length}</span>`:''}</h3>
       <div class="row" style="flex-wrap:nowrap;gap:6px">
@@ -7511,11 +7749,14 @@ function admVisits(){
       <div class="list">${ret.map(row).join('')}</div>`:''}
 
     <hr><h3>${L?'Approuvées':'Approved'} (${app.length})</h3>
-    <div class="list">${app.slice(0,25).map(row).join('')||`<p class="small muted">—</p>`}</div>
+    <p class="xs muted">${L
+      ?'Toutes sont listées. Utilisez la recherche ci-dessus pour en retrouver une.'
+      :'Every one is listed. Use the search above to find one.'}</p>
+    <div class="list">${app.map(row).join('')||`<p class="small muted">—</p>`}</div>
 
     ${dr.length?`<hr><h3>${L?'Brouillons en cours sur le terrain':'Drafts in progress in the field'} (${dr.length})</h3>
       <p class="xs muted">${L?'Pas encore soumises : rien à décider.':'Not submitted yet: nothing to decide.'}</p>
-      <div class="list">${dr.slice(0,15).map(row).join('')}</div>`:''}
+      <div class="list">${dr.map(row).join('')}</div>`:''}
   </div>`;
 }
 
@@ -7587,11 +7828,36 @@ function setCycleDeadline(cid,v){ const c=DB.d.cycles.find(x=>x.id===cid);
 
 function admApprovals(){
   const L=LANG==='fr';
-  const all=DB.d.users.filter(u=>!isSlot(u));
+  const G='appr';
+  const every=DB.d.users.filter(u=>!isSlot(u));
+  const f=filt(G);
+  /* One filter, applied once, read by every list below — so the badge on a
+     heading and the rows under it can never disagree. */
+  const all=every.filter(u=>{
+    if(f.district && !(Array.isArray(u.districts) && u.districts.includes(f.district)))
+      return false;
+    if(f.status && userStatus(u)!==f.status) return false;
+    const sites=(Array.isArray(u.sites)?u.sites:[])
+      .map(id=>(siteById(id)||{}).facility||'').join(' ');
+    return filtHit(G, [u.name, u.fn, u.email, u.phone,
+                       (u.districts||[]).join(' '), sites, roleLabel(u.role)].join(' '));
+  });
   const pending=all.filter(u=>userStatus(u)===U_PENDING);
   const active=all.filter(u=>userStatus(u)===U_ACTIVE);
   const off=all.filter(u=>[U_SUSPENDED,U_REJECTED].includes(userStatus(u)));
   const help=active.filter(u=>u.pinHelp);
+
+  /* Every district any account is attached to — never the whole register, so a
+     choice in this list can never return nothing. */
+  const dsts={}; every.forEach(u=>(u.districts||[]).forEach(d=>{ if(d) dsts[d]=1; }));
+  const apprBar=filtBar(G, [
+    filtSel(G,'district', L?'District':'District', Object.keys(dsts).sort()),
+    filtSel(G,'status', L?'État':'Status', [
+      {v:U_PENDING, t:L?'En attente':'Pending'},
+      {v:U_ACTIVE,  t:L?'Actif':'Active'},
+      {v:U_SUSPENDED,t:L?'Suspendu':'Suspended'},
+      {v:U_REJECTED, t:L?'Refusé':'Refused'}])
+  ], all.length, every.length);
 
   /* Two records for one person split their supervisions in half. Show it on both cards. */
   /* Deactivating the twin used to be the only option — and it was a trap: the deactivated
@@ -7725,6 +7991,8 @@ function admApprovals(){
     <p class="small muted">${L
       ?'Chaque personne renseigne elle-même toutes ses informations à l\'enrôlement. Ici, il suffit d\'approuver ou de rejeter.'
       :'Each person supplies all their own details at enrolment. Here you simply approve or reject.'}</p>
+
+    ${apprBar}
 
     ${help.length?`<h3 style="margin-top:14px">🔑 ${L?'Codes PIN oubliés':'Forgotten PINs'}
       <span class="badge">${help.length}</span></h3>
