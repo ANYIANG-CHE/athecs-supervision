@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.6.6';
+const APP_VERSION = '5.7.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -3484,12 +3484,19 @@ function resumePin(uid){
   LG_PATH='adm'; go('#/home'); render();
   return forcePinChange(u.id, 'claim');
 }
+var PIN_SET_TOKEN = null;
 function admDoor(u){
   if(!u) return 'code';
   const pin = String(u.pin || '');
-  if(u.here && !pin) return 'setpin';
-  if(!pin) return 'code';
-  return 'pin';
+  if(pin) return 'pin';
+  /* v5.7.0 — THE ACCOUNT MAY HOLD A PIN EVEN WHEN THIS DEVICE DOES NOT.
+     A new handset, a cleared browser, a different web address: the person still
+     has their own PIN, it simply lives with the account now. Offer the PIN door
+     and let the server compare. This is what removes the entire class of "it asks
+     for the six-digit code again". */
+  if(u.hasPin) return 'pin';
+  if(u.here) return 'setpin';
+  return 'code';
 }
 
 /* Administration sign-in. A slot that has not been claimed accepts ONLY its one-time
@@ -3549,6 +3556,10 @@ async function doLoginAdmin(){
       return toast(msg, 7000);
     }
     u.claimed=true; u.pin='';
+    /* The one-time right to choose a PIN, good for fifteen minutes. Held in memory
+       only: it is a credential, it is used within seconds, and it must not outlive
+       the activation on a device somebody else may pick up. */
+    PIN_SET_TOKEN = {id:u.id, tok:String(r.setToken||''), at:Date.now()};
     /* DEVICE-LOCAL, and the whole point of it: this phone performed the activation.
        It is what allows an interrupted PIN step to be resumed here and nowhere else. */
     u.here=true;
@@ -3565,7 +3576,29 @@ async function doLoginAdmin(){
     return forcePinChange(u.id, 'claim');
   }
 
-  if((u.pin||'') !== typed) return toast(L?'Code PIN incorrect':'Wrong PIN');
+  if((u.pin||'') !== typed){
+    /* THIS DEVICE DOES NOT KNOW THE PIN — THE ACCOUNT DOES.              (v5.7.0)
+       A new handset, a cleared browser, a different web address. The person still
+       has their own PIN; it is compared against the account, and once it is right
+       this device keeps a copy so the next sign-in works with no network at all. */
+    if(!u.pin && u.hasPin && ONLINE){
+      toast(L?'Vérification…':'Checking…', 1200);
+      const v = await pinCheck(u.id, typed);
+      if(v && v.locked) return toast(L
+        ?'Trop de tentatives. Réessayez dans '+(v.waitMin||15)+' minute(s).'
+        :'Too many attempts. Try again in '+(v.waitMin||15)+' minute(s).', 5000);
+      if(!v || !v.valid) return toast(L
+        ?'Code PIN incorrect'+(v && v.left!==undefined ? ' — '+v.left+' essai(s) restant(s)' : '')
+        :'Wrong PIN'+(v && v.left!==undefined ? ' — '+v.left+' attempt(s) left' : ''), 4200);
+      u.pin = typed; u.claimed = true; u.here = true; DB.save();
+    } else if(!u.pin && u.hasPin && !ONLINE){
+      return toast(L
+        ?'Ce téléphone ne connaît pas encore votre code PIN. La première connexion ici a besoin du réseau, une seule fois.'
+        :'This phone does not know your PIN yet. The first sign-in here needs a network, once.', 5200);
+    } else {
+      return toast(L?'Code PIN incorrect':'Wrong PIN');
+    }
+  }
   DB.d.session=u.id; DB.save(); passLanding(); audit('LOGIN','user',u.name);
   try{ localStorage.setItem('ath_path','adm'); }catch(e){}
   LG_PATH='adm'; go('#/home'); render();
@@ -3661,6 +3694,7 @@ function saveForcedPin(uid){
   if(nEl && !(nEl.value||'').trim()) return toast(L?'Indiquez votre nom':'Enter your name');
   if(a===u.pinResetCode) return toast(L?'Choisissez un code différent du code temporaire'
                                        :'Choose a code different from the temporary one');
+  u.pinWas = String(u.pin||'');       /* proof for an ordinary change of PIN */
   u.pin=a;
   if(nEl) u.name=(nEl.value||'').trim();
   if(tEl) u.phone=(tEl.value||'').trim();
@@ -3670,7 +3704,23 @@ function saveForcedPin(uid){
   audit('PIN_CHANGED','user',u.name);
   /* a phone only ever clears its own recovery flags — it never rewrites its status,
      districts or role by pushing a whole record it may have received long ago */
-  if(isSlot(u)){ /* a slot's row is the server's — see pushUser() */ }
+  if(isSlot(u)){
+    /* v5.7.0 — THE PIN GOES ONTO THE ACCOUNT, not only into this browser.
+       Authorised by the one-time token the activation handed back, or, when this
+       is an ordinary change of PIN, by the PIN that is already there. If the
+       network refuses, the local copy still works on this device and the person
+       is told plainly that it has not reached the account yet — rather than being
+       left to discover it on their next handset. */
+    const t = (PIN_SET_TOKEN && PIN_SET_TOKEN.id === u.id
+               && (Date.now() - PIN_SET_TOKEN.at) < 14*60*1000) ? PIN_SET_TOKEN.tok : '';
+    pinSetRemote(u.id, a, {setToken:t, current:(t ? '' : String(u.pinWas||''))})
+      .then(res => {
+        if(res && res.ok){ u.hasPin = true; PIN_SET_TOKEN = null; DB.save(); }
+        else toast(L
+          ?'Code PIN enregistré sur ce téléphone, mais pas encore sur le compte — reconnectez-vous une fois en ligne.'
+          :'PIN saved on this phone but not yet on the account — sign in once with a network.', 6000);
+      });
+  }
   else queue('userFlag',{id:u.id, pinResetCode:'', pinResetAt:'', pinHelp:''});
   closeModal(); toast(L?'✓ Code PIN enregistré':'✓ PIN saved');
   render(); maybeTour();
@@ -4600,7 +4650,8 @@ async function refreshSlots(loud){
     assigned:!!sl.assigned, claimed:!!sl.claimed, active:sl.active!==false,
     /* The state of the activation code — never the code. An older Code.gs sends
        none of these three, and codeState() then says nothing rather than guessing. */
-    hasCode:!!sl.hasCode, codeAt:Number(sl.codeAt||0), codeTtlMs:Number(sl.codeTtlMs||0)}));
+    hasCode:!!sl.hasCode, codeAt:Number(sl.codeAt||0), codeTtlMs:Number(sl.codeTtlMs||0),
+    hasPin:!!sl.hasPin}));
   let n=0;
   j.slots.forEach(sl=>{
     const local = DB.d.users.find(u=>u.id===sl.id);
@@ -4620,7 +4671,7 @@ async function refreshSlots(loud){
         grade:String(sl.grade||''), regions:(sl.regions||[]).slice(),
         title:String(sl.title||''),
         status:U_ACTIVE, active:true, pin:'',
-        claimed:sl.claimed, slot:true}); n++; return;
+        claimed:sl.claimed, hasPin:!!sl.hasPin, slot:true}); n++; return;
     }
     if(local.name!==sl.name){ local.name=sl.name; n++; }
     if(local.role!==sl.role){ local.role=sl.role; n++; }
@@ -4637,7 +4688,11 @@ async function refreshSlots(loud){
     if(sl.phone && local.phone!==sl.phone) local.phone=sl.phone;
     /* Reassigned to somebody else: the slot is unclaimed again, so this phone must
        let go of the PIN it was holding. */
-    if(local.claimed && !sl.claimed){
+    /* v5.7.0 — "the server says unclaimed" is no longer reason enough to throw away
+       a working PIN. claimed_at is now only a record; the credential is pin_hash. A
+       device gives up its copy when the ACCOUNT's PIN has actually been destroyed —
+       a withdrawal, a reappointment, or a fresh code issued — and not before. */
+    if(local.claimed && !sl.claimed && !sl.hasPin){
       /* The post has been released, reassigned, or issued a fresh code. This phone
          lets go of everything it held for it — the PIN, and the fact that it was the
          device that activated it, which would otherwise let whoever holds this phone
@@ -4648,6 +4703,7 @@ async function refreshSlots(loud){
       n++;
     }
     if(sl.claimed) local.claimed=true;
+    local.hasPin = !!sl.hasPin;
   });
   DB.save(); if(n) render();
   if(loud) toast(LANG==='fr'?'Comptes privilégiés à jour':'Privileged accounts updated', 2200);
@@ -4655,6 +4711,32 @@ async function refreshSlots(loud){
 }
 
 /* Claim a slot: the code is compared on the server and burned there. */
+/* Compare a PIN against the ACCOUNT. The digits travel in the request body over
+   HTTPS, exactly as the six-digit code already does; never in a URL. */
+async function pinCheck(uid, pin){
+  const api=DB.d.config.api;
+  if(!api || !ONLINE) return {ok:false, offline:true};
+  try{
+    const r=await fetch(api, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({token:apiToken(), uid:uid, kind:'pinCheckPost', id:'PC-'+Date.now(),
+                           payload:{uid:uid, pin:String(pin)}})});
+    return await r.json();
+  }catch(e){ return {ok:false, error:String(e)}; }
+}
+/* Write the PIN onto the account. Authorised by the one-time token the activation
+   handed back, or by the PIN that is already there. */
+async function pinSetRemote(uid, pin, opts){
+  const api=DB.d.config.api;
+  if(!api || !ONLINE) return {ok:false, offline:true};
+  const o = opts||{};
+  try{
+    const r=await fetch(api, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({token:apiToken(), uid:uid, kind:'pinSet', id:'PS-'+Date.now(),
+        payload:{uid:uid, pin:String(pin), setToken:o.setToken||'', current:o.current||''}})});
+    return await r.json();
+  }catch(e){ return {ok:false, error:String(e)}; }
+}
+
 async function claimSlot(slotId, code){
   const api=DB.d.config.api;
   if(!api || !ONLINE) return {ok:false, offline:true};

@@ -14,7 +14,7 @@
  *   4. In the app: Console Super Utilisateur ▸ Paramètres ▸ paste the URL ▸ Save.
  */
 
-var SCRIPT_VERSION = '5.6.6';   // the app checks this: a mismatch means an old deployment
+var SCRIPT_VERSION = '5.7.0';   // the app checks this: a mismatch means an old deployment
 
 /* The version of index.html the region is supposed to be running. Every phone
    compares its own APP_VERSION against this on every single pull, and says so
@@ -22,7 +22,7 @@ var SCRIPT_VERSION = '5.6.6';   // the app checks this: a mismatch means an old 
    running an old app cannot know that it is old — that was exactly the v4.0.0
    problem: the phone had no way to learn the news, and the news had no way to
    reach the phone. Raise this line when you upload a new index.html. */
-var APP_EXPECTED = '5.6.6';
+var APP_EXPECTED = '5.7.0';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ▼▼▼  VOTRE COMPTE ADMINISTRATEUR — ÉCRIVEZ VOS DEUX LIGNES ICI  ▼▼▼
@@ -191,6 +191,15 @@ var TABS = {
                 account may do, `regions` and `districts` decide where, and `title` is
                 only ever printed. */
              'grade','regions','title',
+             /* THE PIN BELONGS TO THE ACCOUNT, NOT TO A HANDSET.               (v5.7.0)
+                It used to live only in the browser storage of whichever phone
+                performed the activation. Sign out and in, change phone, change web
+                address, clear site data, or let any write blank claimed_at, and the
+                person was locked out of their own post with a code that had already
+                been spent. The salted hash lives here instead; the digits never do,
+                and no action returns either of these two cells. pin_fail/pin_fail_at
+                throttle guessing, because four digits are four digits. */
+             'pin_hash','pin_salt','pin_set_token','pin_set_at','pin_fail','pin_fail_at',
              /* ONE PERSON, TWO HATS. `dual` is explicit and never inferred: facility
                 staff also carry a district, so guessing from the columns would hand
                 people a supervisor role nobody gave them. The req_* cells hold a
@@ -866,6 +875,10 @@ function doPost(e){
       case 'assign':    return json(assignSlot(p));
       case 'release':   return json(releaseSlot(p));
       case 'recode':    return json(recodeSlot(p));
+      case 'pinSet':    return json(pinSet(p));
+      /* Compared by POST and never by GET: a query string ends up in logs, in
+         history and in a referrer, and a PIN has no business in any of them. */
+      case 'pinCheckPost': return json(pinVerify(p));
       case 'resolve':   return json(resolveConflict(p));
       case 'roleReq':   return json(roleRequest(p));
       case 'roleGrant': return json(roleGrant(p));
@@ -958,6 +971,7 @@ function doGet(e){
   /* The claim code, tested here and nowhere else. Burned on acceptance. */
   if(p.action === 'claim') return json(claimSlot(p));
 
+
   /* The privileged slots as every phone must see them: assigned or not, claimed or
      not. This is what lets the sign-in screen show "à activer" and refuse a PIN, and what
      makes a released slot disappear from the phone of whoever used to hold it. */
@@ -984,6 +998,10 @@ function doGet(e){
                  a refusal on somebody else's telephone. The code itself is never here
                  and never leaves claimSlot(). */
               hasCode:    !!String(r['claim_code']||'').trim(),
+              /* WHETHER A PIN EXISTS — not the PIN, not its hash, not its salt.
+                 This is what lets a phone that has never seen this post offer the
+                 PIN door instead of demanding a code that was spent months ago. */
+              hasPin:     !!String(r['pin_hash']||'').trim(),
               codeAt:     r['claim_code_at'] ? new Date(r['claim_code_at']).getTime() : 0,
               codeTtlMs:  CLAIM_TTL,
               active: r['active'] !== false && String(r['active']).toLowerCase() !== 'false'};
@@ -1484,6 +1502,8 @@ function assignSlot(p){
     title:(p.title !== undefined ? String(p.title||'').slice(0,80)
                                  : String(cur['title']||'')),
     status:'ACTIVE', active:true,
+    /* a new appointment is a new person: the previous holder's PIN goes with them */
+    pin_hash:'', pin_salt:'', pin_set_token:'', pin_set_at:'', pin_fail:'', pin_fail_at:'',
     claim_code:code, claim_code_at:new Date(), claimed_at:'',
     assigned_by:String(by['name']||''), assigned_at:new Date(), updated_at:new Date()});
   return {ok:true, code:code, slotId:id, grade:lvl,
@@ -1518,8 +1538,13 @@ function recodeSlot(p){
     return {ok:false, error:'this post has nobody in it — assign it first'};
   var code = sixDigits();
   var now  = new Date();
+  /* A new code is for somebody who cannot get in — a lost handset, a forgotten PIN.
+     The old PIN therefore goes with it: the code exists to let them choose a new
+     one, and leaving the old credential alive would mean the code changed nothing. */
   var r = patch('USERS','user_id',id,{
-    claim_code:code, claim_code_at:now, claimed_at:'', updated_at:now});
+    claim_code:code, claim_code_at:now, claimed_at:'',
+    pin_hash:'', pin_salt:'', pin_set_token:'', pin_set_at:'',
+    pin_fail:'', pin_fail_at:'', updated_at:now});
   if(r === 'missing') return {ok:false, error:'row not found'};
   return {ok:true, code:code, slotId:id,
           name:String(cur['name']||''), phone:String(cur['phone']||''),
@@ -1545,8 +1570,106 @@ function releaseSlot(p){
     title:String(old['title'] || ''),
     status:'ACTIVE', active:true,
     claim_code:'', claim_code_at:'', claimed_at:'',
+    /* THE PIN LEAVES WITH THE PERSON. A post handed to somebody else must not keep
+       the last holder's credential, or the previous occupant could sign straight
+       back into an account that is no longer theirs. */
+    pin_hash:'', pin_salt:'', pin_set_token:'', pin_set_at:'', pin_fail:'', pin_fail_at:'',
     assigned_by:String(by['name']||''), assigned_at:new Date(), updated_at:new Date()});
   return {ok:true};
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE PIN, HELD BY THE ACCOUNT                                      (v5.7.0)
+
+   Everything that has gone wrong with privileged sign-in since the levels were
+   introduced comes from one decision: the PIN existed only in the local storage
+   of the device that activated the post, and the server held nothing but a date
+   in claimed_at. So the account's whole identity rested on a single mutable cell
+   and one browser's storage, and ANY of these locked somebody out for good:
+
+     · signing out and in on a phone whose storage had been cleared
+     · changing handset
+     · moving to a new web address — a different origin is a different store
+     · a write that blanked claimed_at
+     · closing the app before the PIN box was answered
+
+   The remedy is not another guard around that cell. It is to put the credential
+   where the account is. From here the six-digit code is what it was always meant
+   to be — a bootstrap used ONCE in the life of a post — and a holder proves who
+   they are with their own PIN on any device, at any address, for ever after.
+
+   WHAT IS STORED: a SHA-256 of salt + PIN, and the salt. Never the digits. No
+   action returns either cell; testslot.js asserts that over the whole payload.
+   WHAT IS SENT: the PIN itself, over HTTPS, in the request body — exactly as the
+   six-digit code already travels, and as every sign-in on earth works.
+   WHY A THROTTLE: four digits are guessable and the link password is shared, so
+   five wrong answers close the account to guessing for fifteen minutes.
+   ═══════════════════════════════════════════════════════════════════════════ */
+var PIN_TRIES = 5, PIN_LOCK_MS = 15*60*1000, PIN_SET_TTL = 15*60*1000;
+
+function pinSalt(){
+  var a = Utilities.getUuid().replace(/-/g,'');
+  return a + String(Math.floor(Math.random()*1e9));
+}
+function pinDigest(pin, salt){
+  var raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,
+                                    String(salt) + ':' + String(pin),
+                                    Utilities.Charset.UTF_8);
+  return Utilities.base64Encode(raw);
+}
+/** Set or replace the PIN of a privileged post. Authorised EITHER by the one-time
+ *  token the claim handed back, OR by the PIN that is already on the account. */
+function pinSet(p){
+  var id = String(p.uid || p.slotId || '');
+  var pin = String(p.pin || '').trim();
+  if(!/^[0-9]{4,8}$/.test(pin)) return {ok:false, error:'a PIN is 4 to 8 digits'};
+  var cur = userRow(id);
+  if(!cur) return {ok:false, error:'unknown account'};
+
+  var byToken = false;
+  var tok = String(p.setToken || '');
+  if(tok && String(cur['pin_set_token'] || '') === tok){
+    var at = cur['pin_set_at'] ? new Date(cur['pin_set_at']).getTime() : 0;
+    byToken = at > 0 && (new Date().getTime() - at) <= PIN_SET_TTL;
+  }
+  if(!byToken){
+    /* no token: the current PIN is the proof, and it is throttled like any other */
+    var v = pinVerify({uid:id, pin:String(p.current || '')});
+    if(!v.ok || !v.valid) return {ok:false, error:'the current PIN is needed to change it',
+                                  locked:!!v.locked};
+  }
+  var salt = pinSalt();
+  narrowWrite(id, {pin_hash:pinDigest(pin, salt), pin_salt:salt,
+                   pin_set_token:'', pin_set_at:'',
+                   pin_fail:0, pin_fail_at:'',
+                   /* a PIN is proof of activation; the date is now only a record */
+                   claimed_at: cur['claimed_at'] || new Date(),
+                   updated_at: new Date()});
+  return {ok:true, set:true};
+}
+/** Compare a PIN. Never says which part was wrong, and counts the attempts. */
+function pinVerify(p){
+  var id = String(p.uid || p.slotId || '');
+  var cur = userRow(id);
+  if(!cur) return {ok:true, valid:false};
+  var hash = String(cur['pin_hash'] || ''), salt = String(cur['pin_salt'] || '');
+  if(!hash || !salt) return {ok:true, valid:false, noPin:true};
+
+  var fails = Number(cur['pin_fail'] || 0) || 0;
+  var since = cur['pin_fail_at'] ? (new Date().getTime() - new Date(cur['pin_fail_at']).getTime())
+                                 : Infinity;
+  if(fails >= PIN_TRIES && since < PIN_LOCK_MS)
+    return {ok:true, valid:false, locked:true,
+            waitMin: Math.ceil((PIN_LOCK_MS - since)/60000)};
+  if(fails >= PIN_TRIES){ fails = 0; }          /* the lock has expired: start again */
+
+  if(pinDigest(String(p.pin || ''), salt) === hash){
+    if(fails) narrowWrite(id, {pin_fail:0, pin_fail_at:''});
+    return {ok:true, valid:true,
+            name:String(cur['name']||''), role:String(cur['role']||'')};
+  }
+  narrowWrite(id, {pin_fail: fails + 1, pin_fail_at: new Date()});
+  return {ok:true, valid:false, left: Math.max(0, PIN_TRIES - (fails + 1))};
 }
 
 /** The ONE place a claim code is tested. Compared here, never returned, burned on use. */
@@ -1575,7 +1698,16 @@ function claimSlot(p){
       sh.getRange(row, map['claim_code']+1).setValue('');
       sh.getRange(row, map['claim_code_at']+1).setValue('');
       sh.getRange(row, map['claimed_at']+1).setValue(new Date());
-      return {ok:true, valid:true,
+      /* The one-time right to CHOOSE a PIN, good for fifteen minutes. It is what
+         lets the app finish the activation without asking for a PIN that does not
+         exist yet, and it is why a half-finished activation is no longer fatal:
+         the post simply still has no PIN, and another code puts that right. */
+      var tok = Utilities.getUuid().replace(/-/g,'');
+      if(map['pin_set_token'] !== undefined){
+        sh.getRange(row, map['pin_set_token']+1).setValue(tok);
+        if(map['pin_set_at'] !== undefined) sh.getRange(row, map['pin_set_at']+1).setValue(new Date());
+      }
+      return {ok:true, valid:true, setToken: tok,
               name: sh.getRange(row, map['name']+1).getValue(),
               role: sh.getRange(row, map['role']+1).getValue(),
               phone: sh.getRange(row, map['phone']+1).getValue()};
@@ -1752,6 +1884,7 @@ function saveUser(u){
 
      These five cells belong to assign / claim / release alone. Carry them through. */
   var slotCols = ['claim_code','claim_code_at','claimed_at','assigned_by','assigned_at',
+                  'pin_hash','pin_salt','pin_set_token','pin_set_at','pin_fail','pin_fail_at',
                   'dual','req_role','req_scope','req_fn','req_at','req_status','req_note','req_by',
                   'grade','regions','title'];
   var keepSlot = {};
@@ -1810,6 +1943,12 @@ function saveUser(u){
     claimed_at:    keepSlot['claimed_at']    !== undefined ? keepSlot['claimed_at']    : '',
     assigned_by:   keepSlot['assigned_by']   !== undefined ? keepSlot['assigned_by']   : '',
     assigned_at:   keepSlot['assigned_at']   !== undefined ? keepSlot['assigned_at']   : '',
+    pin_hash:      keepSlot['pin_hash']      !== undefined ? keepSlot['pin_hash']      : '',
+    pin_salt:      keepSlot['pin_salt']      !== undefined ? keepSlot['pin_salt']      : '',
+    pin_set_token: keepSlot['pin_set_token'] !== undefined ? keepSlot['pin_set_token'] : '',
+    pin_set_at:    keepSlot['pin_set_at']    !== undefined ? keepSlot['pin_set_at']    : '',
+    pin_fail:      keepSlot['pin_fail']      !== undefined ? keepSlot['pin_fail']      : '',
+    pin_fail_at:   keepSlot['pin_fail_at']   !== undefined ? keepSlot['pin_fail_at']   : '',
     dual:          keepSlot['dual']          !== undefined ? keepSlot['dual']          : '',
     req_role:      keepSlot['req_role']      !== undefined ? keepSlot['req_role']      : '',
     req_scope:     keepSlot['req_scope']     !== undefined ? keepSlot['req_scope']     : '',
