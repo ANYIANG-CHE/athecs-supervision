@@ -985,6 +985,14 @@ tbody tr:hover{background:var(--brand-tint)}
 .logos{display:flex;justify-content:center;align-items:center;gap:18px;margin-bottom:11px;flex-wrap:wrap}
 .logos img{height:34px;filter:none;transition:opacity var(--med) var(--ease)}
 :root[data-theme="dark"] .logos img{filter:brightness(1.06)}
+/* The designer's credit — the last line on every screen. The telephone number is
+   the link text because a number you can read is a number you can dial by hand when
+   a handset refuses a tel: link, which some locked-down Android builds do. */
+.credit{margin-top:10px;padding-top:9px;border-top:1px solid var(--line);
+  display:flex;justify-content:center;align-items:center;gap:4px 12px;flex-wrap:wrap;
+  font-size:.7rem;color:var(--ink-3)}
+.credit a{color:var(--brand-2);text-decoration:none;font-weight:620;white-space:nowrap}
+.credit a:hover,.credit a:focus-visible{text-decoration:underline}
 
 /* ---------- utility ---------- */
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
@@ -1041,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.5.0';
+const APP_VERSION = '5.6.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -2674,6 +2682,23 @@ function shell(inner, navKey){
     </div>
     NACC powered by ICAP Global Health &nbsp;©&nbsp;2025–2026<br>
     <span class="xs">Projet ATHECS — Attending Epidemic Control and Sustainability · v${APP_VERSION}</span>
+    ${credit()}
+  </div>`;
+}
+/* ---------------------------------------------------------------------------
+   THE DESIGNER'S CREDIT — the very last line of every screen.
+   Two links, not one, because a telephone number has two uses and a phone can
+   only follow one of them per tap: tel: hands the number to the dialler and
+   works with no network at all, wa.me opens WhatsApp. The number is printed as
+   the link text so it can be read and dialled by hand if a handset blocks both.
+   --------------------------------------------------------------------------- */
+function credit(){
+  const L = LANG === 'fr';
+  return `<div class="credit">
+    <span>${L ? 'Conçu par' : 'Designed by'} <b style="font-weight:620">C.F. ANYIANG</b></span>
+    <a href="tel:+237658158909" title="${L ? 'Appeler le 658 158 909' : 'Call 658 158 909'}">\u260E 658 158 909</a>
+    <a href="https://wa.me/237658158909" target="_blank" rel="noopener noreferrer"
+       title="${L ? 'Écrire sur WhatsApp' : 'Message on WhatsApp'}">WhatsApp</a>
   </div>`;
 }
 /* The switch between the two spaces. It exists ONLY on an account that carries

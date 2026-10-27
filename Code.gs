@@ -14,7 +14,7 @@
  *   4. In the app: Console Super Utilisateur ▸ Paramètres ▸ paste the URL ▸ Save.
  */
 
-var SCRIPT_VERSION = '4.14.0';   // the app checks this: a mismatch means an old deployment
+var SCRIPT_VERSION = '5.6.0';   // the app checks this: a mismatch means an old deployment
 
 /* The version of index.html the region is supposed to be running. Every phone
    compares its own APP_VERSION against this on every single pull, and says so
@@ -22,7 +22,7 @@ var SCRIPT_VERSION = '4.14.0';   // the app checks this: a mismatch means an old
    running an old app cannot know that it is old — that was exactly the v4.0.0
    problem: the phone had no way to learn the news, and the news had no way to
    reach the phone. Raise this line when you upload a new index.html. */
-var APP_EXPECTED = '4.14.0';
+var APP_EXPECTED = '5.6.0';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ▼▼▼  VOTRE COMPTE ADMINISTRATEUR — ÉCRIVEZ VOS DEUX LIGNES ICI  ▼▼▼
@@ -81,22 +81,94 @@ var ADMIN_SLOTS = [
   {id:'A001', label:'Administrateur 1'},
   {id:'A002', label:'Administrateur 2'}
 ];
-/* Six, for twenty districts and eighty-four facilities. Raised from two on 14 Sep 2026:
-   a supervision cycle generates more approvals than two people can carry.
-   ensureSlots() only ADDS what is missing, so U001 and U002 keep their holder, their
-   claim and their PIN — running setup() after this change touches neither. */
-var SUPER_SLOTS = [
-  {id:'U001', label:'Super utilisateur 1'},
-  {id:'U002', label:'Super utilisateur 2'},
-  {id:'U003', label:'Super utilisateur 3'},
-  {id:'U004', label:'Super utilisateur 4'},
-  {id:'U005', label:'Super utilisateur 5'},
-  {id:'U006', label:'Super utilisateur 6'}
-];
+/* Twenty, for twenty districts and eighty-four facilities. Two on 1 Sep 2026, six on
+   14 Sep 2026, twenty on 23 Oct 2026: district cluster leads, district mentors, M&E
+   assistants, M&E officers, the regional lead and the RTG coordinators each hold one.
+   ensureSlots() only ADDS what is missing, so every slot already assigned keeps its
+   holder, its claim and its PIN — running setup() after this change touches none of them.
+   A free slot has no name, so it appears on no sign-in screen and nobody can sign into it:
+   twenty posts cost nothing until they are given to somebody.
+
+   WHY A LIST AND NOT A COUNT: the ids must stay stable for ever. U007 is U007 in the
+   workbook, in the Journal and on a phone that has been offline for a month. Generating
+   them from a loop keeps that exact property while making the ceiling one number. */
+var SUPER_SLOTS = (function(){
+  var out = [];
+  for(var i = 1; i <= 20; i++)
+    out.push({id:'U' + ('00' + i).slice(-3), label:'Super utilisateur ' + i});
+  return out;
+})();
 var CLAIM_TTL = 24*3600*1000;
 var SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
 var TOKEN    = 'ATHECS';                 // change this, and change it in the app too
 var DRIVE_FOLDER = 'ATHECS - Pieces justificatives';
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LEVELS OF ACCESS
+
+   Until now there was one level and one region: a super user saw the West,
+   all of it, because the West was all there was. The coordination team is
+   now district cluster leads, district mentors, M&E assistants, M&E
+   officers, the regional lead and the RTG coordinators — and other regions
+   are coming, with national staff above them.
+
+   Three things carry that, and no more:
+
+     grade     district | region | national   — HOW WIDE
+     regions   a list of region names         — WHICH, for a region grade
+     districts a list of district names       — WHICH, for a district grade
+     title     free text                      — the job, for human beings
+
+   `title` is deliberately NOT a role. A new job description must never be a
+   new version of this script, and it must never be a new branch in a
+   permission test: what somebody is ALLOWED to do comes from `grade` alone,
+   and what they are CALLED comes from `title`. Add "Chef de cluster de
+   district" or "Coordonnateur RTG" by typing it; nothing here changes.
+
+   WHAT A LEVEL IS WORTH is not decided here but in the app's POWERS table and
+   in RESERVED below. Both are lists, for the same reason.
+   ═══════════════════════════════════════════════════════════════════════════ */
+var REGION_DEFAULT = 'Ouest';
+var GRADES = ['district','region','national'];
+var GRADE_RANK = {district:1, region:2, national:3};
+/* A slot that has never been graded. Every one of them is graded by
+   backfillScope() on the next setup(), so this is a safety net and not a
+   working state — but the net must give TODAY'S behaviour, never less and
+   never more: the whole of the one region that exists. */
+var GRADE_FALLBACK = {ADMIN:'national', SUPER:'region'};
+/* The sentinel that has always sat in a slot's `districts` cell. It means
+   "not narrowed", and it must never be mistaken for a district called ALL. */
+var SCOPE_ALL = 'ALL';
+function scopeList(cell){
+  return String(cell == null ? '' : cell).split(',')
+    .map(function(x){ return String(x).trim(); })
+    .filter(function(x){ return x && x.toUpperCase() !== SCOPE_ALL; });
+}
+function gradeOf(row){
+  if(!row) return '';
+  var g = String(row['grade'] || '').trim().toLowerCase();
+  if(GRADES.indexOf(g) >= 0) return g;
+  return GRADE_FALLBACK[String(row['role'] || '').toUpperCase()] || '';
+}
+
+/* WRITES RESERVED TO A LEVEL.
+   A button hidden on a phone is a courtesy. This is the refusal. Each line is
+   a push kind and the lowest grade allowed to send it; a kind that is not
+   listed is not reserved and travels as it always has — which is what keeps
+   every supervisor's own work, and every district lead's approvals, working
+   unchanged. Adding a reservation later is one line. */
+var RESERVED = {
+  sites:       'region',    // publishing the region's facility register
+  cycle:       'region',    // opening, closing and planning a cycle
+  questions:   'region',    // editing the questionnaire
+  qPublish:    'region',    // publishing it to the region
+  formPublish: 'region',    // publishing an AHD / Foundational Milestone instrument
+  formDelete:  'region',    // deleting a page
+  siteReq:     'region',    // deciding a facility creation / transfer request
+  assign:      'national',  // giving somebody a privileged account
+  release:     'national',  // taking one away
+  scopeSet:    'national'   // setting anybody's level and scope
+};
 
 var TABS = {
   USERS:    ['user_id','name','role','function','matricule','id_type','id_number','phone','email','districts',
@@ -105,12 +177,20 @@ var TABS = {
              /* privileged slots only: a slot with no claimed_at is "à activer" and accepts
                 nothing but its claim code. Claiming burns the code and stamps claimed_at. */
              'claim_code','claim_code_at','claimed_at','assigned_by','assigned_at',
+             /* LEVELS OF ACCESS — see the block above TABS. `grade` decides what the
+                account may do, `regions` and `districts` decide where, and `title` is
+                only ever printed. */
+             'grade','regions','title',
              /* ONE PERSON, TWO HATS. `dual` is explicit and never inferred: facility
                 staff also carry a district, so guessing from the columns would hand
                 people a supervisor role nobody gave them. The req_* cells hold a
                 PENDING request and nothing else — they can never grant anything. */
              'dual','req_role','req_scope','req_fn','req_at','req_status','req_note','req_by'],
-  SITES:    ['site_id','district','area','facility','status','version','updated_at'],
+  /* `region` was added on 23 Oct 2026 and every existing row reads 'Ouest'. A blank
+     cell also reads 'Ouest', so a facility typed into the workbook by hand is never
+     invisible to the region that owns it. Adding the Littoral is then data entry:
+     type the facilities with region=Littoral and grade somebody for it. No release. */
+  SITES:    ['site_id','district','area','facility','status','version','updated_at','region'],
   SITE_REQUESTS: ['request_id','ref','type','site_id','district_before','area_before','facility_before',
                   'district_after','area_after','facility_after','source','doc_ref','doc_date','doc_file_url',
                   'requester','requester_uid','function','matricule','id_type','id_number','phone','email',
@@ -189,6 +269,161 @@ var TABS = {
   FORM_GONE:    ['entry_id','form_id','site_id','deleted_by','deleted_at']
 };
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE REGION'S FACILITY REGISTER, SO THE WORKBOOK HAS IT TOO
+
+   The eighty-six facilities have always lived inside index.html, which is why
+   the SITES tab was empty and why facilities that were planned and not yet
+   visited appeared on the public page as S012 rather than by name.
+
+   The ids are not invented here. The app builds them as S001, S002 … in the
+   order of its own register, so the id below is the SAME id that is already in
+   the VISITS rows and in each cycle's plan. Writing these rows therefore names
+   facilities that are already referred to everywhere else; it does not create
+   anything new.
+
+   RUN  remplirSites()  ONCE from this editor. It only ever adds or updates a row
+   in the SITES tab, keyed on the id, and it writes nothing anywhere else — your
+   supervisions are not reachable from it. Running it twice changes nothing.
+   ═══════════════════════════════════════════════════════════════════════════ */
+var REGISTRE = [
+  ["S001","Bafang","Bafang-Chefferie","CSI Famkeu"],
+  ["S002","Bafang","Manila","Hôpital Ad lucem Banka-Bafang"],
+  ["S003","Bafang","Mouankeu","HD Bafang"],
+  ["S004","Bafang","Ndokovi","CSI Ndokovi"],
+  ["S005","Baham","Baham","CSI Demgo"],
+  ["S006","Baham","Bahiala Cheffou","CSI Bahiala"],
+  ["S007","Baham","Bangou-Carrefour","CMA Bangou Carefour"],
+  ["S008","Baham","Bangou-Ville","CMA Bangou"],
+  ["S009","Baham","Bapa Bametchetcha","CSI de Bapa"],
+  ["S010","Baham","Batie","CMA Batie"],
+  ["S011","Bamendjou","Bamendjou","HD Bamendjou"],
+  ["S012","Bandja","Bandja-Ville","HD Bandja"],
+  ["S013","Bandja","Fotouni","CMA de Foutouni Ex CSI"],
+  ["S014","Bandjoun","Dja","HD Bandjoun"],
+  ["S015","Bandjoun","Mbouo","Hopital EEC Mbouo"],
+  ["S016","Bandjoun","Pete","Hopital Ad Lucem"],
+  ["S017","Bandjoun","Semto","CMC Mission Catholique de Semto"],
+  ["S018","Bandjoun","Yom","CMA Poumougne"],
+  ["S019","Bangangte","Bamena","CSI Bamena"],
+  ["S020","Bangangte","Bangangte","HD Bangangté"],
+  ["S021","Bangangte","Bangoua","Hôpital EEC Bangoua"],
+  ["S022","Bangangte","Bazou","CMA Bazou"],
+  ["S023","Bangangte","Tonga","CMA Tonga"],
+  ["S024","Bangourain","Bangourain","HD Bangourain"],
+  ["S025","Bangourain","Kouhouat","CSI Kouhouat"],
+  ["S026","Bangourain","Koumengba","CSI Koumengba"],
+  ["S027","Batcham","Batcham Chefferie","CSI Batcham Chefferie"],
+  ["S028","Batcham","Batcham Fiela","CSI Bameffo"],
+  ["S029","Batcham","Batcham Ville","HD Batcham"],
+  ["S030","Dschang","Baleveng","CMA Nkong Ni"],
+  ["S031","Dschang","Doumbouo","CSI Doumbouo"],
+  ["S032","Dschang","Fiala Foreke","Hopital Regional Annexe de Dschang (Ex HD)"],
+  ["S033","Dschang","Fometa","CSI Fometa"],
+  ["S034","Dschang","Ndoh-Djutsitsa","CMA Ndoh-Djuttitsa"],
+  ["S035","Dschang","Siteu","Hopital St Vincent de Paul"],
+  ["S036","Foumban","Foumban Nord","CS Medicalise Kueka"],
+  ["S037","Foumban","Foumban Ouest","CMA Koukouet-Maloum"],
+  ["S038","Foumban","Foumban Sud","HRa Foumban (Ex HD)"],
+  ["S039","Foumban","Koupa Kagnam","CMA Koupa-Kagnam (Ex CSI)"],
+  ["S040","Foumban","Koupa Matapit","CMA de Koupa Matapit"],
+  ["S041","Foumban","Mambain","CMA Mambain"],
+  ["S042","Foumban","Mataket","CMA Mataket"],
+  ["S043","Foumban","Njisse","Hopital Protestant Njisse"],
+  ["S044","Foumbot","Baigom 1","CSI Kwen Baïgom"],
+  ["S045","Foumbot","Fosset","CSI Fosset"],
+  ["S046","Foumbot","Foumbot 1","HD Foumbot"],
+  ["S047","Foumbot","Foumbot 3","CSI Nkoundoubain"],
+  ["S048","Foumbot","Foumbot 4","CSI Mbantou"],
+  ["S049","Foumbot","Maka 2","CSI Maka 2"],
+  ["S050","Foumbot","Momo","CSI Momo"],
+  ["S051","Galim","Galim","HD Galim"],
+  ["S052","Kekem","Kekem","HD Kekem"],
+  ["S053","Kouoptamo","Chanas","CSI Chanas"],
+  ["S054","Kouoptamo","Kouoptamo","HD Kouoptamo"],
+  ["S055","Kouoptamo","Njintapon","CSI de Njitapon"],
+  ["S056","Malantouen","Magba","CMA Magba"],
+  ["S057","Malantouen","Malantouen","HD Malantouen"],
+  ["S058","Malantouen","Matta Barrage","CSI Matta - barrage"],
+  ["S059","Malantouen","Ngounso","CS BBHC Ngounso"],
+  ["S060","Massangam","Massangam","HD Massangam"],
+  ["S061","Mbouda","Bafounda","CSI Bamendjo"],
+  ["S062","Mbouda","Mbouda Nord","HD Mbouda"],
+  ["S063","Mbouda","Mbouda Sud","CMA Lepi"],
+  ["S064","Mbouda","Mbouda-Ouest","Hôpital Ad Lucem Mbouda"],
+  ["S065","Mbouda","Toumaka","CMA Babadjou"],
+  ["S066","Mifi","Badiembou","CM de la Police"],
+  ["S067","Mifi","Badiembou","CSI Badiembou"],
+  ["S068","Mifi","Batoukop","CSI Batoukop"],
+  ["S069","Mifi","Djeleng","CMA Djeleng"],
+  ["S070","Mifi","Famla 1","Bafoussam Baptist Hospital - CBC Bamendzi"],
+  ["S071","Mifi","Famla 1","HD MIFI FAMLA"],
+  ["S072","Mifi","Kamkop","CS Prossaba"],
+  ["S073","Mifi","King Place","PHC ACHA Annexe TAMDJA"],
+  ["S074","Mifi","Kongso Bamougoum","CMA Kongso"],
+  ["S075","Mifi","Kouogouo","CS Sacré Coeur"],
+  ["S076","Mifi","Lafe Baleng","CMA Lafe-Baleng"],
+  ["S077","Mifi","Tocket","CS la Paix"],
+  ["S078","Mifi","Tyo","HR Bafoussam"],
+  ["S079","Penka Michel","Balessing","CMA Balessing"],
+  ["S080","Penka Michel","Bamendou 2","CSI Bamendou 2"],
+  ["S081","Penka Michel","Bamendou-Chefferie","CSI Bamendou Chefferie"],
+  ["S082","Penka Michel","Baneghang","CSI Bassossia"],
+  ["S083","Penka Michel","Centre urbain","CSI Penka Michel"],
+  ["S084","Santchou","Santchou","HD Santchou"]
+];
+
+/** Run this from the editor: Exécuter ▸ remplirSites. Takes a few seconds. */
+function remplirSites(){
+  var sh = sheet('SITES'), map = headerMap(sh);
+  var have = {};
+  rowsOf('SITES').forEach(function(r){ have[String(r.site_id || '')] = r; });
+  var width = sh.getLastColumn();
+  var add = [], upd = 0;
+  REGISTRE.forEach(function(x){
+    var cur = have[x[0]];
+    if(cur){
+      /* already there: only fill what is blank, never overwrite a correction
+         somebody has typed into the workbook by hand */
+      var cells = {};
+      if(!String(cur.district || '').trim()) cells.district = x[1];
+      if(!String(cur.area || '').trim())     cells.area     = x[2];
+      if(!String(cur.facility || '').trim()) cells.facility = x[3];
+      if(!String(cur.region || '').trim())   cells.region   = REGION_DEFAULT;
+      if(!String(cur.status || '').trim())   cells.status   = 'ACTIVE';
+      if(Object.keys(cells).length){
+        Object.keys(cells).forEach(function(c){
+          if(map[c] !== undefined) sh.getRange(rowOfSite(sh, map, x[0]), map[c] + 1).setValue(cells[c]);
+        });
+        upd++;
+      }
+      return;
+    }
+    var row = new Array(width).fill('');
+    var o = {site_id:x[0], district:x[1], area:x[2], facility:x[3],
+             status:'ACTIVE', version:1, region:REGION_DEFAULT, updated_at:new Date()};
+    Object.keys(o).forEach(function(c){
+      var i = map[c]; if(i !== undefined && i < width) row[i] = o[c];
+    });
+    add.push(row);
+  });
+  if(add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, width).setValues(add);
+  setSetting('sites_published_at', new Date().getTime());
+  setSetting('sites_published_by', 'éditeur Apps Script');
+  var out = 'SITES : ' + add.length + ' ligne(s) ajoutée(s), ' + upd
+          + ' complétée(s). Total ' + (sh.getLastRow() - 1) + '.'
+          + '\n\nAucune supervision n\'a été touchée.';
+  Logger.log(out);
+  return out;
+}
+function rowOfSite(sh, map, id){
+  var last = sh.getLastRow(); if(last < 2) return 2;
+  var ids = sh.getRange(2, map['site_id'] + 1, last - 1, 1).getValues();
+  for(var i = 0; i < ids.length; i++) if(String(ids[i][0]) === String(id)) return i + 2;
+  return last + 1;
+}
+
 /* ------------------------------------------------------------------ setup */
 function setup(){
   var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -205,10 +440,239 @@ function setup(){
     sh.protect().setWarningOnly(true);
   });
   ensureSlots();
+  var filled = backfillScope();
   var def = ss.getSheetByName('Sheet1') || ss.getSheetByName('Feuille 1');
   if(def && ss.getSheets().length > 1 && def.getLastRow() === 0) ss.deleteSheet(def);
   driveFolder();
-  return 'OK — ' + Object.keys(TABS).length + ' tabs ready.';
+  return 'OK — ' + Object.keys(TABS).length + ' tabs ready. '
+       + filled.sites + ' facility row(s) given a region, '
+       + filled.users + ' privileged account(s) given a level.';
+}
+
+/** THE UPGRADE, AND IT MUST BE INVISIBLE.
+ *
+ *  Two new ideas arrive in the workbook — a facility belongs to a region, and a
+ *  privileged account has a level — and on the morning of the upgrade neither cell
+ *  has anything in it. An empty cell must therefore mean EXACTLY what the region
+ *  has always done, or the first pull after the deployment hands somebody less
+ *  data than they had yesterday and a supervision cycle stops.
+ *
+ *  So every existing facility is written as 'Ouest', and every existing privileged
+ *  account is written at the level its kind has always held. Nothing is guessed at
+ *  read time, because a guess is a thing that can be got wrong later; it is written
+ *  down once, here, and can be read and corrected in the workbook by a human being.
+ *
+ *  Only BLANK cells are touched. Re-running setup() a second time changes nothing,
+ *  and a region or a level set by hand is never overwritten. */
+function backfillScope(){
+  var out = {sites:0, users:0};
+
+  var sh = sheet('SITES'), map = headerMap(sh), last = sh.getLastRow();
+  if(last > 1 && map['region'] !== undefined){
+    var col = sh.getRange(2, map['region']+1, last-1, 1);
+    var vals = col.getValues(), touched = false;
+    for(var i=0;i<vals.length;i++){
+      if(String(vals[i][0]||'').trim()) continue;
+      vals[i][0] = REGION_DEFAULT; out.sites++; touched = true;
+    }
+    if(touched) col.setValues(vals);
+  }
+
+  var us = sheet('USERS'), um = headerMap(us), ul = us.getLastRow();
+  if(ul > 1 && um['grade'] !== undefined){
+    var width = us.getLastColumn();
+    var rows = us.getRange(2,1,ul-1,width).getValues();
+    for(var r=0;r<rows.length;r++){
+      var role = String(rows[r][um['role']]||'').toUpperCase();
+      if(role !== 'SUPER' && role !== 'ADMIN') continue;      // only a slot has a level
+      if(String(rows[r][um['grade']]||'').trim()) continue;   // already graded
+      rows[r][um['grade']] = GRADE_FALLBACK[role];
+      if(um['regions'] !== undefined && !String(rows[r][um['regions']]||'').trim())
+        rows[r][um['regions']] = REGION_DEFAULT;
+      us.getRange(r+2, 1, 1, width).setValues([rows[r]]);
+      out.users++;
+    }
+  }
+  return out;
+}
+
+/** Which level and which places this account holds — the ONE place that is decided.
+ *
+ *  Returns {found, grade, regions, districts, all, stamp}. `all` is true when nothing
+ *  is narrowed, which is what a national account and today's regional team both get.
+ *
+ *  A district grade with no district is NOT "everything": it is nothing, and that is
+ *  the same rule the app has had since an emptied supervisor silently saw the whole
+ *  West. An empty scope means nothing, never everything.
+ *
+ *  `stamp` changes whenever the level or the places change. A phone compares it with
+ *  the one it is holding and, when it differs, asks for everything again — otherwise
+ *  rows that came INTO scope without changing would never arrive, because they are
+ *  older than the phone's `since`. */
+function scopeFor(uid){
+  var out = {found:false, grade:'', regions:[], districts:[], sites:[],
+             all:true, degraded:false, uid:'', stamp:''};
+  uid = String(uid || '').trim();
+  if(!uid) return out;                       // an app too old to say who is asking
+  var row = userRow(uid);
+  if(!row) return out;                       // a merged-away or wiped account
+  out.found = true;
+  out.uid   = uid;
+  out.grade = gradeOf(row);
+  out.regions   = scopeList(row['regions']);
+  out.districts = scopeList(row['districts']);
+  out.sites     = scopeList(row['sites']);
+  var role = String(row['role']||'').toUpperCase();
+  var slot = (role === 'SUPER' || role === 'ADMIN');
+
+  if(!slot){
+    /* A supervisor or a facility focal point. Their reach has always been their
+       districts plus their own facility, and the app has always filtered the
+       display on exactly that. Saying it HERE too is what stops one district's
+       supervisions from sitting in eighty-three other people's telephones — the
+       larger half of the privacy problem, and the one nobody could see. */
+    out.grade = 'district';
+    out.all = !(out.districts.length || out.sites.length);
+  } else if(out.grade === 'national'){
+    out.all = true; out.regions = []; out.districts = [];
+  } else if(out.grade === 'region'){
+    out.all = !out.regions.length;           // a region grade with no region named = the one region
+    out.districts = [];
+  } else if(out.grade === 'district'){
+    /* THE REGIONS CELL IS CLEARED, AND THIS LINE IS THE WHOLE RELEASE.
+       A district-level post sits inside a region, so its `regions` cell is very
+       often filled in too — scopeSet writes it, a hand-edit writes it, the default
+       for a new post writes it. districtIn() passes a row whose REGION is in scope,
+       which is correct for a regional console and catastrophic here: 'Ouest' in the
+       cell let every district through, the lead received all twenty, and the stamp
+       even said 'district' while it happened. A district grade is placed by its
+       districts and by nothing else. */
+    out.regions = [];
+    out.all = !out.districts.length;
+  } else {
+    out.all = true;                          // unreadable level: today's behaviour, never less
+  }
+
+  /* ---- THE FLOOR, AND WHY IT IS NOT A HOLE -----------------------------------
+     An account that resolves to NO place gets everything, and the payload says so.
+     That looks like the opposite of the rule the app has held since an emptied
+     supervisor silently saw the whole West — and it is not, because the two rules
+     are about two different things:
+
+       DISPLAY  (the app)     an empty scope shows NOTHING. Unchanged. That is what
+                              keeps a supervisor off another district's figures.
+       TRANSPORT (this file)  an empty scope sends EVERYTHING, and flags it.
+
+     Sending nothing does not protect anybody; it empties a field telephone in the
+     middle of a cycle and looks exactly like a server that has lost the data. An
+     empty scope is a gap in the workbook, not an instruction, so it is reported
+     rather than obeyed: `degraded` travels in the payload, the console counts the
+     accounts in that state, and a human being fixes the cell.
+     scopeSet() refuses to CREATE this state, so it can only arrive by hand. */
+  if(out.all && !(out.grade === 'national' ||
+                  (out.grade === 'region' && !out.regions.length) ||
+                  !out.grade))
+    out.degraded = true;
+
+  out.stamp = [out.grade, out.all ? '*' : '', out.regions.join('|'),
+               out.districts.join('|'), out.sites.join('|')].join('/');
+  return out;
+}
+
+/* ---- THE ROW-BY-ROW TEST ---------------------------------------------------
+   Everything the pull sends is filtered through these two, and nothing else, so
+   there is exactly one definition of "inside my scope" to get right.
+
+   districtIn() answers for a district name; siteIn() answers for a site id and
+   is what almost every row actually carries. A site the workbook does not know
+   is let through rather than dropped: a supervision whose facility was renamed
+   must not vanish from the console that has to decide what to do about it. */
+var _SITE_IDX = null, _DIST_REG = null;
+function siteIndex(){
+  if(_SITE_IDX) return _SITE_IDX;
+  _SITE_IDX = {}; _DIST_REG = {};
+  var put = function(id, dis, reg){
+    id = String(id || ''); if(!id || _SITE_IDX[id]) return;
+    dis = String(dis || '');
+    reg = String(reg || '').trim() || REGION_DEFAULT;
+    _SITE_IDX[id] = {district:dis, region:reg};
+    if(dis && !_DIST_REG[dis]) _DIST_REG[dis] = reg;
+  };
+  rowsOf('SITES').forEach(function(r){ put(r.site_id, r.district, r.region); });
+  /* ---- AND FROM THE WORK ITSELF, WHICH IS WHAT SAVED THIS -----------------------
+     The eighty-four facilities live inside the app, so the SITES tab was never
+     filled in. With it empty this index was empty, every siteIn() test fell through
+     to its "a facility the workbook does not know is never silently dropped" branch,
+     and EVERY ACCESS SCOPE SILENTLY FAILED OPEN: a district cluster lead was sent
+     all twenty districts while the payload said district level.
+
+     Failing open was the right call for one renamed facility and exactly the wrong
+     one for an empty register, and the difference between the two cases is not
+     something the test could see. So the index no longer depends on that tab: a
+     supervision and a declaration both carry their own district, and that is enough
+     to place them. SITES still wins where it has a row, because it is the only
+     source that also carries the area and the region. */
+  rowsOf('VISITS').forEach(function(r){ put(r.site_id, r.district, ''); });
+  rowsOf('FORM_ENTRIES').forEach(function(r){ put(r.site_id, r.district, ''); });
+  return _SITE_IDX;
+}
+/* Which region a district sits in, read off the facility list rather than kept in a
+   second place that could disagree with it. A district nobody has a facility in
+   reads as the default region, which is the only answer that cannot lose data. */
+function districtRegion(d){
+  siteIndex();
+  return _DIST_REG[String(d||'')] || REGION_DEFAULT;
+}
+function districtIn(sc, district, region){
+  if(sc.all) return true;
+  if(sc.districts.length && sc.districts.indexOf(String(district||'')) >= 0) return true;
+  if(sc.regions.length && sc.regions.indexOf(String(region||REGION_DEFAULT)) >= 0) return true;
+  return false;
+}
+function siteIn(sc, siteId){
+  if(sc.all) return true;
+  siteId = String(siteId||'');
+  if(!siteId) return true;                       // a row with no facility belongs to nobody's district
+  if(sc.sites.length && sc.sites.indexOf(siteId) >= 0) return true;
+  var s = siteIndex()[siteId];
+  if(!s) return true;                            // unknown facility: never silently dropped
+  return districtIn(sc, s.district, s.region);
+}
+/* A person's OWN work comes back whatever the scope says. This is the promise that
+   makes the whole release safe to deploy on a Monday: a mistake in a scope cell can
+   cost somebody the region's figures, and it can never cost them their own. */
+function minePull(sc, uid){
+  return sc.found && String(uid||'') && String(uid) === sc.uid;
+}
+/* Who wrote a Journal line, read once and kept. The Journal is the longest thing
+   the pull touches — eight hundred lines — and reading the roster for each of them
+   would turn one pull into eight hundred sheet reads. */
+var _AUTHOR_IDX = null;
+function authorOf(uid){
+  uid = String(uid||''); if(!uid) return null;
+  if(!_AUTHOR_IDX){
+    _AUTHOR_IDX = {};
+    userRows().forEach(function(u){ if(u && u.id) _AUTHOR_IDX[String(u.id)] = u; });
+  }
+  return _AUTHOR_IDX[uid] || null;
+}
+/* An ACCOUNT inside this scope. A privileged account is always visible — a
+   district lead must be able to telephone the regional lead — and an ordinary
+   account is visible when any of its districts or facilities is in scope. An
+   account with no scope of its own is visible to everybody, because an enrolment
+   that nobody can see is an enrolment nobody can approve. */
+function userInScope(sc, u){
+  if(sc.all) return true;
+  if(!u) return false;
+  if(String(u.id) === sc.uid) return true;
+  var role = String(u.role||'').toUpperCase();
+  if(role === 'SUPER' || role === 'ADMIN') return true;
+  var ds = Array.isArray(u.districts) ? u.districts : [];
+  var ss = Array.isArray(u.sites) ? u.sites : [];
+  if(!ds.length && !ss.length) return true;
+  for(var i=0;i<ds.length;i++) if(districtIn(sc, ds[i], districtRegion(ds[i]))) return true;
+  for(var k=0;k<ss.length;k++) if(siteIn(sc, ss[k])) return true;
+  return false;
 }
 /** The eight privileged slots (2 administrators + 6 super users) exist from the first
  *  setup(), unassigned and unclaimable.
@@ -216,9 +680,15 @@ function setup(){
 function ensureSlots(){
   ADMIN_SLOTS.concat(SUPER_SLOTS).forEach(function(sl){
     if(userRow(sl.id)) return;
+    var role = (sl.id.charAt(0)==='A' ? 'ADMIN' : 'SUPER');
     upsert('USERS','user_id',sl.id,{
-      user_id:sl.id, name:'', role:(sl.id.charAt(0)==='A'?'ADMIN':'SUPER'),
-      districts:'ALL', status:'ACTIVE', active:true, updated_at:new Date()});
+      user_id:sl.id, name:'', role:role,
+      districts:SCOPE_ALL, status:'ACTIVE', active:true,
+      /* A new post is created at the level its kind has always had: an
+         administrator national, a super user regional. Narrowing it to a
+         district is a decision somebody takes, never a default. */
+      grade:GRADE_FALLBACK[role], regions:REGION_DEFAULT, title:'',
+      updated_at:new Date()});
   });
 }
 
@@ -310,6 +780,7 @@ function saveFile(dataUrl, name){
 
 /* ------------------------------------------------------------------ API */
 function doPost(e){
+  freshCaches();
   var lock = LockService.getScriptLock();
   try{
     /* Eight seconds, not twenty-five. A write that cannot start in eight seconds is
@@ -337,6 +808,40 @@ function doPost(e){
     var dropped = beforeReset(b.kind, p);
     if(dropped) return json({ok:true, dropped:true, why:'generated before the reset'});
 
+    /* ---- RESERVED WRITES -----------------------------------------------------------
+       Hiding a button on a telephone is a courtesy to the person holding it. It is not
+       a control: the same push can be sent by a phone running last month's app, which
+       never heard of the restriction, or by anybody who edits the request. So the
+       refusal lives here, where the data is, and the app's hidden buttons are the
+       courtesy on top of it.
+
+       Only the kinds named in RESERVED are tested. A supervisor submitting a
+       supervision, a district lead approving one, a facility closing a recommendation:
+       none of them is listed, so none of them changes behaviour by one byte. That is
+       deliberate — this release must not be able to refuse a day's field work.
+
+       An unidentified caller is NOT refused, for the same reason as the pull: an app
+       too old to name itself must keep working. It is recorded instead, so a reserved
+       write arriving without a name is visible in the Journal rather than silent. */
+    var reserve = RESERVED[b.kind];
+    if(reserve){
+      var who = scopeFor(b.uid);
+      if(who.found && (GRADE_RANK[who.grade] || 0) < GRADE_RANK[reserve]){
+        saveAudit({id:'RF-'+new Date().getTime(), ts:new Date().getTime(),
+          user:String((userRow(String(b.uid))||{})['name']||''), uid:String(b.uid||''),
+          action:'REFUSED', entity:'scope',
+          detail:b.kind + ' requires ' + reserve + ' level; this account is ' + who.grade});
+        return json({ok:false, refused:true, need:reserve, have:who.grade,
+          error:'this account is at ' + who.grade + ' level — ' + b.kind
+              + ' belongs to the ' + reserve + ' team'});
+      }
+      if(!who.found)
+        saveAudit({id:'RU-'+new Date().getTime(), ts:new Date().getTime(),
+          user:'', uid:String(b.uid||''), action:'UNSIGNED', entity:'scope',
+          detail:'reserved write ' + b.kind + ' accepted from a caller this workbook '
+               + 'could not identify'});
+    }
+
     switch(b.kind){
       case 'user':      saveUser(p); break;
       case 'userFlag':  setUserFlags(p); break;
@@ -357,6 +862,7 @@ function doPost(e){
       case 'penSet':    return json(penSet(p));
       case 'penReq':    return json(penReq(p));
       case 'qPublish':  return json(publishQuestions(p));
+      case 'sites':     return json(saveSites(p));
       case 'formPublish': return json(publishForm(p));
       case 'formEntry':   return json(saveFormEntry(p));
       case 'formApprove': return json(approveFormEntry(p));
@@ -372,7 +878,17 @@ function doPost(e){
     try{ lock.releaseLock(); }catch(x){}
   }
 }
+/* THE PER-REQUEST CACHES.
+   siteIndex(), districtRegion() and authorOf() each read a whole tab once and keep
+   it, because the alternative is eight hundred sheet reads for one pull. Kept across
+   two requests they would answer from a workbook that has since changed — a facility
+   added a minute ago would be missing from the map, and a supervision at it would be
+   let through or dropped on stale information. Apps Script may or may not reuse the
+   execution context; this does not depend on knowing which. */
+function freshCaches(){ _SITE_IDX = null; _DIST_REG = null; _AUTHOR_IDX = null; }
+
 function doGet(e){
+  freshCaches();
   var p = (e && e.parameter) || {};
 
   /* The public dashboard, and ONLY the public dashboard, is answered before
@@ -415,9 +931,18 @@ function doGet(e){
     var one = userRows().filter(function(u){ return String(u.id) === uid; })[0];
     return json(withReset({ok:true, user: one || null}));
   }
-  /* Central console: the roster, without PINs and without ID numbers. */
+  /* Central console: the roster, without PINs and without ID numbers — and now
+     only the accounts the caller is responsible for. A district cluster lead
+     approves enrolments in their districts; the other districts' identity
+     documents are not theirs to read. An unidentified caller gets the whole
+     roster, exactly as before, so an app too old to name itself is not locked out. */
   if(p.action === 'users'){
-    return json(withReset({ok:true, users: userRows()}));
+    var usc = scopeFor(p.uid);
+    var roster = userRows();
+    if(!usc.all) roster = roster.filter(function(u){ return userInScope(usc, u); });
+    return json(withReset({ok:true, users: roster,
+                           scope:{grade:usc.grade, all:usc.all, stamp:usc.stamp,
+                                  degraded:usc.degraded}}));
   }
   /* The claim code, tested here and nowhere else. Burned on acceptance. */
   if(p.action === 'claim') return json(claimSlot(p));
@@ -432,6 +957,15 @@ function doGet(e){
               role:(sl.id.charAt(0)==='A'?'ADMIN':'SUPER'),
               name:String(r['name']||''),
               phone:String(r['phone']||''),
+              /* The level, the places and the job title. These travel to every phone
+                 because they are the organisation chart, not a secret: it is how a
+                 supervisor learns which district lead to telephone, and how the
+                 administration screen can show who covers what without a second call.
+                 Nothing here is a credential. */
+              grade: gradeOf(r),
+              regions:   scopeList(r['regions']),
+              districts: scopeList(r['districts']),
+              title: String(r['title']||''),
               assigned: !!String(r['name']||'').trim(),
               claimed: !!r['claimed_at'],
               active: r['active'] !== false && String(r['active']).toLowerCase() !== 'false'};
@@ -490,9 +1024,42 @@ function doGet(e){
     var out   = { ok:true, now: new Date().getTime(), version: SCRIPT_VERSION,
                   appExpected: APP_EXPECTED };
 
+    /* ═══════════════════════════════════════════════════════════════════════
+       WHO IS ASKING
+
+       This used to read three parameters — token, since, full — and answer with
+       every supervision, every answer, every recommendation, every account and
+       every line of the Journal in the region. "Super users see everything" was
+       therefore not a decision anybody had taken; it was the only thing the
+       pull could do, and narrowing it inside the app would have been decoration:
+       a cluster lead's telephone would still have been holding all twenty
+       districts in its own storage.
+
+       It now resolves the caller and sends their scope and nothing else.
+
+       WHAT THIS IS AND IS NOT. Every telephone in the region shares one token,
+       so this stops accidental exposure and casual curiosity — which is what
+       the whole of the data on the whole of the phones amounts to in practice.
+       It does not stop somebody who edits the request by hand: for that each
+       account needs its own key, which is a release of its own and is written
+       down in the deployment note rather than implied here.
+
+       THE SAFETY NET, in three parts, because a scoping mistake must cost
+       figures and never work:
+         · an unidentified or unknown caller is answered exactly as before;
+         · an account that resolves to no place is answered as before and the
+           payload says `degraded` so the console can report it;
+         · a person's own rows come back whatever the scope says.
+       ═══════════════════════════════════════════════════════════════════════ */
+    var sc  = scopeFor(p.uid);
+    var mid = String(p.uid || '');
+    out.scope = {grade:sc.grade, regions:sc.regions, districts:sc.districts,
+                 all:sc.all, found:sc.found, degraded:sc.degraded, stamp:sc.stamp};
+
     var vRows = rowsOf('VISITS');
     var changed = vRows.filter(function(r){
-      return tms(r.updated_at) > since || tms(r.submitted_at) > since;
+      if(!(tms(r.updated_at) > since || tms(r.submitted_at) > since)) return false;
+      return siteIn(sc, r.site_id) || String(r.supervisor_uid||'') === mid;
     });
     var wanted = {};
     out.visits = changed.map(function(r){
@@ -515,7 +1082,10 @@ function doGet(e){
     /* A recommendation moves on its own clock: the facility closes it long after the
        supervision was submitted. So it is pulled on its own updated_at, not the visit's. */
     out.actions = rowsOf('ACTIONS')
-      .filter(function(r){ return tms(r.updated_at) > since || wanted[String(r.visit_id)]; })
+      .filter(function(r){
+        if(!(tms(r.updated_at) > since || wanted[String(r.visit_id)])) return false;
+        return wanted[String(r.visit_id)] || siteIn(sc, r.site_id);
+      })
       .map(function(r){ return {
         id:String(r.action_id), visitId:String(r.visit_id), siteId:String(r.site_id),
         cycleId:String(r.cycle_id||''), qid:String(r.question_code||''), sec:r.section||'',
@@ -523,8 +1093,19 @@ function doGet(e){
         resp:r.responsible||'', deadline:fmtDate(r.deadline), status:r.status||'OPEN',
         siteNote:r.site_note||'', created:tms(r.created_at), updated:tms(r.updated_at) }; });
 
+    /* A facility request names a district BEFORE and a district AFTER, and a brand-new
+       facility has no site id at all — so the district cells are what decides, not the
+       id. A transfer OUT of a district is as much that district's business as a
+       transfer in, which is why both ends are tested. */
     out.siteReq = rowsOf('SITE_REQUESTS')
-      .filter(function(r){ return tms(r.decided_at) > since || tms(r.submitted_at) > since; })
+      .filter(function(r){
+        if(!(tms(r.decided_at) > since || tms(r.submitted_at) > since)) return false;
+        if(sc.all) return true;
+        if(String(r.requester_uid||'') === mid) return true;
+        if(String(r.site_id||'') && siteIn(sc, r.site_id)) return true;
+        return districtIn(sc, r.district_after, districtRegion(r.district_after))
+            || districtIn(sc, r.district_before, districtRegion(r.district_before));
+      })
       .map(function(r){ return {
         id:String(r.request_id), ref:r.ref, type:r.type, siteId:String(r.site_id||''),
         before:{district:r.district_before, area:r.area_before, facility:r.facility_before},
@@ -554,7 +1135,8 @@ function doGet(e){
               version:Number(r.version) || 1, layout:layout};
     });
     out.formEntries = rowsOf('FORM_ENTRIES').filter(function(r){
-      return tms(r.updated_at) > since;
+      if(!(tms(r.updated_at) > since)) return false;
+      return siteIn(sc, r.site_id) || String(r.filled_uid||'') === mid;
     }).map(function(r){
       var data = null;
       try{ data = JSON.parse(String(r.data || 'null')); }catch(e){ data = null; }
@@ -571,7 +1153,7 @@ function doGet(e){
 
     /* Pages deleted since this phone last asked, so it drops its copy too. */
     out.formGone = rowsOf('FORM_GONE').filter(function(r){
-      return tms(r.deleted_at) > since;
+      return tms(r.deleted_at) > since && siteIn(sc, r.site_id);
     }).map(function(r){ return {id:String(r.entry_id), formId:String(r.form_id || ''),
       siteId:String(r.site_id || ''), at:tms(r.deleted_at) || 0}; });
 
@@ -594,7 +1176,7 @@ function doGet(e){
                   String(getSetting('fm_print_uids') || '').split(/[,;\s]+/)
                     .indexOf(signer) >= 0);
     out.formSignatures = rowsOf('FORM_SIGNATURES').filter(function(r){
-      return String(r.sig_id || '');
+      return String(r.sig_id || '') && siteIn(sc, r.site_id);
     }).map(function(r){
       var o = {id:String(r.sig_id), formId:String(r.form_id || ''),
                role:String(r.role || ''), siteId:String(r.site_id || ''),
@@ -617,7 +1199,18 @@ function doGet(e){
     /* The console's Journal must be the REGION's history, not this one console's.
        Without this, a verification mission asking "who approved that?" gets an answer
        only if it happens to be holding the phone that did it. */
-    out.audit = rowsOf('AUDIT').filter(function(r){ return tms(r.timestamp) > since; })
+    /* THE JOURNAL. A line in it records a decision, not a facility, so it cannot be
+       placed on the map the way a supervision can. It is therefore scoped by its
+       AUTHOR: the regional team keeps the region's whole history, as it must for a
+       verification mission, and a district lead keeps their own decisions and those
+       of the people working in their districts. Nothing is deleted and nothing is
+       rewritten — a narrower console simply reads a shorter Journal. */
+    out.audit = rowsOf('AUDIT').filter(function(r){
+      if(!(tms(r.timestamp) > since)) return false;
+      if(sc.all) return true;
+      if(String(r.user_id||'') === mid) return true;
+      return userInScope(sc, authorOf(r.user_id));
+    })
       .map(function(r){ return {id:String(r.event_id), ts:tms(r.timestamp), user:r.user,
         uid:String(r.user_id||''), action:r.action, entity:r.entity, detail:r.detail,
         remote:true}; }).slice(-800);
@@ -660,7 +1253,8 @@ function doGet(e){
 
       out.sites = rowsOf('SITES').map(function(r){
         return {id:String(r.site_id), district:r.district, area:r.area, facility:r.facility,
-                status:r.status||'ACTIVE', version:Number(r.version)||1};
+                status:r.status||'ACTIVE', version:Number(r.version)||1,
+                region:String(r.region||'').trim() || REGION_DEFAULT};
       }).filter(function(s){ return s.id; });
     }
     return json(withReset(out));
@@ -845,14 +1439,36 @@ function assignSlot(p){
   var by = userRow(String(p.byId||''));
   if(!by || String(by['role']) !== 'ADMIN') return {ok:false, error:'only an administrator can assign'};
 
+  var cur = userRow(id) || {};
+  /* ---- upsert() WRITES A WHOLE ROW -----------------------------------------------
+     Every column it is not handed is BLANKED. That is right when the app sends a
+     complete record and it is exactly the trap that once put approved supervisors on
+     the enrolment-refused screen. The level, the places and the job title are three
+     new columns on this row, so they are carried through here explicitly — otherwise
+     assigning a post to its next holder would quietly strip its remit and the next
+     pull would hand that person the whole region. */
+  var lvl = String(p.grade||'').trim().toLowerCase();
+  if(GRADES.indexOf(lvl) < 0) lvl = gradeOf(cur) || GRADE_FALLBACK.SUPER;
+  var regs = Array.isArray(p.regions)   ? p.regions.filter(String).join(', ')
+                                        : String(cur['regions'] || REGION_DEFAULT);
+  var dsts = Array.isArray(p.districts) ? p.districts.filter(String).join(', ')
+                                        : String(cur['districts'] || SCOPE_ALL);
+  if(lvl === 'national'){ regs = ''; dsts = SCOPE_ALL; }
+  else if(lvl === 'region'){ dsts = SCOPE_ALL; if(!regs.trim()) regs = REGION_DEFAULT; }
+  else if(lvl === 'district' && !scopeList(dsts).length)
+    return {ok:false, error:'name at least one district for a district-level account'};
+
   var code = sixDigits();
   upsert('USERS','user_id',id,{
     user_id:id, name:String(p.name||'').trim(), role:'SUPER',
-    phone:String(p.phone||'').trim(), districts:'ALL',
+    phone:String(p.phone||'').trim(), districts:dsts,
+    grade:lvl, regions:regs,
+    title:(p.title !== undefined ? String(p.title||'').slice(0,80)
+                                 : String(cur['title']||'')),
     status:'ACTIVE', active:true,
     claim_code:code, claim_code_at:new Date(), claimed_at:'',
     assigned_by:String(by['name']||''), assigned_at:new Date(), updated_at:new Date()});
-  return {ok:true, code:code, slotId:id};
+  return {ok:true, code:code, slotId:id, grade:lvl};
 }
 
 function releaseSlot(p){
@@ -860,8 +1476,18 @@ function releaseSlot(p){
   var by = userRow(String(p.byId||''));
   if(!by || String(by['role']) !== 'ADMIN') return {ok:false, error:'only an administrator can release'};
   if(id.charAt(0) === 'A') return {ok:false, error:'an admin slot cannot be released from the app'};
+  var old = userRow(id) || {};
+  /* The POST keeps its remit; only the PERSON leaves. A district cluster lead who
+     hands back U007 leaves behind a district-level post covering the same districts,
+     ready for the next holder — and the administrator can still change it. Blanking
+     the level here would mean every withdrawal silently promoted the post back to
+     the whole region, which is the opposite of what a withdrawal is for. */
   upsert('USERS','user_id',id,{
-    user_id:id, name:'', role:'SUPER', phone:'', districts:'ALL',
+    user_id:id, name:'', role:'SUPER', phone:'',
+    districts:String(old['districts'] || SCOPE_ALL),
+    grade:gradeOf(old) || GRADE_FALLBACK.SUPER,
+    regions:String(old['regions'] || REGION_DEFAULT),
+    title:String(old['title'] || ''),
     status:'ACTIVE', active:true,
     claim_code:'', claim_code_at:'', claimed_at:'',
     assigned_by:String(by['name']||''), assigned_at:new Date(), updated_at:new Date()});
@@ -917,7 +1543,11 @@ function nouveauCodeAdmin(slotId, name, phone){
   var code = sixDigits();
   upsert('USERS','user_id',slotId,{
     user_id:slotId, name:finalName, role:'ADMIN',
-    phone:String(phone || cur['phone'] || '').trim(), districts:'ALL',
+    phone:String(phone || cur['phone'] || '').trim(), districts:SCOPE_ALL,
+    /* An administrator is national: they assign the other accounts and set the
+       level of each one, and that is the top of the ladder by definition. Written
+       here as well as in ensureSlots() because upsert() blanks what it is not given. */
+    grade:'national', regions:'', title:String(cur['title']||''),
     status:'ACTIVE', active:true,
     claim_code:code, claim_code_at:new Date(), claimed_at:'',
     assigned_by:'éditeur Apps Script', assigned_at:new Date(), updated_at:new Date()});
@@ -1060,7 +1690,8 @@ function saveUser(u){
 
      These five cells belong to assign / claim / release alone. Carry them through. */
   var slotCols = ['claim_code','claim_code_at','claimed_at','assigned_by','assigned_at',
-                  'dual','req_role','req_scope','req_fn','req_at','req_status','req_note','req_by'];
+                  'dual','req_role','req_scope','req_fn','req_at','req_status','req_note','req_by',
+                  'grade','regions','title'];
   var keepSlot = {};
   if(cur) slotCols.forEach(function(k){ if(cur[k] !== undefined) keepSlot[k] = cur[k]; });
 
@@ -1124,7 +1755,14 @@ function saveUser(u){
     req_at:        keepSlot['req_at']        !== undefined ? keepSlot['req_at']        : '',
     req_status:    keepSlot['req_status']    !== undefined ? keepSlot['req_status']    : '',
     req_note:      keepSlot['req_note']      !== undefined ? keepSlot['req_note']      : '',
-    req_by:        keepSlot['req_by']        !== undefined ? keepSlot['req_by']        : ''
+    req_by:        keepSlot['req_by']        !== undefined ? keepSlot['req_by']        : '',
+    /* LEVELS OF ACCESS, carried through for the same reason as everything above it:
+       upsert() blanks what it is not handed. A phone never pushes a privileged row
+       at all (pushUser refuses), and an ordinary account has no level — but a cell
+       filled in by hand in the workbook must survive a push all the same. */
+    grade:         keepSlot['grade']         !== undefined ? keepSlot['grade']         : '',
+    regions:       keepSlot['regions']       !== undefined ? keepSlot['regions']       : '',
+    title:         keepSlot['title']         !== undefined ? keepSlot['title']         : ''
   });
   if(u.idFile) saveFile(u.idFile, 'ID_'+u.name+'_'+u.id);
 }
@@ -1230,8 +1868,37 @@ function scopeSet(p){
   if(String(cur['dual']||'').toLowerCase() === 'true')
     return {ok:false, error:'this account carries two roles — use roleGrant, which writes one hat without touching the other'};
 
-  var what = String(p.what||'').toUpperCase();          // DISTRICTS | SITES | ROLE
+  var what = String(p.what||'').toUpperCase();   // DISTRICTS | SITES | ROLE | GRADE
   var cells = {};
+  if(what === 'GRADE'){
+    /* THE LEVEL, AND THE PLACES THAT GO WITH IT.
+       Written together and never separately, because the two halves are only
+       meaningful as a pair: a district level with no district, or a region level
+       with no region, is an account that the pull then has to guess about — and
+       guessing is what the whole of this release exists to remove. */
+    var g = String(p.grade||'').trim().toLowerCase();
+    if(GRADES.indexOf(g) < 0)
+      return {ok:false, error:'a level is district, region or national — not "'+g+'"'};
+    var curRole = String(cur['role']||'').toUpperCase();
+    if(curRole !== 'SUPER' && curRole !== 'ADMIN')
+      return {ok:false, error:'a level belongs to a privileged account; an ordinary '
+                           + 'account is scoped by its districts and facilities'};
+    var rs = Array.isArray(p.regions)   ? p.regions.filter(String)   : [];
+    var ds = Array.isArray(p.districts) ? p.districts.filter(String) : [];
+    if(g === 'region' && !rs.length)
+      return {ok:false, error:'name at least one region for a regional account'};
+    if(g === 'district' && !ds.length)
+      return {ok:false, error:'name at least one district — an account with a district '
+                           + 'level and no district would see nothing at all'};
+    cells['grade']   = g;
+    cells['regions'] = (g === 'national') ? '' : rs.join(', ');
+    /* The sentinel, not an empty cell: 'ALL' has always been what a slot's districts
+       cell holds when it is not narrowed, and every reader already knows the word. */
+    cells['districts'] = (g === 'district') ? ds.join(', ') : SCOPE_ALL;
+    if(p.title !== undefined) cells['title'] = String(p.title||'').slice(0,80);
+    narrowWrite(id, cells);
+    return {ok:true, set:'GRADE', grade:g};
+  }
   if(what === 'DISTRICTS'){
     var ds = Array.isArray(p.scope) ? p.scope.join(', ') : String(p.scope||'');
     if(!ds.trim()) return {ok:false, error:'a supervisor with no district sees nothing — give at least one'};
@@ -1250,7 +1917,7 @@ function scopeSet(p){
       return {ok:false, error:'a privileged role is never given here — it is a slot, assigned by code'};
     cells['role'] = r;
   } else {
-    return {ok:false, error:'say what is being changed: DISTRICTS, SITES or ROLE'};
+    return {ok:false, error:'say what is being changed: GRADE, DISTRICTS, SITES or ROLE'};
   }
   narrowWrite(id, cells);
   return {ok:true, set:what};
@@ -1396,6 +2063,12 @@ function userRows(){
       districts: String(r[map['districts']]||'').split(',').map(function(x){return x.trim();}).filter(String),
       sites: String(r[map['sites']]||'').split(',').map(function(x){return x.trim();}).filter(String),
       status: r[map['status']] || 'PENDING',
+      /* LEVELS OF ACCESS. `grade` is resolved rather than echoed, so a row whose
+         cell was never filled in reports the level it actually behaves at. */
+      grade: gradeOf({grade: map['grade'] !== undefined ? r[map['grade']] : '',
+                      role: r[map['role']]}),
+      regions: map['regions'] !== undefined ? scopeList(r[map['regions']]) : [],
+      title:   map['title']   !== undefined ? String(r[map['title']]||'') : '',
       claimed: map['claimed_at'] !== undefined ? !!r[map['claimed_at']] : true,
       active: r[map['active']] !== false && String(r[map['active']]).toLowerCase() !== 'false',
       /* the temporary code itself is NEVER returned by any endpoint — only the fact
@@ -1592,6 +2265,54 @@ function writeAnswers(visitId, answers){
   });
   if(rows.length) sh.getRange(sh.getLastRow()+1,1,rows.length,width).setValues(rows);
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE FACILITY REGISTER, WRITTEN DOWN
+
+   The eighty-four facilities have always lived inside index.html, so the app
+   never needed the server to hold them and the SITES tab was never filled.
+   That was invisible for a year and then cost the whole public dashboard, which
+   had no way to name a facility nobody had supervised yet.
+
+   One console publishes the register here. It is the same shape as
+   publishQuestions(): the app is the source, the workbook is the copy.
+
+   IT ONLY EVER ADDS OR UPDATES. upsert() is keyed on site_id, so running it
+   twice changes nothing, and a facility that is no longer in the app's register
+   is LEFT ALONE rather than removed — a row here may be the only remaining
+   record of where a supervision was carried out, and this function must never
+   be the thing that erases it. Nothing outside the SITES tab is touched.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function saveSites(p){
+  var list = (p && p.sites) || [];
+  if(!list.length) return {ok:false, error:'no facilities sent'};
+  var n = 0, skipped = 0;
+  /* READ THE TAB ONCE. This loop runs eighty-four times, and rowsOf() reads the whole
+     sheet on every call — eighty-four full reads inside one locked write is how an
+     Apps Script request times out halfway through, leaving the register half written
+     and the lock held while twenty phones queue behind it. */
+  var index = {};
+  rowsOf('SITES').forEach(function(r){ index[String(r.site_id || '')] = r; });
+  list.forEach(function(s){
+    var id = String((s && s.id) || ''); if(!id){ skipped++; return; }
+    var cur = index[id] || null;
+    upsert('SITES', 'site_id', id, {
+      site_id:   id,
+      district:  String(s.district || (cur && cur.district) || ''),
+      area:      String(s.area || (cur && cur.area) || ''),
+      facility:  String(s.facility || (cur && cur.facility) || ''),
+      status:    String(s.status || (cur && cur.status) || 'ACTIVE'),
+      version:   Number(s.version) || Number(cur && cur.version) || 1,
+      /* a region typed into the workbook by hand outranks the app's default */
+      region:    String((cur && cur.region) || s.region || REGION_DEFAULT),
+      updated_at: new Date()
+    });
+    n++;
+  });
+  setSetting('sites_published_at', new Date().getTime());
+  setSetting('sites_published_by', String((p && p.who) || ''));
+  return {ok:true, written:n, skipped:skipped};
+}
+
 /* ---------------------------------------------------------------------
    A CONVERSATION HAS TO EXIST ON MORE THAN ONE PHONE
 
@@ -2040,15 +2761,85 @@ function dashLate(v){
   return t < today.getTime();
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE FACILITY REGISTER THE PUBLIC PAGE USES — AND WHY IT IS NOT JUST A TAB
+
+   The dashboard read its facilities from the SITES tab alone. In the live
+   workbook that tab is EMPTY: the app carries the eighty-four facilities inside
+   index.html and has never needed the server to hold them, so nobody ever
+   filled it in. Nothing noticed, because until the atlas arrived the published
+   figures were built from the district and facility columns ON THE VISIT ROW
+   and the tab was only used for coverage.
+
+   The atlas then did this, once, and it cost the whole page:
+
+       var site = siteIdx[sid]; if(!site) return;
+
+   Every supervision in the region was dropped on that line. The layout still
+   rendered perfectly — the filters, the tabs, the headings — with nothing
+   behind it: no districts in the dropdown, no facilities, no figures, no
+   board, no coverage. A page that looks finished and knows nothing is worse
+   than a page that fails, because there is nothing to chase.
+
+   So the register is now the UNION of everything that knows a facility exists:
+
+     · the SITES tab, when it has been filled in — the only source with the
+       area and the region, so it wins wherever it has a row;
+     · every facility a SUPERVISION names — a visit row carries its own
+       district and facility, which is how the old page worked at all;
+     · every facility a DECLARATION page belongs to;
+     · every facility id in a CYCLE'S PLAN, so a facility that was planned and
+       never visited still counts as "not started" rather than vanishing.
+
+   A facility known only from a plan has an id and no name. It is published
+   with `named:false` rather than hidden, because the COUNT is what tells a
+   coordinator something, and publishing the register from the console gives
+   it its name permanently.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function dashRegister(){
+  var out = {}, fromTab = 0, unnamed = 0;
+  rowsOf('SITES').forEach(function(r){
+    if(String(r.status || 'ACTIVE').toUpperCase() === 'INACTIVE') return;
+    var id = String(r.site_id || ''); if(!id) return;
+    out[id] = {id:id, district:String(r.district || ''),
+               facility:String(r.facility || ''), area:String(r.area || ''),
+               region:String(r.region || '').trim() || REGION_DEFAULT, named:true};
+    fromTab++;
+  });
+  /* A supervision names its own facility. This is the line that makes the page
+     work on a workbook whose SITES tab was never filled. */
+  var add = function(id, d, f, a){
+    id = String(id || ''); if(!id || out[id]) return;
+    out[id] = {id:id, district:String(d || ''), facility:String(f || ''),
+               area:String(a || ''), region:REGION_DEFAULT,
+               named: !!String(f || '').trim()};
+    if(!out[id].named) unnamed++;
+  };
+  rowsOf('VISITS').forEach(function(r){
+    add(r.site_id, r.district, r.facility, r.area);
+  });
+  rowsOf('FORM_ENTRIES').forEach(function(r){
+    add(r.site_id, r.district, r.facility, r.area);
+  });
+  /* planned and never visited: an id with no name anywhere. Counted, not hidden. */
+  rowsOf('CYCLES').forEach(function(r){
+    var c = null; try{ c = JSON.parse(r.raw || 'null'); }catch(e){}
+    if(!c || !c.planned) return;
+    c.planned.forEach(function(id){ add(id, '', '', ''); });
+  });
+  var list = [];
+  Object.keys(out).forEach(function(k){ list.push(out[k]); });
+  list.sort(function(a, b){
+    return String(a.district).localeCompare(String(b.district))
+        || String(a.facility).localeCompare(String(b.facility)); });
+  return {sites:list, fromTab:fromTab, unnamed:unnamed};
+}
+
 function dashPayload(wantCycle){
   var named = dashNamesOn();
 
-  var sites = rowsOf('SITES')
-    .filter(function(r){ return String(r.status || 'ACTIVE').toUpperCase() !== 'INACTIVE'; })
-    .map(function(r){ return {id:String(r.site_id || ''),
-                              district:String(r.district || ''),
-                              facility:String(r.facility || '')}; })
-    .filter(function(s){ return s.id; });
+  var REG = dashRegister();
+  var sites = REG.sites;
   var codes = dashCodes(sites);
   var label = function(d, f){ return named ? f : (codes[d + '|' + f] || '—'); };
 
@@ -2065,31 +2856,45 @@ function dashPayload(wantCycle){
     return String(r.status || '') === 'APPROVED';
   });
 
-  /* visit → cycle, for one pass over the answers */
-  var visCycle = {}, inCycle = [];
+  /* ---------- AND ONE PER SITE PER CYCLE: THE NEWEST ----------
+     The app holds exactly this rule (supersededBy / countable in app.js). It did
+     not live here, so a facility with two approved supervisions was counted TWICE
+     on the public page while the app showed it once — or, before v4.15, the app
+     showed it not at all. Two screens disagreeing about one facility is worse
+     than either being a day late, so the rule is written in both places and the
+     tie-break is the same: the later submitted_at wins, and on a tie the greater
+     visit_id. */
+  var bestOf = {};
   approved.forEach(function(r){
-    var vid = String(r.visit_id || ''); if(!vid) return;
-    visCycle[vid] = String(r.cycle_id || '');
-    if(visCycle[vid] === shown) inCycle.push(r);
+    var key = String(r.cycle_id || '') + '|' + String(r.site_id || '');
+    var t = tms(r.submitted_at) || tms(r.updated_at) || 0;
+    var cur = bestOf[key];
+    if(!cur || t > cur.t || (t === cur.t && String(r.visit_id) > String(cur.r.visit_id)))
+      bestOf[key] = {t: t, r: r};
   });
+  var keep = {};
+  Object.keys(bestOf).forEach(function(k){ keep[String(bestOf[k].r.visit_id)] = 1; });
+  var superseded = approved.length - Object.keys(keep).length;
+  approved = approved.filter(function(r){ return keep[String(r.visit_id)]; });
 
-  /* ---------- coverage: how much of the region has been supervised ---------- */
-  var planned = {}, done = {}, seen = {};
-  sites.forEach(function(s){ planned[s.district] = (planned[s.district] || 0) + 1; });
-  inCycle.forEach(function(r){
-    var k = String(r.site_id || ''); if(!k || seen[k]) return;
-    seen[k] = 1;
-    var d = String(r.district || '');
-    done[d] = (done[d] || 0) + 1;
-  });
-  var districts = Object.keys(planned).sort();
-  var coverage = {
-    planned: sites.length,
-    done: Object.keys(seen).length,
-    byDistrict: districts.map(function(d){
-      return {district:d, planned:planned[d] || 0, done:done[d] || 0};
-    })
-  };
+
+  /* ---------- coverage: how much of the region has been supervised ----------
+     Against the facilities THIS CYCLE PLANNED, not against the whole register.
+     Dividing 28 done by 84 registered read as 33% and was published as such.
+     The plan travels inside the cycle's own `raw`, so there is no new column
+     and a cycle that never set one still means the whole register. */
+  var planSet = null;
+  (function(){
+    var row = rowsOf('CYCLES').filter(function(r){
+      return String(r.cycle_id || '') === shown; })[0];
+    if(!row) return;
+    var c = null; try{ c = JSON.parse(row.raw || 'null'); }catch(e){}
+    if(!c || !c.planned || !c.planned.length) return;
+    planSet = {}; c.planned.forEach(function(id){ planSet[String(id)] = 1; });
+  })();
+  var inPlan = function(s){ return !planSet || planSet[s.id]; };
+  var planSites = sites.filter(inPlan);
+
 
   /* ---------- scores: POOLED, never an average of percentages ----------
      Σ(numerator × weight) ÷ Σ(denominator × weight), exactly as the app does
@@ -2101,65 +2906,120 @@ function dashPayload(wantCycle){
     weight[String(r.question_code || '')] = Number(r.weight) || 1;
   });
 
-  var secN = {}, secD = {};                    // sections, for the shown cycle
-  var cycN = {}, cycD = {};                    // whole cycles, for the trend
-  var facN = {}, facD = {};                    // per facility, for the table
-  rowsOf('ANSWERS').forEach(function(a){
-    var vid = String(a.visit_id || '');
-    var cyc = visCycle[vid];
-    if(cyc === undefined) return;              // not an approved supervision
-    if(String(a.na || '') === 'OUI') return;   // N/A carries no number
-    var num = Number(a.numerator), den = Number(a.denominator);
-    if(!isFinite(num) || !isFinite(den) || den <= 0) return;
-    var base = String(a.question_code || '').replace(/M\d{6}$/, '');
-    var w = weight[base] || 1;
+  /* ═══════════════════════════════════════════════════════════════════════
+     ONE SOURCE, AND IT IS BUILT HERE
 
-    cycN[cyc] = (cycN[cyc] || 0) + num * w;
-    cycD[cyc] = (cycD[cyc] || 0) + den * w;
-
-    if(cyc !== shown) return;
-    var s = String(a.section || '');
-    if(s){ secN[s] = (secN[s] || 0) + num * w; secD[s] = (secD[s] || 0) + den * w; }
-    facN[vid] = (facN[vid] || 0) + num * w;
-    facD[vid] = (facD[vid] || 0) + den * w;
-  });
-
-  var pct = function(n, d){ return (d > 0) ? Math.round((n / d) * 1000) / 10 : null; };
-
-  var sections = Object.keys(secD).sort().map(function(s){
-    return {section:s, pct:pct(secN[s], secD[s])};
-  });
-
-  /* ---------- the facility table ---------- */
-  var facilities = inCycle.map(function(r){
-    var vid = String(r.visit_id || '');
-    var d = String(r.district || ''), f = String(r.facility || '');
-    return {
-      name:     label(d, f),
-      district: d,
-      area:     String(r.area || ''),
-      pct:      pct(facN[vid], facD[vid]),
-      date:     fmtDate(r.visit_date)
-      /* and nothing else. No supervisor, no team, no reviewer, no note. */
-    };
-  }).sort(function(a, b){ return (b.pct || 0) - (a.pct || 0); });
-
-  /* ---------- trend: OLDEST FIRST, only cycles that actually have data ----------
+     The blocks below — the sections, the facility table, the trend — used to
+     work their own figures out of the ANSWERS flattening, which is wrong for
+     every threshold, checklist and DQA question (see visitScores above). The
+     atlas already carries the app's real numbers, so they are DERIVED FROM IT
+     rather than computed a second time. Two pieces of code answering the same
+     question is how a dashboard comes to disagree with the report a supervisor
+     is holding, and there is now exactly one.
+     ═══════════════════════════════════════════════════════════════════════ */
+  /* ---- cycles in TIME order, not sheet order ----------------------------------
      Sheet order is the order rows were written, which is not time. Rendered
-     straight it drew FY26 Q1 → FY25 Q4 → FY25 Q3 and the line ran backwards:
-     a fall read as a rise. Cycles carry a fiscal year and a quarter — sort on
-     those, and fall back to the name so an unnumbered cycle still lands
-     somewhere sensible rather than wherever it happened to be typed. */
+     straight it drew FY26 Q1 → FY25 Q4 → FY25 Q3 and the line ran backwards: a
+     fall read as a rise. Cycles carry a fiscal year and a quarter — sort on those,
+     and fall back to the name so an unnumbered cycle still lands somewhere
+     sensible rather than wherever it happened to be typed. */
   var byTime = rowsOf('CYCLES').reduce(function(m, r){
     m[String(r.cycle_id || '')] = {fy: Number(r.fy) || 0, q: Number(r.quarter) || 0};
     return m;
   }, {});
-  var trend = cycles.filter(function(c){ return cycD[c.id] > 0; })
+
+  var ATLAS = dashAtlas(label, sites, cycles, byTime, weight);
+  var siteIdx2 = {}; sites.forEach(function(x){ siteIdx2[x.id] = x; });
+  var ACELL = {};                                  // cycle|site → cell
+  ATLAS.cells.forEach(function(c){ ACELL[c.c + '|' + c.s] = c; });
+  var inShown = ATLAS.cells.filter(function(c){ return c.c === shown; });
+  var pctOf = function(n, d){ return (d > 0) ? Math.round((n / d) * 1000) / 10 : null; };
+
+  /* ---------- coverage: how much of the region has been supervised ----------
+     Against the facilities THIS CYCLE PLANNED, not against the whole register.
+     Dividing 28 done by 84 registered read as 33% and was published as such.
+
+     AND SUPERVISED MEANS SUPERVISED. This counted APPROVED work only, so a
+     quarter in which every facility had been visited and nothing had yet been
+     verified published a coverage of nought — which is not what happened in the
+     field and is not a figure anybody can act on. A facility whose supervision
+     has been submitted HAS been supervised; whether it has been checked is a
+     different question, and it is published as its own number beside it. */
+  var planned = {}, done = {}, verif = {}, seen = {}, seenV = {};
+  planSites.forEach(function(s2){ planned[s2.district] = (planned[s2.district] || 0) + 1; });
+  inShown.forEach(function(c){
+    var st = siteIdx2[c.s]; if(!st) return;
+    if(c.sb || c.ap){
+      if(!seen[c.s]){ seen[c.s] = 1; done[st.district] = (done[st.district] || 0) + 1; }
+    }
+    if(c.ap && !seenV[c.s]){ seenV[c.s] = 1; verif[st.district] = (verif[st.district] || 0) + 1; }
+  });
+  var districts = Object.keys(planned).sort();
+  /* ---- AN HONEST DENOMINATOR, OR NONE ------------------------------------------
+     With no cycle plan AND no facility register, "planned" would be the facilities
+     that happen to have work against them — so coverage would read 100% for ever,
+     which is a lie told confidently. `basis` says what the denominator actually is,
+     and the page refuses to draw a percentage when it is 'none'. */
+  var basis = planSet ? 'plan' : (REG.fromTab ? 'register' : 'none');
+  var coverage = {
+    planned: planSites.length,
+    registered: REG.fromTab,
+    basis: basis,
+    registerEmpty: REG.fromTab === 0,
+    unnamed: REG.unnamed,
+    byPlan: !!planSet,
+    done: Object.keys(seen).length,
+    verified: Object.keys(seenV).length,
+    byDistrict: districts.map(function(d){
+      return {district:d, planned:planned[d] || 0, done:done[d] || 0,
+              verified:verif[d] || 0};
+    })
+  };
+
+  /* The old per-answer pass that computed these from the ANSWERS flattening is
+     gone: see visitScores() for why it was wrong for every threshold, checklist
+     and DQA question, and why the figures now come from the app's own. */
+  var secN = {}, secD2 = {};
+  inShown.forEach(function(c){
+    Object.keys(c.sec || {}).forEach(function(k){
+      secN[k] = (secN[k] || 0) + c.sec[k][0];
+      secD2[k] = (secD2[k] || 0) + c.sec[k][1];
+    });
+  });
+  var sections = Object.keys(secD2).sort().map(function(k){
+    return {section:k, pct:pctOf(secN[k], secD2[k])};
+  });
+
+  /* ---------- the facility table ---------- */
+  /* Every facility with a VERIFIED supervision this cycle, whether or not a score
+     could be worked out for it. A supervision that was carried out and approved
+     belongs in this table; dropping it because its figures are missing hides the
+     very row somebody needs to go and ask about. `pct` is simply null there. */
+  var facilities = inShown.filter(function(c){ return c.ap > 0; }).map(function(c){
+    var st = siteIdx2[c.s] || {};
+    return {
+      name:     label(st.district || '', st.facility || ''),
+      district: st.district || '',
+      area:     st.area || '',
+      pct:      pctOf(c.n, c.d),
+      date:     c.dt || ''
+      /* and nothing else. No supervisor, no team, no reviewer, no note. */
+    };
+  }).sort(function(a, b){ return (b.pct || 0) - (a.pct || 0); });
+
+  /* ---------- trend: oldest first, only cycles that actually have data ---------- */
+  var cycN = {}, cycD2 = {};
+  ATLAS.cells.forEach(function(c){
+    if(!(c.d > 0)) return;
+    cycN[c.c] = (cycN[c.c] || 0) + c.n;
+    cycD2[c.c] = (cycD2[c.c] || 0) + c.d;
+  });
+  var trend = cycles.filter(function(c){ return cycD2[c.id] > 0; })
     .sort(function(a, b){
       var A = byTime[a.id] || {fy:0, q:0}, B = byTime[b.id] || {fy:0, q:0};
       return (A.fy - B.fy) || (A.q - B.q) || String(a.name).localeCompare(String(b.name));
     })
-    .map(function(c){ return {cycle:c.name, pct:pct(cycN[c.id], cycD[c.id])}; });
+    .map(function(c){ return {cycle:c.name, pct:pctOf(cycN[c.id], cycD2[c.id])}; });
 
   /* ---------- recommendations: counts only, never the text ---------- */
   var total = 0, resolved = 0, ongoing = 0, overdue = 0;
@@ -2189,7 +3049,392 @@ function dashPayload(wantCycle){
     trend: trend,
     actions: {total:total, resolved:resolved, ongoing:ongoing, overdue:overdue,
               rate: total > 0 ? Math.round((resolved / total) * 1000) / 10 : null},
-    ahd: dashAhd(label)
+    /* How many approved supervisions were set aside as older duplicates. Said out
+       loud on the page, because a figure that quietly drops rows is a figure
+       nobody can reconcile against the workbook. */
+    superseded: superseded,
+    /* ---------- WHERE EVERY PLANNED FACILITY STANDS ----------
+       COUNTS ONLY. No supervisor name, no comment, no score for an unapproved
+       supervision — a draft is a supervisor still typing and its number belongs
+       to nobody. What is published is how many of each state a facility has, so
+       the region can see at a glance who has not started, who is waiting to be
+       verified, and where a facility was entered twice.
+
+       This reads DRAFT and SUBMITTED rows, which nothing on this endpoint did
+       before. It publishes no field out of them beyond a count. */
+    siteStates: (function(){
+      var byKey = {};
+      rowsOf('VISITS').forEach(function(r){
+        if(String(r.cycle_id || '') !== shown) return;
+        var sid = String(r.site_id || ''); if(!sid) return;
+        var st = String(r.status || '').toUpperCase();
+        var o = byKey[sid] || (byKey[sid] = {draft:0, submitted:0, approved:0, returned:0});
+        if(st === 'DRAFT') o.draft++;
+        else if(st === 'SUBMITTED') o.submitted++;
+        else if(st === 'APPROVED') o.approved++;
+        else if(st === 'RETURNED') o.returned++;
+      });
+      return planSites.map(function(s){
+        var o = byKey[s.id] || {draft:0, submitted:0, approved:0, returned:0};
+        var total = o.draft + o.submitted + o.approved + o.returned;
+        return {
+          name: label(s.district, s.facility),
+          district: s.district,
+          draft: o.draft, submitted: o.submitted,
+          approved: o.approved, returned: o.returned,
+          /* more than one supervision entered for this facility this cycle */
+          duplicate: (o.submitted + o.approved) > 1,
+          state: o.approved ? 'verified'
+               : o.submitted ? 'waiting'
+               : o.returned ? 'returned'
+               : o.draft ? 'started'
+               : 'none'
+        };
+      }).sort(function(a, b){
+        var rank = {none:0, started:1, returned:2, waiting:3, verified:4};
+        return (rank[a.state] - rank[b.state])
+            || String(a.name).localeCompare(String(b.name));
+      });
+    })(),
+    ahd: dashAhd(label),
+
+    /* ---------- THE ATLAS ----------------------------------------------------
+       Everything above answers ONE cycle, rolled up for the whole region, because
+       the page it was built for showed one cycle rolled up for the whole region.
+       Asking it "how did Bafoussam's four facilities do on Care and Treatment
+       across the last three quarters" meant three more requests and a roll-up it
+       could not do, since a percentage cannot be re-pooled once it has been
+       divided.
+
+       The atlas publishes the UNDIVIDED numbers — numerator and denominator per
+       facility, per cycle, per section — so the page can pool any slice the
+       person asks for and get the same figure the supervisor is holding. One
+       request, every filter, and no averaging of percentages anywhere.
+
+       IT IS THE SAME ALLOW-LIST. Every field is named by hand below. No
+       supervisor, no reviewer, no team, no comment, no root cause, no
+       recommendation text, no SWOT, no account, no identity document, no PIN.
+       What is added here beyond the block above is a facility's NAME, its
+       district and region, and the STATE of its work — which is what the region
+       asked to be able to see. */
+    atlas: ATLAS
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   dashAtlas — the undivided numbers, every cycle, every facility
+
+   Shapes are short on purpose: this travels over a mobile connection and the
+   same three keys repeat several thousand times. The page expands them once on
+   arrival, so nothing downstream has to know they were ever abbreviated.
+
+     cells[]  one per (cycle, facility) that has ANY work against it
+       c  cycle id            s  site id
+       st state               'verified' | 'waiting' | 'returned' | 'started'
+       dr/sb/ap/rt            how many drafts / submitted / approved / returned
+       dup                    more than one settled supervision for this facility
+       n,d                    pooled numerator, denominator — APPROVED, verified
+       pn,pd                  the same for a SUBMITTED supervision not yet verified
+       cn,cd / mn,md          clinical and M&E halves of the approved figure
+       sec{}                  per section, [n,d], approved
+       psec{}                 per section, [n,d], awaiting verification
+       dt                     the visit date
+       at,ar,ao,al            recommendations: total, resolved, ongoing, overdue
+   ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   WHERE A PUBLIC SCORE COMES FROM — AND WHERE IT MUST NOT
+
+   This file used to work the scores out for itself, by summing the `numerator`
+   and `denominator` columns of the ANSWERS tab. Those two columns are a
+   FLATTENING written for a human being reading the spreadsheet, and
+   writeAnswers() says so in as many words: they turn a Yes/No into 1/0 and
+   "drop the follow-up, the delay and the checklist, so they cannot rebuild the
+   answer on another phone."
+
+   Rebuilding a SCORE out of them is the same mistake with a worse outcome:
+
+     · a THRESHOLD question (reported delay in days) has no numerator column at
+       all, so it landed as 0 ÷ 1 however fast the facility actually was;
+     · a COMPOSITE question (a checklist) the same — every tick ignored;
+     · a DQA concordance question scores the GAP between two counts, not their
+       ratio, so publishing num ÷ den published a number that means something
+       else entirely;
+     · and a blank numerator reads as Number('') === 0, which is finite, so
+       none of it failed loudly. It just quietly published a lower figure than
+       the supervisor was holding.
+
+   The app already computes the real thing on submission — it has the
+   questionnaire, the gates, the carried denominators and the shared samples,
+   and it writes the result into the visit's own `raw`. So the scores are read
+   FROM THERE. One scoring engine for the whole project, in the app, and this
+   file reports what it produced instead of guessing at it again.
+
+   Returns {n, d, cn, cd, mn, md, sec:{name:[n,d]}} or null when the row is too
+   old to carry its own scores, in which case the caller falls back to the
+   flattening — a wrong-but-nonzero figure being better than a blank page for
+   rows that predate this, and there are none that do in practice because
+   `scores` has been written on every submission since the first release. */
+function visitScores(row){
+  var v = null;
+  try{ v = JSON.parse(row.raw || 'null'); }catch(e){ return null; }
+  if(!v || !v.scores) return null;
+  var S = v.scores, o = {n:0, d:0, cn:0, cd:0, mn:0, md:0, sec:{}};
+  var num = function(x){ return (typeof x === 'number' && isFinite(x)) ? x : 0; };
+  if(!S.overall || !(num(S.overall.d) > 0)) return null;
+  o.n = num(S.overall.n);  o.d = num(S.overall.d);
+  if(S.clinical){ o.cn = num(S.clinical.n); o.cd = num(S.clinical.d); }
+  if(S.mne){      o.mn = num(S.mne.n);      o.md = num(S.mne.d); }
+  (S.sections || []).forEach(function(x){
+    if(!x || !x.sec || !(num(x.d) > 0)) return;
+    o.sec[String(x.sec)] = [num(x.n), num(x.d)];
+  });
+  return o;
+}
+/* What the app knows about a DRAFT and the workbook cannot work out for itself:
+   how much of it is filled in. It travels on the visit as `_fill`, so a draft
+   pushed by a phone running this release carries it and an older one does not —
+   and a draft with no `_fill` is reported as a draft whose completeness is not
+   known, never as a complete one. */
+function visitFill(row){
+  var v = null;
+  try{ v = JSON.parse(row.raw || 'null'); }catch(e){ return null; }
+  if(!v || !v._fill) return null;
+  var f = v._fill;
+  return {q:Number(f.q) || 0, c:Number(f.c) || 0, r:Number(f.r) || 0,
+          any:Number(f.any) || 0,
+          answered:Number(f.answered) || 0, total:Number(f.total) || 0};
+}
+
+function dashAtlas(label, sites, cycles, byTime, weight){
+  var siteIdx = {};
+  sites.forEach(function(s){ siteIdx[s.id] = s; });
+
+  /* ---- the plan of every cycle, not only the one on screen ---- */
+  var plans = {};
+  rowsOf('CYCLES').forEach(function(r){
+    var cid = String(r.cycle_id || ''); if(!cid) return;
+    var c = null; try{ c = JSON.parse(r.raw || 'null'); }catch(e){}
+    plans[cid] = (c && c.planned && c.planned.length)
+      ? c.planned.map(String) : null;          // null = the whole register
+  });
+
+  /* ---- which supervision speaks for a facility in a cycle -------------------
+     One per (cycle, site) per state, the newest, with the same tie-break as the
+     app and as the block above: later submitted_at wins, and on a tie the greater
+     visit id. Approved and submitted are resolved SEPARATELY, so a facility whose
+     verified supervision is from last month and whose newer one is still waiting
+     shows both numbers rather than one of them silently winning. */
+  var best = {}, counts = {}, scored = {};
+  rowsOf('VISITS').forEach(function(r){
+    var cid = String(r.cycle_id || ''), sid = String(r.site_id || '');
+    if(!cid || !sid) return;
+    var key = cid + '|' + sid;
+    var st = String(r.status || '').toUpperCase();
+    var o = counts[key] || (counts[key] = {dr:0, sb:0, ap:0, rt:0,
+                                           /* the draft board, which is the thing a
+                                              coordinator actually opens this page for */
+                                           dup:0, drUp:0, drGaps:0, drKnown:0,
+                                           drAns:0, drTot:0, rtUp:0});
+    if(st === 'DRAFT'){
+      o.dr++;
+      var up = tms(r.updated_at) || 0;
+      if(up > o.drUp) o.drUp = up;                 // the newest draft's last movement
+      var f = visitFill(r);
+      if(f){ o.drKnown++; o.drAns += f.answered; o.drTot += f.total;
+             if(f.any > 0) o.drGaps++; }
+    }
+    else if(st === 'SUBMITTED') o.sb++;
+    else if(st === 'APPROVED') o.ap++;
+    else if(st === 'RETURNED'){ o.rt++;
+      var rup = tms(r.updated_at) || 0; if(rup > o.rtUp) o.rtUp = rup; }
+    if(st !== 'APPROVED' && st !== 'SUBMITTED') return;
+    var slot = (st === 'APPROVED') ? 'a' : 's';
+    var t = tms(r.submitted_at) || tms(r.updated_at) || 0;
+    var cur = (best[key] || (best[key] = {}))[slot];
+    if(!cur || t > cur.t || (t === cur.t && String(r.visit_id) > String(cur.id))){
+      best[key][slot] = {t:t, id:String(r.visit_id), date:fmtDate(r.visit_date),
+                         sub:tms(r.submitted_at) || 0};
+      /* THE SCORES, AS THE APP COMPUTED THEM. Read once, here, for the one
+         supervision that speaks for this facility in this slot. */
+      scored[key + '|' + slot] = visitScores(r);
+    }
+  });
+
+  /* visit id → which cell it speaks for, and in which slot */
+  var voice = {};
+  Object.keys(best).forEach(function(key){
+    ['a','s'].forEach(function(slot){
+      var b = best[key][slot]; if(b) voice[b.id] = {key:key, slot:slot};
+    });
+  });
+
+  /* ---- THE FALLBACK, AND ONLY THE FALLBACK -------------------------------------
+     Every supervision submitted since the first release carries its own scores, so
+     this pass normally contributes nothing at all. It is kept for a row whose `raw`
+     is missing or unreadable — a figure that is wrong in a known way beats a blank
+     cell on a page somebody is using to decide where to go next week — and such a
+     cell is marked `approx` so the page can say so rather than pretend. */
+  var acc = {};
+  var cell = function(key){
+    return acc[key] || (acc[key] = {n:0, d:0, pn:0, pd:0, cn:0, cd:0, mn:0, md:0,
+                                    sec:{}, psec:{}});
+  };
+  var needFallback = {};
+  Object.keys(voice).forEach(function(vid){
+    var v = voice[vid];
+    if(!scored[v.key + '|' + v.slot]) needFallback[vid] = 1;
+  });
+  rowsOf('ANSWERS').forEach(function(a){
+    var vid0 = String(a.visit_id || '');
+    if(!needFallback[vid0]) return;
+    var v = voice[vid0]; if(!v) return;
+    if(String(a.na || '') === 'OUI') return;          // N/A carries no number
+    var num = Number(a.numerator), den = Number(a.denominator);
+    if(!isFinite(num) || !isFinite(den) || den <= 0) return;
+    /* a per-month question's code carries the month; its weight belongs to the
+       question, not to July */
+    var base = String(a.question_code || '').replace(/M\d{6}$/, '');
+    var w = weight[base] || 1;
+    var N = num * w, D = den * w;
+    var o = cell(v.key);
+    var sec = String(a.section || '');
+    if(v.slot === 'a'){
+      o.n += N; o.d += D;
+      var dom = String(a.domain || '').toUpperCase();
+      if(dom.indexOf('CLIN') === 0){ o.cn += N; o.cd += D; }
+      else if(dom){ o.mn += N; o.md += D; }
+      if(sec){ var p = o.sec[sec] || (o.sec[sec] = [0,0]); p[0] += N; p[1] += D; }
+    } else {
+      o.pn += N; o.pd += D;
+      if(sec){ var q = o.psec[sec] || (o.psec[sec] = [0,0]); q[0] += N; q[1] += D; }
+    }
+  });
+
+  /* ---- recommendations, counts only, per cycle and facility ---- */
+  var acts = {};
+  rowsOf('ACTIONS').forEach(function(r){
+    var cid = String(r.cycle_id || ''), sid = String(r.site_id || '');
+    if(!cid || !sid) return;
+    var key = cid + '|' + sid;
+    var o = acts[key] || (acts[key] = {at:0, ar:0, ao:0, al:0});
+    o.at++;
+    var st = String(r.status || 'OPEN').toUpperCase();
+    if(st === 'RESOLVED'){ o.ar++; return; }
+    if(st === 'ONGOING') o.ao++;
+    if(dashLate(r.deadline)) o.al++;
+  });
+
+  var cells = [];
+  var keys = {};
+  Object.keys(counts).forEach(function(k){ keys[k] = 1; });
+  Object.keys(acts).forEach(function(k){ keys[k] = 1; });
+  Object.keys(keys).forEach(function(key){
+    var parts = key.split('|'), cid = parts[0], sid = parts[1];
+    var site = siteIdx[sid]; if(!site) return;         // a facility since removed
+    var c = counts[key] || {dr:0, sb:0, ap:0, rt:0};
+    var o = acc[key] || {n:0, d:0, pn:0, pd:0, cn:0, cd:0, mn:0, md:0, sec:{}, psec:{}};
+    var a = acts[key] || {at:0, ar:0, ao:0, al:0};
+    var b = best[key] || {};
+    /* THE APP'S OWN NUMBERS FIRST, the fallback only where there are none. */
+    var SA = scored[key + '|a'], SS = scored[key + '|s'];
+    var row = {c:cid, s:sid,
+      st: c.ap ? 'verified' : c.sb ? 'waiting' : c.rt ? 'returned'
+        : c.dr ? 'started' : 'none',
+      dr:c.dr, sb:c.sb, ap:c.ap, rt:c.rt,
+      dup: (c.sb + c.ap) > 1,
+      dt: (b.a && b.a.date) || (b.s && b.s.date) || '',
+      /* when the newest work actually moved — a date a coordinator can chase */
+      sat: (b.a && b.a.sub) || (b.s && b.s.sub) || 0,
+      at:a.at, ar:a.ar, ao:a.ao, al:a.al};
+
+    /* ---- THE DRAFT BOARD ----------------------------------------------------
+       Drafts are not a score and never become one, but they are the half of the
+       quarter a coordinator can still do something about: who has started, how
+       far they have got, and which ones have stopped moving. */
+    if(c.dr){
+      row.drUp = c.drUp;                       // last time any draft here moved
+      if(c.drKnown){
+        row.drInc = c.drGaps;                  // how many are still incomplete
+        row.drKnown = c.drKnown;               // out of how many we can tell
+        if(c.drTot > 0){ row.drAns = c.drAns; row.drTot = c.drTot; }
+      }
+    }
+    if(c.rt) row.rtUp = c.rtUp;
+
+    if(SA){
+      row.n = SA.n; row.d = SA.d;
+      if(SA.cd > 0){ row.cn = SA.cn; row.cd = SA.cd; }
+      if(SA.md > 0){ row.mn = SA.mn; row.md = SA.md; }
+      if(Object.keys(SA.sec).length) row.sec = SA.sec;
+    } else if(o.d > 0){
+      row.n = o.n; row.d = o.d; row.approx = true;
+      if(o.cd > 0){ row.cn = o.cn; row.cd = o.cd; }
+      if(o.md > 0){ row.mn = o.mn; row.md = o.md; }
+      if(Object.keys(o.sec).length) row.sec = o.sec;
+    }
+    if(SS){
+      row.pn = SS.n; row.pd = SS.d;
+      if(Object.keys(SS.sec).length) row.psec = SS.sec;
+      if(SS.cd > 0){ row.pcn = SS.cn; row.pcd = SS.cd; }
+      if(SS.md > 0){ row.pmn = SS.mn; row.pmd = SS.md; }
+    } else if(o.pd > 0){
+      row.pn = o.pn; row.pd = o.pd; row.approx = true;
+      if(Object.keys(o.psec).length) row.psec = o.psec;
+    }
+    cells.push(row);
+  });
+
+  /* ---- the declarations, one row per facility per instrument ---- */
+  var forms = rowsOf('FORMS').filter(function(r){
+    return String(r.form_id || '') && String(r.status || '') !== 'ARCHIVED';
+  }).map(function(r){
+    var kind = '';
+    var head = String(r.layout || '');
+    if(head.indexOf('"kind":"ahd"') >= 0) kind = 'ahd';
+    else if(head.indexOf('"kind":"fm"') >= 0 || /milestone/i.test(String(r.title||''))) kind = 'fm';
+    return {id:String(r.form_id), title:String(r.title || ''), kind:kind,
+            status:String(r.status || '')};
+  });
+  var formIdx = {};
+  forms.forEach(function(f){ formIdx[f.id] = f; });
+  /* STATE ONLY, and the date. Not one answer, not one evidence note, not one
+     corrective action — those live behind the supervisors' token and stay there.
+     dashAhd() publishes the AHD readiness SCORES under its own rules; this is the
+     progress board, and it covers every instrument including the ones added next
+     year without a line of code here changing. */
+  var pages = rowsOf('FORM_ENTRIES').map(function(r){
+    var f = formIdx[String(r.form_id || '')]; if(!f) return null;
+    var sid = String(r.site_id || ''); if(!siteIdx[sid]) return null;
+    return {f:f.id, k:f.kind, s:sid,
+            st:String(r.status || 'DRAFT').toUpperCase(),
+            at:tms(r.approved_at) || tms(r.filled_at) || 0};
+  }).filter(function(x){ return x; });
+
+  return {
+    sites: sites.map(function(s){
+      return {id:s.id,
+              /* a facility known only from a cycle plan has no name anywhere in the
+                 workbook. It is published with its id so the count is right, and
+                 `named:false` so the page can say what is missing and how to fix it
+                 rather than printing an id as though it were a facility. */
+              name: s.named ? label(s.district, s.facility) : s.id,
+              named: s.named !== false,
+              district:s.district, region:s.region || REGION_DEFAULT, area:s.area || ''};
+    }),
+    regions: (function(){
+      var r = {}; sites.forEach(function(s){ r[s.region || REGION_DEFAULT] = 1; });
+      return Object.keys(r).sort();
+    })(),
+    cycles: cycles.map(function(c){
+      var t = byTime[c.id] || {fy:0, q:0};
+      return {id:c.id, name:c.name, status:c.status, fy:t.fy, q:t.q};
+    }).sort(function(a, b){
+      return (a.fy - b.fy) || (a.q - b.q) || String(a.name).localeCompare(String(b.name));
+    }),
+    plans: plans,
+    cells: cells,
+    forms: forms,
+    pages: pages
   };
 }
 
@@ -2245,7 +3490,21 @@ function dashAhd(label){
     return String(r.form_id || '') === fid
         && String(r.status || '').toUpperCase() === 'APPROVED';
   });
-  var active = {};
+  /* ---- AND THE SAME EMPTY TAB TOOK THE WHOLE AHD SECTION WITH IT ----------------
+     `active` was built from the SITES tab and then used to DROP any assessment whose
+     facility was not in it. With that tab empty, every assessment in the region was
+     discarded and the readiness section published nothing at all — which is why the
+     live page had no AHD tab. An empty register is not a statement that no facility
+     is active; it is a register nobody filled in, and a filter built from it must
+     not be applied. `closed` lists only the facilities the workbook has actually
+     marked inactive, so the filter can only ever remove something it knows about. */
+  var closed = {}, known = 0;
+  rowsOf('SITES').forEach(function(r){
+    var id = String(r.site_id || ''); if(!id) return;
+    known++;
+    if(String(r.status || 'ACTIVE').toUpperCase() === 'INACTIVE') closed[id] = 1;
+  });
+  var active = {};                       /* kept for the count published below */
   rowsOf('SITES').forEach(function(r){
     if(String(r.status || 'ACTIVE').toUpperCase() !== 'INACTIVE')
       active[String(r.site_id || '')] = 1;
@@ -2254,7 +3513,7 @@ function dashAhd(label){
   /* ---------- one site's score, exactly as ahdScore() in the app ---------- */
   var scored = [];
   entries.forEach(function(r){
-    if(!active[String(r.site_id || '')]) return;
+    if(closed[String(r.site_id || '')]) return;      /* only what is KNOWN to be closed */
     var data;
     try{ data = JSON.parse(String(r.data || 'null')); }catch(e){ return; }
     if(!data) return;
@@ -2296,10 +3555,26 @@ function dashAhd(label){
   /* ---------- the facility table: a score, a band, and two counts ---------- */
   var facilities = scored.map(function(x){
     var b = bandOf(x.s);
+    /* ---- THE UNDIVIDED NUMBERS, FOR THE SAME REASON AS THE ATLAS -----------------
+       `pct` alone cannot be re-pooled: asking "how ready is Bafoussam" from four
+       facility percentages means averaging percentages, which gives a facility with
+       nine applicable checks the same voice as one with ninety. ready/applicable
+       travel so the page can pool any slice and get the figure the assessment
+       actually produced. They are the same information as the percentage, undivided
+       — nothing new is disclosed by publishing the two halves of a fraction whose
+       answer is already published. */
+    var domPairs = {};
+    Object.keys(x.s.dom).forEach(function(k){
+      domPairs[k] = [x.s.dom[k].ready, x.s.dom[k].applicable];
+    });
     return {
+      id:       String(x.row.site_id || ''),
       name:     label(String(x.row.district || ''), String(x.row.facility || '')),
       district: String(x.row.district || ''),
       pct:      pct(x.s.ready, x.s.applicable),
+      ready:    x.s.ready,
+      applicable: x.s.applicable,
+      dom:      domPairs,
       band:     b.code,
       bandLabel:b.label,
       gaps:     x.s.gaps,
@@ -2462,8 +3737,13 @@ function saveFormEntry(p){
   if(blob.length > 45000)
     return {ok:false, error:'answers too large for one cell (' + blob.length + ')'};
 
+  /* The register may have no row for this facility — see dashRegister(). The app
+     knows where it is, so what it sent is used rather than writing blanks that the
+     dashboard would then have to work around. */
   var site = rowsOf('SITES').filter(function(r){
     return String(r.site_id) === String(p.siteId || ''); })[0] || {};
+  if(!site.district && p.district) site = {district:p.district, area:p.area || '',
+                                           facility:p.facility || ''};
 
   /* What the answers currently are, as one short string. A signature records
      the hash it was given against; when this changes, that signature is no
