@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.6.5';
+const APP_VERSION = '5.6.6';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -3319,6 +3319,8 @@ function viewLoginAdmin(){
            The input carries a stable id, which is what lets restorePlace() put
            the caret back after each keystroke — without it the field would empty
            itself on every letter. */
+        admAutoFetch();   /* also when the phone already holds posts: one of them may
+                             have been withdrawn, renamed, or appointed since. */
         const q = String(ADM_Q || '').trim().toLowerCase();
         const hits = q.length < 2 ? []
           : slots.filter(u => String(u.name||'').toLowerCase().indexOf(q) >= 0
@@ -3339,8 +3341,8 @@ function viewLoginAdmin(){
           placeholder="${L?'Tapez les premières lettres…':'Type the first few letters…'}"
           oninput="admFind(this.value)"></label>
       ${q.length < 2 ? `<p class="xs muted" style="margin:-4px 0 12px">${L
-          ?'Tapez au moins deux lettres de votre nom. Les comptes ne sont pas listés ici.'
-          :'Type at least two letters of your name. Accounts are not listed here.'}</p>`
+          ?'Tapez au moins deux lettres de votre nom. <b>'+slots.length+' compte(s)</b> existent sur ce téléphone — ils ne sont pas listés ici, c\'est voulu : la liste des super utilisateurs de la région ne doit pas s\'afficher à quiconque ouvre l\'application.'
+          :'Type at least two letters of your name. <b>'+slots.length+' account(s)</b> are known on this phone — they are not listed here on purpose: the region\'s list of super users must not show to anyone who opens the app.'}</p>`
         : hits.length ? `<div class="list" style="margin:6px 0 12px">${hits.map(u=>`
           <button class="item admpick" onclick="pickAdmSlot('${u.id}')">
             <div style="min-width:0;text-align:left"><b>${esc(u.name)}</b>
@@ -8556,7 +8558,15 @@ function scopePickGrade(v, slotId){
      small insult that makes people stop using a screen. */
   const t = ($('#sc-title')||{}).value || '';
   const box = $('#modal-body');
-  if(box) box.innerHTML = scopeBody(slotId, t);
+  if(!box) return;
+  /* The appointment panel carries a name and a telephone above the level picker, and
+     this rebuild would throw them away. They are read out and handed back, exactly
+     as the job title already was. */
+  const nm = $('#as-name');
+  if(nm) return void (box.innerHTML = assignBody(slotId, {
+    name: nm.value || '', phone: (($('#as-phone')||{}).value) || '',
+    title: t, held: (($('#as-held')||{}).value) || ''}));
+  box.innerHTML = scopeBody(slotId, t);
 }
 function scopeTick(kind, v, on){
   const key = kind==='region' ? 'regions' : 'districts';
@@ -8675,46 +8685,99 @@ async function doRecodeSlot(slotId){
                            :'Single use. Valid '+(j.ttlDays||7)+' days'+(until?', until '+until:'')+'. A network is needed at the moment of activation.'}</p>`,
     `<button class="btn" onclick="closeModal()">OK</button>`);
 }
+/* APPOINTING SOMEBODY NOW SETS THEIR LEVEL IN THE SAME BREATH.        (v5.6.6)
+
+   This used to send a name and a telephone number and nothing else, so the server
+   fell back to the level the post had before — or, on a post nobody had ever held,
+   to Region. Every district colleague appointed from this screen therefore started
+   with the whole region in front of them, and stayed there until an administrator
+   remembered to open "Niveau et périmètre" afterwards. A second step people forget
+   is not a safeguard; it is a hole that stays open for as long as nobody notices.
+
+   Knock-ons dealt with in the same change, because they would otherwise bite next:
+     · scopePickGrade() rebuilds the panel when the level changes — it would have
+       wiped the name and telephone already typed, so it now carries them through
+       exactly as it already carried the job title;
+     · a District appointment with no district ticked is refused HERE, with a
+       sentence, rather than by a server error after the code has been generated;
+     · the confirmation prints the level and the places, so the appointment can be
+       read back before the code is handed over;
+     · opening this at all now needs the power the server demands of it. */
 function assignSlotModal(slotId){
   const L=LANG==='fr';
-  const u=DB.d.users.find(x=>x.id===slotId)||{};
+  if(!can('slotAssign')) return toast(L
+    ?'Attribuer un compte privilégié appartient à l\'administrateur.'
+    :'Assigning a privileged account belongs to the administrator.', 3600);
+  const roster = DB.d.config.slotRoster||[];
+  const u = roster.find(x=>x.id===slotId) || DB.d.users.find(x=>x.id===slotId) || {id:slotId};
   const named=String(u.name||'').trim();
+  SCOPE_DRAFT = {grade: gradeOf(u) || 'district',
+                 regions: scopeList(u.regions).slice(),
+                 districts: scopeList(u.districts).slice()};
+  if(!SCOPE_DRAFT.regions.length) SCOPE_DRAFT.regions = [REGION_DEFAULT];
   modal(named?(L?'Réattribuer ce compte':'Reassign this account')
-             :(L?'Attribuer ce compte':'Assign this account'), `
-    ${named?`<div class="banner b-warn">${L
-      ?'Ce compte est actuellement attribué à <b>'+esc(u.name)+'</b>. La réattribution retire l\'accès à cette personne immédiatement.'
-      :'This account is currently held by <b>'+esc(u.name)+'</b>. Reassigning removes their access immediately.'}</div>`:''}
-    <label class="f"><span>${L?'Nom et prénom':'Full name'} *</span>
-      <input type="text" id="as-name" value=""></label>
-    <label class="f"><span>${L?'Téléphone':'Phone'} *</span>
-      <input type="tel" id="as-phone" placeholder="+237 6.. .. .. .."></label>
-    <p class="xs muted">${L
-      ?'Ce nom et ce numéro s\'affichent sur tous les téléphones de la région : liste de connexion Administration, écran d\'attente de validation, et « contactez l\'administrateur ».'
-      :'This name and number appear on every phone in the region: the Administration sign-in list, the awaiting-approval screen, and the "contact the administrator" panels.'}</p>`,
+             :(L?'Attribuer ce compte':'Assign this account'),
+    assignBody(slotId, {name:'', phone:'', title:String(u.title||''), held:named?u.name:''}),
     `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
      <button class="btn" onclick="doAssignSlot('${slotId}')">${L?'Attribuer et générer le code':'Assign and generate the code'}</button>`);
+}
+function assignBody(slotId, keep){
+  const L=LANG==='fr'; keep = keep||{};
+  return `
+    ${keep.held?`<div class="banner b-warn">${L
+      ?'Ce compte est actuellement attribué à <b>'+esc(keep.held)+'</b>. La réattribution retire l\'accès à cette personne immédiatement.'
+      :'This account is currently held by <b>'+esc(keep.held)+'</b>. Reassigning removes their access immediately.'}</div>`:''}
+    <input type="hidden" id="as-held" value="${esc(keep.held||'')}">
+    <label class="f"><span>${L?'Nom et prénom':'Full name'} *</span>
+      <input type="text" id="as-name" value="${esc(keep.name||'')}"></label>
+    <label class="f"><span>${L?'Téléphone':'Phone'} *</span>
+      <input type="tel" id="as-phone" value="${esc(keep.phone||'')}" placeholder="+237 6.. .. .. .."></label>
+    <p class="xs muted">${L
+      ?'Ce nom et ce numéro s\'affichent sur tous les téléphones de la région : liste de connexion Administration, écran d\'attente de validation, et « contactez l\'administrateur ».'
+      :'This name and number appear on every phone in the region: the Administration sign-in list, the awaiting-approval screen, and the "contact the administrator" panels.'}</p>
+    <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+    ${scopeBody(slotId, keep.title||'')}`;
 }
 async function doAssignSlot(slotId){
   const L=LANG==='fr';
   const name=(($('#as-name')||{}).value||'').trim();
   const phone=(($('#as-phone')||{}).value||'').trim();
+  const title=String((($('#sc-title')||{}).value)||'').trim().slice(0,80);
+  const g=(SCOPE_DRAFT&&SCOPE_DRAFT.grade)||'district';
   if(!name) return toast(L?'Le nom est obligatoire':'The name is required');
   if(!phone) return toast(L?'Le téléphone est obligatoire':'The phone number is required');
+  /* Refused here, before a code exists. The server refuses it too — but by then the
+     administrator has a modal open and a person waiting for six digits. */
+  if(g==='district' && !(SCOPE_DRAFT.districts||[]).length)
+    return toast(L?'Cochez au moins un district — sinon cette console ne montre rien'
+                  :'Tick at least one district — otherwise that console shows nothing', 4200);
+  if(g==='region' && !(SCOPE_DRAFT.regions||[]).length)
+    return toast(L?'Cochez au moins une région':'Tick at least one region', 3200);
   if(!ONLINE) return toast(L?'L\'attribution a besoin du réseau':'Assigning needs a network');
   const api=DB.d.config.api;
   let j=null;
   try{
     const r=await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({token:apiToken(), uid:(me()||{}).id||'', kind:'assign', id:'AS-'+Date.now(),
-        payload:{slotId, name, phone, byId:(me()||{}).id}})});
+        payload:{slotId, name, phone, byId:(me()||{}).id,
+                 grade:g, title:title,
+                 regions:(SCOPE_DRAFT.regions||[]).slice(),
+                 districts:(SCOPE_DRAFT.districts||[]).slice()}})});
     j=await r.json();
   }catch(e){}
   if(!j || !j.ok) return toast((L?'Échec : ':'Failed: ')+((j&&j.error)||'—'), 4000);
-  audit('SLOT_ASSIGN','user', name+' → '+slotId);
+  audit('SLOT_ASSIGN','user', name+' → '+slotId+' · '+g
+        +(g==='district'?' ('+(SCOPE_DRAFT.districts||[]).join(', ')+')'
+         :g==='region'  ?' ('+(SCOPE_DRAFT.regions||[]).join(', ')+')':''));
   await refreshSlots(false);
   closeModal();
   modal(L?'Compte attribué':'Account assigned', `
     <p class="small">${L?'Lisez ce code à <b>':'Read this code to <b>'}${esc(name)}</b>${phone?' ('+esc(phone)+')':''}.</p>
+    <div class="banner b-ok xs" style="margin-bottom:10px">${L?'Niveau':'Level'}
+      <b>${esc(gradeLabel(j.grade||g))}</b>${
+        (j.grade||g)==='district' ? ' · '+esc((SCOPE_DRAFT.districts||[]).join(', '))
+      : (j.grade||g)==='region'   ? ' · '+esc((SCOPE_DRAFT.regions||[]).join(', '))
+      : ' · '+(L?'toutes les régions':'every region')}${title?' · '+esc(title):''}</div>
     <div class="codebox">${esc(j.code)}</div>
     <p class="small">${L
       ?'Elle ouvre l\'application ▸ <b>Administration</b> ▸ choisit son nom ▸ saisit ce code à la place du code PIN. L\'application lui demande aussitôt de choisir son propre code PIN.'

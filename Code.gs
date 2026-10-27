@@ -14,7 +14,7 @@
  *   4. In the app: Console Super Utilisateur ▸ Paramètres ▸ paste the URL ▸ Save.
  */
 
-var SCRIPT_VERSION = '5.6.5';   // the app checks this: a mismatch means an old deployment
+var SCRIPT_VERSION = '5.6.6';   // the app checks this: a mismatch means an old deployment
 
 /* The version of index.html the region is supposed to be running. Every phone
    compares its own APP_VERSION against this on every single pull, and says so
@@ -22,7 +22,7 @@ var SCRIPT_VERSION = '5.6.5';   // the app checks this: a mismatch means an old 
    running an old app cannot know that it is old — that was exactly the v4.0.0
    problem: the phone had no way to learn the news, and the news had no way to
    reach the phone. Raise this line when you upload a new index.html. */
-var APP_EXPECTED = '5.6.5';
+var APP_EXPECTED = '5.6.6';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ▼▼▼  VOTRE COMPTE ADMINISTRATEUR — ÉCRIVEZ VOS DEUX LIGNES ICI  ▼▼▼
