@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.6.3';
+const APP_VERSION = '5.6.4';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -8254,6 +8254,14 @@ function admSlots(){
      is counted and said out loud here instead of sitting in a cell nobody reads. */
   const noScope = slots.filter(x=>String(x.name||'').trim()
                    && gradeOf(x)==='district' && !scopeList(x.districts).length);
+  /* A SUPER USER AT NATIONAL LEVEL IS NOT A SMALL THING.                (v5.6.4)
+     National means every region, and it is also the level that may appoint other
+     super users, change anybody's scope and withdraw a post. An account that
+     reached that level by accident — three did — is a hole nobody can see, because
+     the console showed the level as a quiet grey chip and nothing else. It is
+     counted and named here, exactly as an unscoped district account is. */
+  const tooHigh = slots.filter(x=>String(x.name||'').trim()
+                   && x.role==='SUPER' && gradeOf(x)==='national');
   const row=u=>{
     const named=String(u.name||'').trim();
     const isA=u.role==='ADMIN';
@@ -8276,14 +8284,19 @@ function admSlots(){
           !named?(L?'libre':'free'):u.claimed?(L?'actif':'active'):(L?'à activer':'to activate')}</span>
       </div>
       ${named && !isA ? codeState(u) : ''}
+      ${named && !isA && !recodeReady() ? `<p class="xs" style="margin-top:6px;color:var(--warn)">${L
+        ?'Pour émettre un nouveau code, le script serveur doit être redéployé (il est en v'
+          +esc(String((DB.d.config||{}).serverVersion||'?'))+').'
+        :'Issuing a new code needs the server script redeployed (it is at v'
+          +esc(String((DB.d.config||{}).serverVersion||'?'))+').'}</p>` : ''}
       ${isA?`<p class="xs muted" style="margin-top:8px">${L
         ?'Un compte administrateur ne s\'attribue pas ici. Il se donne depuis l\'éditeur Apps Script : fonction <b>nouveauCodeAdmin</b>. C\'est ce qui fait que seul le propriétaire du classeur peut nommer un administrateur.'
         :'An administrator account is not assigned here. It is given from the Apps Script editor: function <b>nouveauCodeAdmin</b>. That is what makes the workbook owner the only person who can name an administrator.'}</p>`
       :`<div class="row" style="margin-top:9px">
           <button class="btn sm" ${ONLINE?'':'disabled'} onclick="assignSlotModal('${u.id}')">${
             named?(L?'⇄ Réattribuer':'⇄ Reassign'):(L?'＋ Attribuer':'＋ Assign')}</button>
-          ${named?`<button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="recodeAsk('${u.id}')">↻ ${
-            L?'Nouveau code':'New code'}</button>`:''}
+          ${named && recodeReady() ? `<button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="recodeAsk('${u.id}')">↻ ${
+            L?'Nouveau code':'New code'}</button>` : ''}
           <button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="scopeModal('${u.id}')">⚙ ${
             L?'Niveau et périmètre':'Level and scope'}</button>
           ${named?`<button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="releaseSlotAsk('${u.id}')">⛔ ${
@@ -8304,6 +8317,15 @@ function admSlots(){
       :'<b>'+noScope.length+' account(s)</b> are at District level with no district: '
        +esc(noScope.map(x=>x.name).join(', '))+'. Those consoles show nothing at all. '
        +'Open <b>Level and scope</b> and name their districts.'}</div>`:''}
+    ${tooHigh.length?`<div class="banner b-warn">${L
+      ?'<b>'+tooHigh.length+' super utilisateur(s)</b> sont au niveau <b>National</b> : '
+       +esc(tooHigh.map(x=>x.name).join(', '))+'. À ce niveau ils voient toutes les régions, '
+       +'et peuvent attribuer des comptes privilégiés, en retirer et modifier les périmètres. '
+       +'Si ce n\'est pas voulu, ouvrez <b>Niveau et périmètre</b> et ramenez-les à Région ou District.'
+      :'<b>'+tooHigh.length+' super user(s)</b> are at <b>National</b> level: '
+       +esc(tooHigh.map(x=>x.name).join(', '))+'. At that level they see every region, '
+       +'and they can assign privileged accounts, withdraw them and change anybody\'s scope. '
+       +'If that is not intended, open <b>Level and scope</b> and bring them back to Region or District.'}</div>`:''}
     ${!roster.length?`<div class="banner b-warn">${L
       ?'Cette liste n\'a pas encore été lue sur le serveur. Appuyez sur <b>Actualiser</b> : les postes libres n\'apparaissent qu\'à ce moment-là.'
       :'This list has not been read from the server yet. Press <b>Refresh</b>: free posts only appear then.'}</div>`:''}
@@ -8449,6 +8471,15 @@ async function doScopeSave(slotId){
    silence that follows means the person has not tried yet, or that the code went
    stale three days ago. The console used to show neither, so an expired code was
    indistinguishable from a broken account. It is stated here instead. */
+/* CAN THIS DEPLOYMENT ISSUE A CODE?                                   (v5.6.4)
+   A button that calls an action the deployed script has never heard of answers
+   "Failed: —", which is indistinguishable from the fault it was added to cure.
+   So it is not shown until the script that can serve it is actually deployed,
+   and the reason is printed in its place. */
+function recodeReady(){
+  const sv = String((DB.d.config||{}).serverVersion || '');
+  return !!sv && !verLt(sv, '5.6.3');
+}
 function codeState(u){
   const L = LANG === 'fr';
   if(u.claimed) return '';
