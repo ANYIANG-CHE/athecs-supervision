@@ -14,7 +14,7 @@
  *   4. In the app: Console Super Utilisateur ▸ Paramètres ▸ paste the URL ▸ Save.
  */
 
-var SCRIPT_VERSION = '5.7.0';   // the app checks this: a mismatch means an old deployment
+var SCRIPT_VERSION = '5.7.1';   // the app checks this: a mismatch means an old deployment
 
 /* The version of index.html the region is supposed to be running. Every phone
    compares its own APP_VERSION against this on every single pull, and says so
@@ -22,7 +22,7 @@ var SCRIPT_VERSION = '5.7.0';   // the app checks this: a mismatch means an old 
    running an old app cannot know that it is old — that was exactly the v4.0.0
    problem: the phone had no way to learn the news, and the news had no way to
    reach the phone. Raise this line when you upload a new index.html. */
-var APP_EXPECTED = '5.7.0';
+var APP_EXPECTED = '5.7.1';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ▼▼▼  VOTRE COMPTE ADMINISTRATEUR — ÉCRIVEZ VOS DEUX LIGNES ICI  ▼▼▼
@@ -1623,6 +1623,20 @@ function pinSet(p){
   var id = String(p.uid || p.slotId || '');
   var pin = String(p.pin || '').trim();
   if(!/^[0-9]{4,8}$/.test(pin)) return {ok:false, error:'a PIN is 4 to 8 digits'};
+  /* THE CELLS MUST EXIST BEFORE ANYTHING IS WRITTEN INTO THEM.         (v5.7.1)
+     narrowWrite() and upsert() both SKIP a column the sheet does not have — which is
+     right, and here it would be silent ruin: a workbook upgraded from an older
+     release has no pin_hash column, so the PIN would be "saved", nothing would be
+     stored, hasPin would stay false, and the whole fault this release exists to cure
+     would look unchanged. The columns are added here if they are missing, which is
+     exactly what setup() does and costs nothing when they are already there; and if
+     they still cannot be found afterwards the call FAILS LOUDLY rather than
+     pretending. */
+  var ush = sheet('USERS');
+  if(headerMap(ush)['pin_hash'] === undefined) addMissingColumns(ush, TABS.USERS);
+  if(headerMap(ush)['pin_hash'] === undefined)
+    return {ok:false, error:'the USERS tab has no pin_hash column — run setup() once from the editor'};
+
   var cur = userRow(id);
   if(!cur) return {ok:false, error:'unknown account'};
 
