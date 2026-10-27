@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.6.2';
+const APP_VERSION = '5.6.3';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -3391,14 +3391,44 @@ async function doLoginAdmin(){
   DB.d.config.lastAdmPick=id; DB.save();
   if(!typed) return toast(L?'Saisissez votre code':'Enter your code');
 
-  if(!u.claimed){
+  /* WHICH DOOR THIS PERSON IS AT.                                      (v5.6.3)
+     It used to be decided by `claimed` alone, and that locked people out of their
+     own accounts. The PIN lives on the DEVICE, not on the server. So a holder who
+     changes telephone — or who opens the app at a new web address, which is a new
+     store as far as any browser is concerned — arrives with the server saying
+     "claimed" and the device holding no PIN to compare. The old code demanded a
+     PIN that could not exist anywhere and answered "wrong PIN" for ever.
+     A device with no PIN for this post is therefore offered the CODE door. */
+  const hasPin = !!(u.pin||'');
+  if(!u.claimed || !hasPin){
     if(!ONLINE) return toast(L?'L\'activation a besoin du réseau, une seule fois.'
                               :'Activation needs a network, once.', 4000);
     toast(L?'Vérification…':'Checking…', 1200);
     const r = await claimSlot(id, typed);
-    if(!r || !r.valid) return toast(L
-      ?'Code refusé. Il est valable 24 heures et une seule fois — demandez-en un nouveau.'
-      :'Code refused. It is valid for 24 hours and once only — ask for a new one.', 4500);
+    if(!r || !r.valid){
+      /* SAY WHICH THING WENT WRONG. "Invalid" sent the administrator looking for a
+         fault in the account when the code had simply gone stale. */
+      const why = (r && r.reason) || '';
+      const days = (r && r.ttlDays) || 7;
+      const when = (r && r.issuedAt) ? new Date(r.issuedAt).toLocaleDateString(L?'fr-FR':'en-GB') : '';
+      let msg;
+      if(why === 'expired') msg = L
+        ? 'Ce code a expiré'+(when?' (émis le '+when+')':'')+'. Il est valable '+days
+          +' jours. Demandez-en un nouveau : Administration ▸ Comptes privilégiés ▸ ↻ Nouveau code.'
+        : 'This code has expired'+(when?' (issued '+when+')':'')+'. A code is valid for '+days
+          +' days. Ask for a new one: Administration ▸ Privileged accounts ▸ ↻ New code.';
+      else if(why === 'wrong') msg = L
+        ? 'Ce n\'est pas le code enregistré pour ce compte. Vérifiez les 6 chiffres.'
+        : 'That is not the code on record for this account. Check the 6 digits.';
+      else if(why === 'none') msg = u.claimed
+        ? (L ? 'Ce compte est déjà activé sur un autre téléphone, et ce téléphone-ci n\'a pas encore de code PIN. Demandez un nouveau code à 6 chiffres : Administration ▸ Comptes privilégiés ▸ ↻ Nouveau code.'
+             : 'This account is already active on another phone, and this phone does not yet hold a PIN for it. Ask for a new 6-digit code: Administration ▸ Privileged accounts ▸ ↻ New code.')
+        : (L ? 'Aucun code n\'est en attente pour ce compte. Demandez-en un.'
+             : 'No code is outstanding for this account. Ask for one.');
+      else msg = L ? 'Code refusé. Réessayez, ou demandez un nouveau code.'
+                   : 'Code refused. Try again, or ask for a new code.';
+      return toast(msg, 7000);
+    }
     u.claimed=true; u.pin=''; if(r.name) u.name=r.name; if(r.role) u.role=r.role;
     DB.d.session=u.id; DB.save(); passLanding();
     audit('SLOT_CLAIM','user', u.name+' — '+roleLabel(u.role));
@@ -4438,7 +4468,10 @@ async function refreshSlots(loud){
        the truth about the deployment they actually have, not a blank column. */
     grade:String(sl.grade||''), regions:sl.regions||[],
     districts:sl.districts||[], title:String(sl.title||''),
-    assigned:!!sl.assigned, claimed:!!sl.claimed, active:sl.active!==false}));
+    assigned:!!sl.assigned, claimed:!!sl.claimed, active:sl.active!==false,
+    /* The state of the activation code — never the code. An older Code.gs sends
+       none of these three, and codeState() then says nothing rather than guessing. */
+    hasCode:!!sl.hasCode, codeAt:Number(sl.codeAt||0), codeTtlMs:Number(sl.codeTtlMs||0)}));
   let n=0;
   j.slots.forEach(sl=>{
     const local = DB.d.users.find(u=>u.id===sl.id);
@@ -8242,12 +8275,15 @@ function admSlots(){
         <span class="chip ${!named?'n':u.claimed?'g':'a'}">${
           !named?(L?'libre':'free'):u.claimed?(L?'actif':'active'):(L?'à activer':'to activate')}</span>
       </div>
+      ${named && !isA ? codeState(u) : ''}
       ${isA?`<p class="xs muted" style="margin-top:8px">${L
         ?'Un compte administrateur ne s\'attribue pas ici. Il se donne depuis l\'éditeur Apps Script : fonction <b>nouveauCodeAdmin</b>. C\'est ce qui fait que seul le propriétaire du classeur peut nommer un administrateur.'
         :'An administrator account is not assigned here. It is given from the Apps Script editor: function <b>nouveauCodeAdmin</b>. That is what makes the workbook owner the only person who can name an administrator.'}</p>`
       :`<div class="row" style="margin-top:9px">
           <button class="btn sm" ${ONLINE?'':'disabled'} onclick="assignSlotModal('${u.id}')">${
             named?(L?'⇄ Réattribuer':'⇄ Reassign'):(L?'＋ Attribuer':'＋ Assign')}</button>
+          ${named?`<button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="recodeAsk('${u.id}')">↻ ${
+            L?'Nouveau code':'New code'}</button>`:''}
           <button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="scopeModal('${u.id}')">⚙ ${
             L?'Niveau et périmètre':'Level and scope'}</button>
           ${named?`<button class="btn sec sm" ${ONLINE?'':'disabled'} onclick="releaseSlotAsk('${u.id}')">⛔ ${
@@ -8408,6 +8444,73 @@ async function doScopeSave(slotId){
   if(ONLINE) setTimeout(()=>refreshSlots(false), 1500);
 }
 
+/* WHAT THE ACTIVATION CODE IS DOING RIGHT NOW.                        (v5.6.3)
+   An administrator reads out a code and then has no way of telling whether the
+   silence that follows means the person has not tried yet, or that the code went
+   stale three days ago. The console used to show neither, so an expired code was
+   indistinguishable from a broken account. It is stated here instead. */
+function codeState(u){
+  const L = LANG === 'fr';
+  if(u.claimed) return '';
+  const at  = Number(u.codeAt || 0);
+  const ttl = Number(u.codeTtlMs || 7*86400000);
+  if(!u.hasCode || !at) return `<p class="xs" style="margin-top:7px;color:var(--warn)">${L
+    ?'Aucun code en attente — cette personne ne peut pas encore se connecter. Donnez-lui un code.'
+    :'No code outstanding — this person cannot sign in yet. Issue them a code.'}</p>`;
+  const left = at + ttl - Date.now();
+  if(left <= 0) return `<p class="xs" style="margin-top:7px;color:var(--bad)">⚠ ${L
+    ?'Code expiré le '+new Date(at+ttl).toLocaleDateString('fr-FR')+'. Donnez-en un nouveau.'
+    :'Code expired on '+new Date(at+ttl).toLocaleDateString('en-GB')+'. Issue a new one.'}</p>`;
+  const d = Math.max(1, Math.ceil(left/86400000));
+  return `<p class="xs muted" style="margin-top:7px">${L
+    ?'Code en attente — valable encore '+d+' jour(s), jusqu\'au '+new Date(at+ttl).toLocaleDateString('fr-FR')
+    :'Code outstanding — '+d+' more day(s), until '+new Date(at+ttl).toLocaleDateString('en-GB')}</p>`;
+}
+
+/* A NEW CODE WITHOUT REAPPOINTING ANYBODY.
+   "Reassign" asks for the name and the telephone again and warns that it removes
+   the holder's access — so it was never the right button for "their code expired",
+   and using it for that was how a simple expiry turned into starting over. This
+   touches three cells: the code, when it was issued, and the claimed stamp. */
+function recodeAsk(slotId){
+  const L=LANG==='fr';
+  const u=DB.d.users.find(x=>x.id===slotId)||{};
+  modal(L?'Nouveau code d\'activation':'New activation code', `
+    <p class="small">${L?'Un nouveau code à 6 chiffres sera émis pour <b>'
+      :'A new 6-digit code will be issued for <b>'}${esc(u.name||slotId)}</b>.</p>
+    <p class="xs muted">${L
+      ?'Le poste, le niveau, les districts et le titre ne changent pas. L\'ancien code cesse de fonctionner. Si cette personne était déjà active sur un téléphone, elle devra se réactiver avec ce nouveau code — c\'est ce qu\'il faut faire quand elle change de téléphone ou passe à une nouvelle adresse.'
+      :'The post, the level, the districts and the title do not change. The old code stops working. If this person was already active on a phone, they will re-activate with this new code — which is exactly what is needed when they change phone or move to a new address.'}</p>`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn" onclick="doRecodeSlot('${slotId}')">${L?'Émettre le code':'Issue the code'}</button>`);
+}
+async function doRecodeSlot(slotId){
+  const L=LANG==='fr';
+  if(!ONLINE) return toast(L?'Émettre un code a besoin du réseau':'Issuing a code needs a network');
+  const api=DB.d.config.api;
+  let j=null;
+  try{
+    const r=await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({token:apiToken(), uid:(me()||{}).id||'', kind:'recode', id:'RC-'+Date.now(),
+        payload:{slotId, byId:(me()||{}).id}})});
+    j=await r.json();
+  }catch(e){}
+  if(!j || !j.ok) return toast((L?'Échec : ':'Failed: ')+((j&&j.error)||'—'), 4500);
+  audit('SLOT_RECODE','user', (j.name||slotId));
+  await refreshSlots(false);
+  closeModal();
+  const until = j.until ? new Date(j.until).toLocaleString(L?'fr-FR':'en-GB') : '';
+  modal(L?'Code émis':'Code issued', `
+    <p class="small">${L?'Lisez ce code à <b>':'Read this code to <b>'}${esc(j.name||'')}</b>${
+      j.phone?' ('+esc(j.phone)+')':''}.</p>
+    <div class="codebox">${esc(j.code)}</div>
+    <p class="small">${L
+      ?'Application ▸ <b>Administration</b> ▸ son nom ▸ ce code à la place du code PIN. L\'application lui demande aussitôt de choisir son propre code PIN.'
+      :'App ▸ <b>Administration</b> ▸ their name ▸ this code instead of a PIN. The app then asks them to choose their own PIN.'}</p>
+    <p class="xs muted">${L?'Usage unique. Valable '+(j.ttlDays||7)+' jours'+(until?', jusqu\'au '+until:'')+'. Il faut du réseau au moment de l\'activation.'
+                           :'Single use. Valid '+(j.ttlDays||7)+' days'+(until?', until '+until:'')+'. A network is needed at the moment of activation.'}</p>`,
+    `<button class="btn" onclick="closeModal()">OK</button>`);
+}
 function assignSlotModal(slotId){
   const L=LANG==='fr';
   const u=DB.d.users.find(x=>x.id===slotId)||{};
@@ -8452,8 +8555,8 @@ async function doAssignSlot(slotId){
     <p class="small">${L
       ?'Elle ouvre l\'application ▸ <b>Administration</b> ▸ choisit son nom ▸ saisit ce code à la place du code PIN. L\'application lui demande aussitôt de choisir son propre code PIN.'
       :'They open the app ▸ <b>Administration</b> ▸ choose their name ▸ type this code instead of a PIN. The app then asks them to choose their own PIN.'}</p>
-    <p class="xs muted">${L?'Usage unique. Valable 24 heures. Il faut du réseau au moment de l\'activation.'
-                           :'Single use. Valid 24 hours. A network is needed at the moment of activation.'}</p>`,
+    <p class="xs muted">${L?'Usage unique. Valable '+(j.ttlDays||7)+' jours'+(j.until?', jusqu\'au '+new Date(j.until).toLocaleString('fr-FR'):'')+'. Il faut du réseau au moment de l\'activation.'
+                           :'Single use. Valid '+(j.ttlDays||7)+' days'+(j.until?', until '+new Date(j.until).toLocaleString('en-GB'):'')+'. A network is needed at the moment of activation.'}</p>`,
     `<button class="btn" onclick="closeModal()">OK</button>`);
 }
 function releaseSlotAsk(slotId){

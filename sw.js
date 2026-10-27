@@ -33,7 +33,7 @@
    Nothing here ever touches localStorage, where enrolment, PINs and
    every unsent supervision live. A cache purge is not a data loss. */
 
-const CACHE   = 'athecs-v5-6-2';
+const CACHE   = 'athecs-v5-6-3';
 const VKEY    = './__athecs_version__';  /* not a real file: a marker kept in the cache */
 const DOC     = './index.html';          /* the ONE key every document is stored under */
 const NET_MS  = 7000;                    /* a stalled connection gets this long, no more */

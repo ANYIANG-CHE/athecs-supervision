@@ -14,7 +14,7 @@
  *   4. In the app: Console Super Utilisateur ▸ Paramètres ▸ paste the URL ▸ Save.
  */
 
-var SCRIPT_VERSION = '5.6.2';   // the app checks this: a mismatch means an old deployment
+var SCRIPT_VERSION = '5.6.3';   // the app checks this: a mismatch means an old deployment
 
 /* The version of index.html the region is supposed to be running. Every phone
    compares its own APP_VERSION against this on every single pull, and says so
@@ -22,7 +22,7 @@ var SCRIPT_VERSION = '5.6.2';   // the app checks this: a mismatch means an old 
    running an old app cannot know that it is old — that was exactly the v4.0.0
    problem: the phone had no way to learn the news, and the news had no way to
    reach the phone. Raise this line when you upload a new index.html. */
-var APP_EXPECTED = '5.6.2';
+var APP_EXPECTED = '5.6.3';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ▼▼▼  VOTRE COMPTE ADMINISTRATEUR — ÉCRIVEZ VOS DEUX LIGNES ICI  ▼▼▼
@@ -98,7 +98,16 @@ var SUPER_SLOTS = (function(){
     out.push({id:'U' + ('00' + i).slice(-3), label:'Super utilisateur ' + i});
   return out;
 })();
-var CLAIM_TTL = 24*3600*1000;
+/* HOW LONG A CLAIM CODE LIVES.
+   It was 24 hours, and that is how the activation kept failing. The code is
+   read out to somebody, sent on WhatsApp, and typed in when that person next
+   has both their phone and a network — which in the West Region is routinely
+   the following day or the day after. The code was expiring in the gap, and
+   the screen said only "invalid", so it read as a broken account rather than
+   a stale code. Seven days matches how the thing is actually used, the code
+   is still single-use, still burned the moment it works, and it can now be
+   re-issued in one tap (see recodeSlot) instead of expiring into a dead end. */
+var CLAIM_TTL = 7*24*3600*1000;
 var SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
 var TOKEN    = 'ATHECS';                 // change this, and change it in the app too
 var DRIVE_FOLDER = 'ATHECS - Pieces justificatives';
@@ -167,7 +176,8 @@ var RESERVED = {
   siteReq:     'region',    // deciding a facility creation / transfer request
   assign:      'national',  // giving somebody a privileged account
   release:     'national',  // taking one away
-  scopeSet:    'national'   // setting anybody's level and scope
+  scopeSet:    'national',  // setting anybody's level and scope
+  recode:      'national'   // issuing a fresh activation code for an existing holder
 };
 
 var TABS = {
@@ -855,6 +865,7 @@ function doPost(e){
       case 'merge':     return json(mergeAccounts(p));
       case 'assign':    return json(assignSlot(p));
       case 'release':   return json(releaseSlot(p));
+      case 'recode':    return json(recodeSlot(p));
       case 'resolve':   return json(resolveConflict(p));
       case 'roleReq':   return json(roleRequest(p));
       case 'roleGrant': return json(roleGrant(p));
@@ -968,6 +979,13 @@ function doGet(e){
               title: String(r['title']||''),
               assigned: !!String(r['name']||'').trim(),
               claimed: !!r['claimed_at'],
+              /* THE STATE OF THE ACTIVATION CODE, so the console can say "expired,
+                 issue another" instead of leaving the administrator to deduce it from
+                 a refusal on somebody else's telephone. The code itself is never here
+                 and never leaves claimSlot(). */
+              hasCode:    !!String(r['claim_code']||'').trim(),
+              codeAt:     r['claim_code_at'] ? new Date(r['claim_code_at']).getTime() : 0,
+              codeTtlMs:  CLAIM_TTL,
               active: r['active'] !== false && String(r['active']).toLowerCase() !== 'false'};
     });
     return json(withReset({ok:true, slots: all}));
@@ -1468,7 +1486,44 @@ function assignSlot(p){
     status:'ACTIVE', active:true,
     claim_code:code, claim_code_at:new Date(), claimed_at:'',
     assigned_by:String(by['name']||''), assigned_at:new Date(), updated_at:new Date()});
-  return {ok:true, code:code, slotId:id, grade:lvl};
+  return {ok:true, code:code, slotId:id, grade:lvl,
+          until:(new Date().getTime() + CLAIM_TTL), ttlDays:Math.round(CLAIM_TTL/86400000)};
+}
+
+/* A FRESH ACTIVATION CODE FOR THE PERSON ALREADY IN THE POST.      (v5.6.3)
+
+   This did not exist, and its absence is the whole complaint. The only way to
+   put a new code in somebody's hands was "Reassign", which asks for the name
+   and the telephone number again and warns that it removes their access — so
+   re-issuing a code looked like starting the appointment over, and nobody
+   wanted to touch it. Expiry therefore had no remedy.
+
+   patch(), not upsert(): upsert writes the WHOLE row and blanks every column
+   it is not handed, and this must touch exactly three cells. The level, the
+   districts, the job title, the telephone and who appointed them are none of
+   this function's business and are not rewritten by it.
+
+   claimed_at is cleared on purpose. A slot whose holder has changed phone — or
+   has moved to a new address, where the app holds no PIN for them — is a slot
+   that must accept a code again, or that person is locked out of their own
+   account with no way back that does not go through the editor. */
+function recodeSlot(p){
+  var id = String(p.slotId||'');
+  var slot = SUPER_SLOTS.filter(function(x){ return x.id===id; })[0];
+  if(!slot) return {ok:false, error:'unknown slot'};
+  var by = userRow(String(p.byId||''));
+  if(!by || String(by['role']) !== 'ADMIN') return {ok:false, error:'only an administrator can issue a code'};
+  var cur = userRow(id);
+  if(!cur || !String(cur['name']||'').trim())
+    return {ok:false, error:'this post has nobody in it — assign it first'};
+  var code = sixDigits();
+  var now  = new Date();
+  var r = patch('USERS','user_id',id,{
+    claim_code:code, claim_code_at:now, claimed_at:'', updated_at:now});
+  if(r === 'missing') return {ok:false, error:'row not found'};
+  return {ok:true, code:code, slotId:id,
+          name:String(cur['name']||''), phone:String(cur['phone']||''),
+          until:(now.getTime() + CLAIM_TTL), ttlDays:Math.round(CLAIM_TTL/86400000)};
 }
 
 function releaseSlot(p){
@@ -1509,7 +1564,14 @@ function claimSlot(p){
       var code = String(sh.getRange(row, map['claim_code']+1).getValue()||'');
       var at   = sh.getRange(row, map['claim_code_at']+1).getValue();
       var age  = at ? (new Date().getTime() - new Date(at).getTime()) : Infinity;
-      if(!code || code !== String(p.code||'') || age > CLAIM_TTL) return {ok:true, valid:false};
+      /* WHY, not just no. A refusal that cannot say whether the code was wrong,
+         used, or simply a day too old sends the administrator looking for a fault
+         in the account. None of this discloses the code itself. */
+      if(!code) return {ok:true, valid:false, reason:'none'};
+      if(code !== String(p.code||'')) return {ok:true, valid:false, reason:'wrong'};
+      if(age > CLAIM_TTL) return {ok:true, valid:false, reason:'expired',
+                                  issuedAt:(at ? new Date(at).getTime() : 0),
+                                  ttlDays:Math.round(CLAIM_TTL/86400000)};
       sh.getRange(row, map['claim_code']+1).setValue('');
       sh.getRange(row, map['claim_code_at']+1).setValue('');
       sh.getRange(row, map['claimed_at']+1).setValue(new Date());
