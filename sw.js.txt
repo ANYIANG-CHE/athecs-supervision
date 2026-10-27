@@ -33,7 +33,7 @@
    Nothing here ever touches localStorage, where enrolment, PINs and
    every unsent supervision live. A cache purge is not a data loss. */
 
-const CACHE   = 'athecs-v5-6-1';
+const CACHE   = 'athecs-v5-6-2';
 const VKEY    = './__athecs_version__';  /* not a real file: a marker kept in the cache */
 const DOC     = './index.html';          /* the ONE key every document is stored under */
 const NET_MS  = 7000;                    /* a stalled connection gets this long, no more */
@@ -79,30 +79,45 @@ function verOf(text){
    own error page — and reset.html, whose whole job is to work when this
    worker is the problem, is no longer touched by it at all.
    ═══════════════════════════════════════════════════════════════════════════ */
-const STANDALONE = /(^|\/)(reset|update|heal|dashboard)\.html$/i;
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLOUDFLARE PAGES STRIPS ".html", AND THAT BROKE THE DASHBOARD   (v5.6.2)
+
+   Pages answers /dashboard.html with a 308 to /dashboard. The redirect is a
+   NAVIGATION, so this worker saw a fresh request for a path with no dot and
+   no extension, isDoc() said "a bare path is the application", and the public
+   dashboard was answered with the cached app shell — the sign-in screen under
+   the dashboard's address. Verified live on athecs.pages.dev before anyone in
+   the field could meet it. The same applied to /reset, /update and /heal, so
+   the three tools that exist to rescue a stuck phone would each have shown
+   the very app they are there to replace.
+
+   TWO CHANGES, and the second is the one that matters.
+
+   ① The list below now matches the extensionless form as well.
+
+   ② isDoc() is now a WHITELIST instead of a blacklist. The application is
+      served for the folder root and for index.html, and for nothing else.
+      Every previous fault in this function — the manifest written into the
+      app's cache slot (v4.12.0), the 504 invented for reset.html (v4.12.0),
+      this one — came from a rule that tried to name what is NOT the app
+      while new files kept being added beside it. A rule that names what IS
+      the app cannot be out of date by the time the next page is written.
+      The app routes on the hash (#/home), never on the path, so there is
+      no other path it is entitled to answer.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const STANDALONE = /(^|\/)(reset|update|heal|dashboard)(\.html)?$/i;
 
 function isDoc(req){
   let p;
-  try{ p = new URL(req.url).pathname; }catch(e){ return req.mode === 'navigate'; }
-  /* No length cap on the extension. The first attempt used {2,8}, which does
-     not match ".webmanifest" — eleven letters — so typing the manifest
-     address counted as a navigation, and putDoc wrote 900 bytes of JSON into
-     the slot the application is served from. The cached app was replaced by
-     its own manifest, on any phone whose owner followed the deployment
-     guide. A last segment with a dot in it is a FILE unless it is .html. */
-  /* STANDALONE PAGES. These live beside index.html but are not it, and the
-     app shell must never be served in their place.
-       · reset.html     — if a stuck cache could shadow it, the one tool that
-                          unsticks a phone would be hidden by the very copy it
-                          exists to remove.
-       · dashboard.html — opening it from an installed phone would otherwise
-                          show the application again, which looks exactly like
-                          a broken link. */
+  try{ p = new URL(req.url).pathname; }catch(e){ return false; }
+  /* A standalone page is never the application, whether or not the host kept
+     its .html — see the note above. */
   if(STANDALONE.test(p)) return false;
-  const last = p.split('/').pop();
-  if(last && last.indexOf('.') >= 0 && !/\.html?$/i.test(last)) return false;
-  if(req.mode === 'navigate') return true;
-  return p.endsWith('/') || /\.html?$/i.test(last || '');
+  /* The application lives at the folder root and at index.html. Anything else
+     is somebody else's file and is fetched as one: a missing asset must still
+     come back missing (the v4.3.7 lesson), and a page added beside index.html
+     tomorrow is safe from this worker without anybody editing this line. */
+  return p.endsWith('/') || /(^|\/)index\.html?$/i.test(p);
 }
 
 /* A promise that settles, whatever the network does. */
