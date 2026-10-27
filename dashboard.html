@@ -360,6 +360,10 @@ svg.chart .cross{stroke:var(--axis);stroke-width:1;stroke-dasharray:3 3;opacity:
     <div class="card" style="margin-top:14px"><div class="skl" style="height:150px"></div></div>
   </div>
   <div class="foot" id="foot"></div>
+  <!-- The credit sits OUTSIDE #foot on purpose: #foot is written by draw(),
+       which never runs when the payload fails to load, and a signature that
+       disappears whenever the server is unreachable is not a signature. -->
+  <div class="credit" id="credit"></div>
 </div>
 <div id="tip" role="status" aria-live="polite"></div>
 <div id="drill"></div>
@@ -390,7 +394,7 @@ svg.chart .cross{stroke:var(--axis);stroke-width:1;stroke-dasharray:3 3;opacity:
    The page now states its OWN version, beside the server's, and says so out
    loud when the two do not match. A deployment that is half done should
    announce itself. */
-const PAGE_VERSION = '5.6.0';
+const PAGE_VERSION = '5.6.1';
 const API   = 'https://script.google.com/macros/s/AKfycbyAjaQ1yALvefsUxZhvQbUFPo-yXXuDguqV0ni2Iz0UQXENF-uBRNU1I4zrhtQeK-ESbQ/exec';
 const TOKEN = 'ATHECS-DASH-2026';
 
@@ -570,7 +574,18 @@ function setLang(l){
   try{ localStorage.setItem('ath_dash_lang', l); }catch(e){}
   $('#t-title').textContent = T('title');
   $('#t-region').textContent = (J && J.region) || T('region');
+  drawCredit();
   draw();
+}
+/* The designer's credit. Drawn at boot, before any request leaves the page, and
+   redrawn on a language change — never inside the payload's success path. */
+function drawCredit(){
+  const el = $('#credit'); if(!el) return;
+  const L = LANG === 'fr';
+  el.innerHTML = `<span>${L ? 'Conçu par' : 'Designed by'} <b>C.F. ANYIANG</b></span>`
+    + `<a href="tel:+237658158909" title="${L ? 'Appeler le 658 158 909' : 'Call 658 158 909'}">\u260E 658 158 909</a>`
+    + `<a href="https://wa.me/237658158909" target="_blank" rel="noopener noreferrer"`
+    + ` title="${L ? 'Écrire sur WhatsApp' : 'Message on WhatsApp'}">WhatsApp</a>`;
 }
 function setView(v){ VIEW = v; draw(); }
 
@@ -1931,13 +1946,8 @@ function draw(){
     ${esc(T('updated'))} ${esc(new Date(J.generated).toLocaleString(LANG === 'fr' ? 'fr-FR' : 'en-GB'))}
     · ${LANG === 'fr' ? 'page' : 'page'} v${esc(PAGE_VERSION)} · ${LANG === 'fr' ? 'serveur' : 'server'} v${esc(srv)}
     ${J.superseded ? ' · ' + J.superseded + (LANG === 'fr' ? ' doublon(s) mis de côté' : ' duplicate(s) set aside') : ''}
-    <br>NACC powered by ICAP Global Health © 2025–2026 · ATHECS
-    <div class="credit">
-      <span>${LANG === 'fr' ? 'Conçu par' : 'Designed by'} <b>C.F. ANYIANG</b></span>
-      <a href="tel:+237658158909" title="${LANG === 'fr' ? 'Appeler le 658 158 909' : 'Call 658 158 909'}">\u260E 658 158 909</a>
-      <a href="https://wa.me/237658158909" target="_blank" rel="noopener noreferrer"
-         title="${LANG === 'fr' ? 'Écrire sur WhatsApp' : 'Message on WhatsApp'}">WhatsApp</a>
-    </div>`;
+    <br>NACC powered by ICAP Global Health © 2025–2026 · ATHECS`;
+  drawCredit();
 }
 
 /* ---------- load ---------- */
@@ -1953,6 +1963,7 @@ function draw(){
   $('#en').className = 'tb' + (LANG === 'en' ? ' on' : '');
   document.documentElement.lang = LANG;
   $('#t-title').textContent = T('title');
+  drawCredit();
 
   fetch(API + '?action=dash&rtoken=' + encodeURIComponent(TOKEN))
     .then(r => r.json())
