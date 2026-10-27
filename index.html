@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.6.4';
+const APP_VERSION = '5.6.5';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -2855,6 +2855,27 @@ function paint(html, key, r){
   app.innerHTML = shell(html, key);
   restorePlace(p);
   if(typeof afterRender==='function') afterRender(r, p.same);
+  /* AN UNFINISHED ACTIVATION SURVIVES EVERY REPAINT.                   (v5.6.5)
+     forcePinChange() used to paint the modal once. Anything that redrew afterwards —
+     a background refreshSlots(), a language switch, simply reopening the app — left
+     the holder signed in with no PIN and no prompt, and the next launch met the
+     activation door with a code that had already been burned. */
+  try{
+    const due = (DB.d.config||{}).pinDue;
+    const dueU = due ? DB.d.users.find(x=>x.id===due) : null;
+    const owed = !!(due && DB.d.session === due && dueU && !String(dueU.pin||''));
+    if(owed) forcePinChange(due, 'claim');
+    else {
+      if(due && !dueU) DB.d.config.pinDue = '';
+      /* And it must come DOWN again. A prompt that is re-asserted on every paint
+         but never withdrawn is its own trap: the moment the debt is settled — a PIN
+         chosen, or the post taken back while this screen was open — the modal has to
+         go, or the holder is locked behind a box asking for something already done.
+         Only this one modal is touched; it is recognised by its own field. */
+      const mr = $('#modal-root');
+      if(mr && mr.querySelector('#fp-new')) mr.innerHTML = '';
+    }
+  }catch(e){}
 }
 
 /* ---------------------------------------------------------------------------
@@ -3309,7 +3330,7 @@ function viewLoginAdmin(){
         <button class="item admpick on" onclick="pickAdmSlot('')">
           <div style="min-width:0;text-align:left"><b>${esc(sel.name)}</b>
             <div class="xs muted">${esc(rolesLabel(sel))}${
-              sel.claimed ? '' : (L?' · à activer':' · to activate')}</div></div>
+              admDoor(sel) === 'pin' ? '' : (L?' · à activer':' · to activate')}</div></div>
           <span class="chip n">${L?'changer':'change'}</span>
         </button></div>`
       : `
@@ -3334,20 +3355,35 @@ function viewLoginAdmin(){
         `<option value="${u.id}" ${u.id===cur?'selected':''}>${esc(u.name)}</option>`).join('')}</select>
       ${!sel ? '' : ''}
       ${!sel ? '' : `
-      ${sel && !sel.claimed ? `<div class="banner b-info xs" style="margin-bottom:10px">${L
-        ?'<b>'+esc(sel.name)+'</b> n\'a pas encore de code PIN. Saisissez le <b>code à 6 chiffres</b> qui vous a été communiqué — l\'application vous fera ensuite choisir votre propre code.'
-        :'<b>'+esc(sel.name)+'</b> has no PIN yet. Type the <b>6-digit code</b> you were given — the app will then ask you to choose your own.'}</div>`:''}
-      <label class="f"><span>${sel && !sel.claimed
-          ? (L?'Code à 6 chiffres':'6-digit code')
-          : (L?'Code PIN':'PIN')}</span>
+      ${(() => { const dr = admDoor(sel);
+        if(dr === 'setpin') return `
+      <div class="banner b-warn xs" style="margin-bottom:10px">${L
+        ?'<b>'+esc(sel.name)+'</b> a été activé sur ce téléphone, mais le code PIN n\'a jamais été choisi. Appuyez ci-dessous pour le choisir maintenant — aucun nouveau code à 6 chiffres n\'est nécessaire.'
+        :'<b>'+esc(sel.name)+'</b> was activated on this phone, but the PIN was never chosen. Press below to choose it now — no new 6-digit code is needed.'}</div>
+      <button class="btn blk" onclick="resumePin('${esc(sel.id)}')">${L
+        ?'Choisir mon code PIN':'Choose my PIN'}</button>`;
+        if(dr === 'code') return `
+      <div class="banner b-info xs" style="margin-bottom:10px">${L
+        ?'<b>'+esc(sel.name)+'</b> n\'a pas encore de code PIN sur ce téléphone. Saisissez le <b>code à 6 chiffres</b> qui vous a été communiqué — l\'application vous fera ensuite choisir votre propre code.'
+        :'<b>'+esc(sel.name)+'</b> has no PIN on this phone yet. Type the <b>6-digit code</b> you were given — the app will then ask you to choose your own.'}</div>
+      <label class="f"><span>${L?'Code à 6 chiffres':'6-digit code'}</span>
         <input type="password" id="lg-pin" inputmode="numeric"
-          placeholder="${sel && !sel.claimed?'••••••':'••••'}" autocomplete="current-password"></label>
-      <button class="btn blk" onclick="doLoginAdmin()">${sel && !sel.claimed
-        ? (L?'Activer ce compte':'Activate this account') : T('login')}</button>`}`; })()}
+          placeholder="••••••" autocomplete="one-time-code"></label>
+      <button class="btn blk" onclick="doLoginAdmin()">${L
+        ?'Activer ce compte':'Activate this account'}</button>`;
+        return `
+      <label class="f"><span>${L?'Code PIN':'PIN'}</span>
+        <input type="password" id="lg-pin" inputmode="numeric"
+          placeholder="••••" autocomplete="current-password"></label>
+      <button class="btn blk" onclick="doLoginAdmin()">${T('login')}</button>`; })()}`}`; })()}
     ` : `
-      <div class="banner b-warn">${L
-        ?'Aucun compte d\'administration n\'est encore attribué pour cette région.'
-        :'No administration account has been assigned for this region yet.'}</div>
+      ${admAutoFetch()}
+      <div class="banner ${ADM_FETCHED?'b-warn':'b-info'}">${
+        !ADM_FETCHED
+        ? (L?'Lecture des comptes sur le serveur…'
+             :'Reading the accounts from the server…')
+        : (L?'Aucun compte d\'administration n\'est encore attribué pour cette région.'
+             :'No administration account has been assigned for this region yet.')}</div>
       <p class="small muted">${L
         ?'Un compte d\'administrateur ou de super utilisateur n\'est jamais créé depuis l\'application : il est <b>attribué</b> à une personne nommée, qui reçoit un code à 6 chiffres pour l\'activer sur son téléphone.'
         :'An administrator or super-user account is never created from the app: it is <b>assigned</b> to a named person, who receives a 6-digit code to activate it on their phone.'}</p>
@@ -3368,7 +3404,37 @@ function viewLoginAdmin(){
    a super user's name must not be left on the device for the next person who
    opens the app. */
 var ADM_Q = '';
-function admFind(v){ ADM_Q = String(v || ''); render(); }
+/* THIS SCREEN FETCHES ITS OWN LIST.                                   (v5.6.5)
+   The posts live on the server and arrive through refreshSlots(). Nothing called
+   it before somebody was signed in, so a phone opening the app for the first time
+   — a new handset, or the same person at the new web address — met "no account has
+   been assigned for this region" and a Refresh button they had no reason to press.
+   The screen that needs the list now asks for it, once, and says that it is asking.
+   ADM_FETCHED guards against a loop: refreshSlots() ends in render(), which would
+   otherwise walk straight back in here. */
+var ADM_FETCHED = false, ADM_FETCHING = false;
+function admAutoFetch(){
+  if(ADM_FETCHED || ADM_FETCHING || !ONLINE || !DB.d.config.api) return '';
+  ADM_FETCHING = true;
+  setTimeout(() => {
+    Promise.resolve(refreshSlots(false))
+      .catch(()=>{})
+      .then(() => { ADM_FETCHED = true; ADM_FETCHING = false; render(); });
+  }, 60);
+  return '';
+}
+/* TYPING YOUR NAME USED TO REBUILD THE ENTIRE APPLICATION, ONCE PER LETTER.
+   render() paints the whole shell — top bar, navigation, the screen, the footer —
+   and this ran on every keystroke in the Administration search box. On a mid-range
+   handset that is the stutter people describe as "the app has become slow". The
+   keystrokes are now gathered for a sixth of a second first, which is below what
+   anybody perceives and a tenth of the work. */
+var ADM_FIND_T = null;
+function admFind(v){
+  ADM_Q = String(v || '');
+  if(ADM_FIND_T) clearTimeout(ADM_FIND_T);
+  ADM_FIND_T = setTimeout(() => { ADM_FIND_T = null; render(); }, 160);
+}
 
 function pickAdmSlot(id){
   /* An empty id is "change" — it clears the choice and brings the search back,
@@ -3379,6 +3445,49 @@ function pickAdmSlot(id){
   const pin = $('#lg-pin'); const typed = pin ? pin.value : '';
   render();
   const again = $('#lg-pin'); if(again){ again.value = typed; again.focus(); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WHICH DOOR THIS PERSON IS AT — ONE ANSWER, USED BY BOTH SIDES     (v5.6.5)
+
+   The screen decided on `claimed` and the sign-in decided on something else, so
+   a phone could print "PIN code · Login" and then run the activation path behind
+   it. That is the mismatch in the screenshots: the holder is told their account
+   is active on another phone while standing on the phone that activated it.
+
+   Worse, the two of them together made a state nobody could leave. Activation
+   set `claimed` and left the PIN empty until the holder typed one; if anything
+   interrupted that — closing the app, a background refresh repainting the
+   screen — the post was claimed on the server, the code was burned, and the
+   device held no PIN. Every later attempt met "already activated", and before
+   ↻ New code existed there was no way back at all.
+
+   `here` is the missing fact, and it is DEVICE-LOCAL: it is written only by a
+   successful activation ON THIS DEVICE and never arrives from the server, so a
+   phone that merely refreshed the roster can never resume somebody's setup.
+
+     here && no PIN  → finish what was interrupted: choose a PIN. No code: this
+                       device already proved the code once.
+     no PIN          → the code door.
+     otherwise       → the PIN door.
+   ═══════════════════════════════════════════════════════════════════════════ */
+/* The sign-in screen's "Choose my PIN" button. Same path as doLoginAdmin's
+   resume branch, reachable without typing anything into a field that is not there. */
+function resumePin(uid){
+  const u = DB.d.users.find(x=>x.id===uid);
+  if(!u || admDoor(u) !== 'setpin') return render();
+  DB.d.config.pinDue = u.id;
+  DB.d.session = u.id; DB.save(); passLanding();
+  try{ localStorage.setItem('ath_path','adm'); }catch(e){}
+  LG_PATH='adm'; go('#/home'); render();
+  return forcePinChange(u.id, 'claim');
+}
+function admDoor(u){
+  if(!u) return 'code';
+  const pin = String(u.pin || '');
+  if(u.here && !pin) return 'setpin';
+  if(!pin) return 'code';
+  return 'pin';
 }
 
 /* Administration sign-in. A slot that has not been claimed accepts ONLY its one-time
@@ -3399,8 +3508,16 @@ async function doLoginAdmin(){
      "claimed" and the device holding no PIN to compare. The old code demanded a
      PIN that could not exist anywhere and answered "wrong PIN" for ever.
      A device with no PIN for this post is therefore offered the CODE door. */
-  const hasPin = !!(u.pin||'');
-  if(!u.claimed || !hasPin){
+  const door = admDoor(u);
+  /* The PIN step was interrupted on this very device: resume it, do not ask for a
+     code that has already been spent. */
+  if(door === 'setpin'){
+    DB.d.session = u.id; DB.save(); passLanding();
+    try{ localStorage.setItem('ath_path','adm'); }catch(e){}
+    LG_PATH='adm'; go('#/home'); render();
+    return forcePinChange(u.id, 'claim');
+  }
+  if(door === 'code'){
     if(!ONLINE) return toast(L?'L\'activation a besoin du réseau, une seule fois.'
                               :'Activation needs a network, once.', 4000);
     toast(L?'Vérification…':'Checking…', 1200);
@@ -3429,7 +3546,16 @@ async function doLoginAdmin(){
                    : 'Code refused. Try again, or ask for a new code.';
       return toast(msg, 7000);
     }
-    u.claimed=true; u.pin=''; if(r.name) u.name=r.name; if(r.role) u.role=r.role;
+    u.claimed=true; u.pin='';
+    /* DEVICE-LOCAL, and the whole point of it: this phone performed the activation.
+       It is what allows an interrupted PIN step to be resumed here and nowhere else. */
+    u.here=true;
+    if(r.name) u.name=r.name; if(r.role) u.role=r.role;
+    /* A privileged account without a PIN is an unfinished activation, and until now
+       nothing remembered that. The app re-asserts the PIN screen on every paint while
+       this is set, so a background refresh, a rotation or closing the app cannot walk
+       away from it. saveForcedPin() is the only thing that clears it. */
+    DB.d.config.pinDue = u.id;
     DB.d.session=u.id; DB.save(); passLanding();
     audit('SLOT_CLAIM','user', u.name+' — '+roleLabel(u.role));
     try{ localStorage.setItem('ath_path','adm'); }catch(e){}
@@ -3537,6 +3663,7 @@ function saveForcedPin(uid){
   if(nEl) u.name=(nEl.value||'').trim();
   if(tEl) u.phone=(tEl.value||'').trim();
   u.pinResetCode=''; u.pinResetAt=null; u.pinHelp=null;
+  if(DB.d.config.pinDue === u.id) DB.d.config.pinDue = '';   // the activation is finished
   DB.save();
   audit('PIN_CHANGED','user',u.name);
   /* a phone only ever clears its own recovery flags — it never rewrites its status,
@@ -4480,6 +4607,7 @@ async function refreshSlots(loud){
          is signed into it right now they are signed out. */
       if(local){
         if(DB.d.session===sl.id){ DB.d.session=null; }
+        if(DB.d.config.pinDue===sl.id) DB.d.config.pinDue='';
         DB.d.users = DB.d.users.filter(u=>u.id!==sl.id); n++;
       }
       return;
@@ -4508,7 +4636,12 @@ async function refreshSlots(loud){
     /* Reassigned to somebody else: the slot is unclaimed again, so this phone must
        let go of the PIN it was holding. */
     if(local.claimed && !sl.claimed){
-      local.pin=''; local.claimed=false;
+      /* The post has been released, reassigned, or issued a fresh code. This phone
+         lets go of everything it held for it — the PIN, and the fact that it was the
+         device that activated it, which would otherwise let whoever holds this phone
+         walk back in without the new code. */
+      local.pin=''; local.claimed=false; local.here=false;
+      if(DB.d.config.pinDue===sl.id) DB.d.config.pinDue='';
       if(DB.d.session===sl.id) DB.d.session=null;
       n++;
     }
@@ -10825,8 +10958,29 @@ function autoPushDrafts(){
 }
 
 let ADMIN_TICK=0;
+/* Coming back to the app must not mean waiting out the rest of the 25 seconds. */
+try{
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden || !ONLINE || !DB.d.config.api) return;
+    try{ if(DB.d.outbox.length) syncNow(true); }catch(e){}
+    try{ pullRemote(); }catch(e){}
+    try{ if(me()) pullData(false).then(r => { if(r && r.changed) render(); }); }catch(e){}
+  });
+}catch(e){}
 setInterval(()=>{
   if(!ONLINE || !DB.d.config.api) return;
+  /* NOT WHILE NOBODY IS LOOKING.                                      (v5.6.5)
+     This round — a remote pull, a draft push, the questionnaire, the roster, the
+     slots, the delta and a repaint — ran every 25 seconds whether the app was on
+     screen or sitting behind WhatsApp. On a phone that is left open all day that is
+     hundreds of pointless rounds, each one ending in a full repaint, and it is a
+     large part of why the app feels heavy. A hidden app now does the one thing that
+     must not wait — emptying the outbox, so submitted work still reaches the server —
+     and nothing else. Everything resumes the moment the app is looked at again. */
+  if(typeof document !== 'undefined' && document.hidden){
+    if(DB.d.outbox.length) syncNow(true);
+    return;
+  }
   pullRemote();
   autoPushDrafts();
   publishQuestionnaire();

@@ -14,7 +14,7 @@
  *   4. In the app: Console Super Utilisateur ▸ Paramètres ▸ paste the URL ▸ Save.
  */
 
-var SCRIPT_VERSION = '5.6.4';   // the app checks this: a mismatch means an old deployment
+var SCRIPT_VERSION = '5.6.5';   // the app checks this: a mismatch means an old deployment
 
 /* The version of index.html the region is supposed to be running. Every phone
    compares its own APP_VERSION against this on every single pull, and says so
@@ -22,7 +22,7 @@ var SCRIPT_VERSION = '5.6.4';   // the app checks this: a mismatch means an old 
    running an old app cannot know that it is old — that was exactly the v4.0.0
    problem: the phone had no way to learn the news, and the news had no way to
    reach the phone. Raise this line when you upload a new index.html. */
-var APP_EXPECTED = '5.6.4';
+var APP_EXPECTED = '5.6.5';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ▼▼▼  VOTRE COMPTE ADMINISTRATEUR — ÉCRIVEZ VOS DEUX LIGNES ICI  ▼▼▼
@@ -3548,9 +3548,22 @@ function dashAhd(label){
   var P = L.sections[0], C = L.sections[1], T = L.sections[2];
   var fid = String(frow.form_id || '');
 
+  /* ── SUBMITTED WORK COUNTS HERE TOO.                               (v5.6.5)
+     This published APPROVED assessments only. Not one AHD assessment in the region
+     has been validated yet — eleven are submitted and nought approved — so the whole
+     readiness tab was empty while the work sat in the workbook. It is the same fault
+     the supervision half had in 5.3.0 and the same rule applies: work feeds this page
+     the moment it is SUBMITTED, and how much of it has been checked is a figure
+     beside it, not a condition for showing any of it. */
   var entries = rowsOf('FORM_ENTRIES').filter(function(r){
-    return String(r.form_id || '') === fid
-        && String(r.status || '').toUpperCase() === 'APPROVED';
+    if(String(r.form_id || '') !== fid) return false;
+    var st = String(r.status || '').toUpperCase();
+    return st === 'APPROVED' || st === 'SUBMITTED' || st === 'SIGNED';
+  });
+  var nValidated = 0;
+  entries.forEach(function(r){
+    var st = String(r.status || '').toUpperCase();
+    if(st === 'APPROVED' || st === 'SIGNED') nValidated++;
   });
   /* ---- AND THE SAME EMPTY TAB TOOK THE WHOLE AHD SECTION WITH IT ----------------
      `active` was built from the SITES tab and then used to DROP any assessment whose
@@ -3711,6 +3724,9 @@ function dashAhd(label){
     title:     String(frow.title || L.title || 'AHD Site Readiness Assessment'),
     status:    String(frow.status || ''),
     assessed:  facilities.length,
+    /* how many of those have actually been checked — stated, never used as a filter */
+    validated: nValidated,
+    awaiting:  Math.max(0, entries.length - nValidated),
     sites:     Object.keys(active).length,
     pct:       pct(R.ready, R.applicable),
     ready:     R.ready,

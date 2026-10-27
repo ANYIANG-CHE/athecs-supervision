@@ -394,7 +394,7 @@ svg.chart .cross{stroke:var(--axis);stroke-width:1;stroke-dasharray:3 3;opacity:
    The page now states its OWN version, beside the server's, and says so out
    loud when the two do not match. A deployment that is half done should
    announce itself. */
-const PAGE_VERSION = '5.6.4';
+const PAGE_VERSION = '5.6.5';
 const API   = 'https://script.google.com/macros/s/AKfycbyAjaQ1yALvefsUxZhvQbUFPo-yXXuDguqV0ni2Iz0UQXENF-uBRNU1I4zrhtQeK-ESbQ/exec';
 const TOKEN = 'ATHECS-DASH-2026';
 
@@ -1031,7 +1031,43 @@ function drawFilters(){
         <button class="${F.prov ? '' : 'on'}" onclick="F.prov=false;draw()">${esc(T('valOnly'))}</button>
       </span></label>
     ${dirty ? `<button class="clearf" onclick="F.region='';F.district='';F.site='';F.section='';F.prov=false;draw()">↺ ${esc(T('clear'))}</button>` : ''}
-  </div>`;
+  </div>
+  ${valNote()}`;
+}
+
+/* WHAT "VALIDATED ONLY" IS ACTUALLY HIDING.                           (v5.6.5)
+   Reported from the field as "whether I click validated or not, the figures are the
+   same". They were not the same — they were EMPTY, because not one supervision in
+   the region has been validated: nineteen submitted, nought approved. A switch whose
+   two positions look alike is a broken switch to anybody using it, whatever the data
+   underneath is doing, so the page now states the split instead of leaving it to be
+   inferred from a number that did not move. */
+function valNote(){
+  const c = cellsFor();
+  let ap = 0, sb = 0;
+  c.forEach(x => { ap += Number(x.ap || 0); sb += Number(x.sb || 0); });
+  const tot = ap + sb;
+  if(!tot) return '';
+  if(F.prov){
+    if(ap) return '';
+    return `<p class="note" style="margin-top:8px">${LANG === 'fr'
+      ? '<b>' + tot + '</b> supervision(s) soumise(s), <b>aucune</b> encore validée. '
+        + '« Validées seulement » n\'affichera donc rien tant que la validation n\'a pas commencé.'
+      : '<b>' + tot + '</b> supervision(s) submitted, <b>none</b> validated yet. '
+        + '"Validated only" will therefore show nothing until validation starts.'}</p>`;
+  }
+  if(ap) return `<p class="note" style="margin-top:8px">${LANG === 'fr'
+    ? 'Validées seulement : <b>' + ap + '</b> sur <b>' + tot + '</b> soumission(s). '
+      + '<b>' + sb + '</b> en attente de validation sont mises de côté.'
+    : 'Validated only: <b>' + ap + '</b> of <b>' + tot + '</b> submission(s). '
+      + '<b>' + sb + '</b> awaiting validation are set aside.'}</p>`;
+  return `<p class="note" style="margin-top:8px;border-left:3px solid var(--warn)">${LANG === 'fr'
+    ? '<b>Rien à afficher dans cette vue.</b> Aucune des <b>' + tot + '</b> supervision(s) soumise(s) '
+      + 'n\'a encore été validée, donc « Validées seulement » est vide. Repassez à « Toutes les soumissions » '
+      + 'pour voir le travail déjà fait.'
+    : '<b>Nothing to show in this view.</b> None of the <b>' + tot + '</b> submitted supervision(s) '
+      + 'has been validated yet, so "Validated only" is empty. Switch back to "All submissions" '
+      + 'to see the work already done.'}</p>`;
 }
 
 /* WHICH INSTRUMENTS ARE STILL RUNNING.
@@ -1864,6 +1900,13 @@ function viewAhd(){
   <p class="sub">${esc(placeLabel())} · ${facs.length} ${
     LANG === 'fr' ? 'formation(s) sanitaire(s) évaluée(s)'
                   : 'facilit' + (facs.length === 1 ? 'y' : 'ies') + ' assessed'}</p>
+  ${Number(a.awaiting || 0) ? `<p class="note">${LANG === 'fr'
+    ? '<b>' + Number(a.validated || 0) + '</b> évaluation(s) validée(s), <b>' + Number(a.awaiting) + '</b> '
+      + 'soumise(s) et pas encore vérifiée(s). Les deux sont comptées ci-dessous — le travail '
+      + 'apparaît dès qu\'il est soumis, et ce qui reste à vérifier est dit ici plutôt que caché.'
+    : '<b>' + Number(a.validated || 0) + '</b> assessment(s) validated, <b>' + Number(a.awaiting) + '</b> '
+      + 'submitted and not yet checked. Both are counted below — work appears as soon as it is '
+      + 'submitted, and what is still unchecked is said here rather than hidden.'}</p>` : ''}
   <div class="tiles">
     <div class="tile"><span class="edge" style="background:var(--ahd)"></span>
       <div class="k">${LANG === 'fr' ? 'Préparation globale' : 'Overall readiness'}</div>
