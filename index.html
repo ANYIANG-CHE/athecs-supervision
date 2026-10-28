@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.8.1';
+const APP_VERSION = '5.8.2';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -1659,6 +1659,13 @@ const DB = {
       if(ids.includes(d.session)) d.session = null;
       d.legacySlotsRemoved = (d.legacySlotsRemoved||0) + legacy.length;
     }
+
+    /* v5.8.2 — a role change to SUPER or ADMIN from the Users table was refused by
+       the server and then retried at every sync for ever. Drop those; the account
+       itself comes back from the server's roster with its real role. */
+    if(Array.isArray(d.outbox)) d.outbox = d.outbox.filter(o => !(o && o.kind==='scopeSet'
+      && o.payload && String(o.payload.what||'').toUpperCase()==='ROLE'
+      && ['SUPER','ADMIN'].includes(String(o.payload.role||'').toUpperCase())));
 
     if(!d.config.dqa) d.config.dqa = {tolPct:5, exactBelow:100, yellowPct:10};
     if(!d.config.api && typeof DEFAULT_API==='string' && DEFAULT_API) d.config.api = DEFAULT_API;
@@ -8903,6 +8910,32 @@ function assignSlotModal(slotId){
     `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
      <button class="btn" onclick="doAssignSlot('${slotId}')">${L?'Attribuer et générer le code':'Assign and generate the code'}</button>`);
 }
+/* FROM A SUPERVISOR'S CARD TO A SUPER-USER POST.                       (v5.8.2)
+   A super user is not a supervisor with a higher level: it is a separate post
+   (U001…U020) that an administrator assigns to a named person, who activates it
+   with a 6-digit code at the Administration door. Admins looked for a "change the
+   level" control on the supervisor's card and found none. This opens the usual
+   assignment on the first free post with the person's name and phone filled in.
+   The supervisor account is left untouched — both live side by side on the same
+   phone, at two doors — and is deactivated separately if it is no longer wanted. */
+function promoteToSuper(uid){
+  const L=LANG==='fr';
+  const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
+  if(!can('slotAssign')) return toast(L
+    ?'Attribuer un compte privilégié appartient à l\'administrateur.'
+    :'Assigning a privileged account belongs to the administrator.', 3600);
+  const free=(DB.d.config.slotRoster||[]).find(s=>s.role==='SUPER' && !s.assigned && s.active!==false);
+  if(!free) return toast(L
+    ?'Aucun poste de super utilisateur libre. Actualisez la liste (Super utilisateurs ▸ ↻), ou libérez un poste.'
+    :'No free super-user post. Refresh the list (Super users ▸ ↻), or free a post.', 5000);
+  assignSlotModal(free.id);
+  const n=$('#as-name'), p=$('#as-phone');
+  if(n) n.value=u.name||''; if(p) p.value=u.phone||'';
+  const body=$('#modal-body');
+  if(body) body.insertAdjacentHTML('afterbegin', `<div class="banner b-info xs" style="margin-bottom:10px">${L
+    ?'Poste <b>'+esc(free.id)+'</b> pour <b>'+esc(u.name)+'</b>. Choisissez son niveau ci-dessous, puis attribuez : un code à 6 chiffres s\'affiche. Il ou elle l\'utilise à la porte <b>Administration</b>, sur le même téléphone. Son compte superviseur reste intact ; s\'il ne doit plus servir, désactivez-le une fois le poste activé.'
+    :'Post <b>'+esc(free.id)+'</b> for <b>'+esc(u.name)+'</b>. Choose the level below, then assign: a 6-digit code appears. They use it at the <b>Administration</b> door, on the same phone. Their supervisor account stays as it is; if it is no longer needed, deactivate it once the post is active.'}</div>`);
+}
 function assignBody(slotId, keep){
   const L=LANG==='fr'; keep = keep||{};
   return `
@@ -9548,6 +9581,8 @@ function admApprovals(){
     </div>
     <button class="btn sec blk sm" style="margin-top:8px" onclick="editScope('${u.id}')">
       ✎ ${L?'Modifier l\'affectation avant d\'approuver':'Change the assignment before approving'}</button>
+    ${can('slotAssign')?`<button class="btn sec blk sm" style="margin-top:8px" onclick="promoteToSuper('${u.id}')">⬆ ${
+      L?'Enrôlé(e) par erreur comme superviseur ? En faire un super utilisateur':'Enrolled as a supervisor by mistake? Make them a super user'}</button>`:''}
   </div>`;
 
   const activeCard=u=>`<div class="card tight ${u.pinHelp?'fill-a':''}">
@@ -9576,6 +9611,8 @@ function admApprovals(){
         u.pinHelp?(L?'Donner un code':'Give a code'):(L?'PIN oublié':'Forgotten PIN')}</button>
       <button class="btn dan sm" onclick="suspendUser('${u.id}')">⛔ ${L?'Désactiver':'Deactivate'}</button>
     </div>
+    ${can('slotAssign')?`<button class="btn sec blk sm" style="margin-top:7px" onclick="promoteToSuper('${u.id}')">⬆ ${
+      L?'Faire de cette personne un super utilisateur':'Make this person a super user'}</button>`:''}
     <div class="row" style="margin-top:7px">
       ${!isDual(u) && !reqPending(u) ? `<button class="btn sec sm" onclick="addRoleModal('${u.id}')">＋ ${
         L?'Ajouter le rôle '+(u.role==='SITE'?'superviseur':'personnel du site')
@@ -10035,8 +10072,12 @@ function admUsers(){
              roles is now stated, not offered as a choice, and each hat is edited
              through its own scope button, which writes only its own column. */
           ? `<span class="chip ${isDual(u)?'g':'n'}">${esc(rolesLabel(u))}</span>`
+          /* Only the roles this control can really give. SUPER and ADMIN are posts
+             assigned by code: the server refuses them here, and offering them made the
+             account look privileged on this phone until the clean-up deleted it. */
           : `<select onchange="setRole('${u.id}',this.value)">
-              ${ROLES.map(r=>`<option value="${r.k}" ${u.role===r.k?'selected':''}>${esc(roleLabel(r.k))}</option>`).join('')}
+              ${ROLES.filter(r=>!['SUPER','ADMIN'].includes(r.k)).map(r=>`<option value="${r.k}" ${u.role===r.k?'selected':''}>${esc(roleLabel(r.k))}</option>`).join('')}
+              ${can('slotAssign')?`<option value="PROMOTE">⬆ ${LANG==='fr'?'Faire super utilisateur…':'Make super user…'}</option>`:''}
             </select>`}</td>
         <td class="xs">${esc(u.fn||'')}</td>
         <td class="xs">${u.idNumber?esc(u.idType)+' '+esc(u.idNumber)+(u.idFile?' <a href="'+u.idFile+'" target="_blank">↗</a>':''):'—'}</td>
@@ -10057,6 +10098,10 @@ function setRole(uid,r){ const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
   if(isSlot(u)) return toast(LANG==='fr'
     ?'Un compte privilégié n\'est pas un rôle que l\'on change ici : c\'est un poste, attribué par code.'
     :'A privileged account is not a role changed here: it is a slot, assigned by code.', 5000);
+  if(r==='PROMOTE' || r==='SUPER'){ render(); return promoteToSuper(uid); }
+  if(r==='ADMIN'){ render(); return toast(LANG==='fr'
+    ?'Un compte administrateur se crée uniquement depuis l\'éditeur Apps Script (activerAdmin2).'
+    :'An administrator account is created only from the Apps Script editor (activerAdmin2).', 5000); }
   const before=u.role; u.role=r; DB.save();
   audit('USER_ROLE','user',u.name+' : '+roleLabel(before)+' → '+roleLabel(r));
   queue('scopeSet', {id:u.id, byId:(me()||{}).id, what:'ROLE', role:r}); render(); }
