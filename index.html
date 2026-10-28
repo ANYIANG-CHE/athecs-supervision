@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.8.3';
+const APP_VERSION = '5.8.4';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -8618,7 +8618,7 @@ function admSlots(){
         <span class="chip ${!named?'n':(u.claimed&&u.hasPin)?'g':'a'}">${
           !named?(L?'libre':'free')
           :(u.claimed&&u.hasPin)?(L?'actif':'active')
-          :u.claimed?(L?'actif · 1 téléphone':'active · 1 phone')
+          :u.claimed?(L?'code utilisé · PIN non enregistré':'code used · PIN not saved')
           :(L?'à activer':'to activate')}</span>
       </div>
       ${named && !isA ? codeState(u) : ''}
@@ -8834,9 +8834,13 @@ function codeState(u){
   if(u.claimed && u.hasPin) return `<p class="xs" style="margin-top:7px;color:var(--ok)">✓ ${L
     ?'Activé — code PIN enregistré sur le compte : fonctionne sur tout téléphone.'
     :'Active — PIN saved on the account: works on any phone.'}</p>`;
+  /* The code was used, but no PIN reached the account. That covers two cases the
+     server cannot tell apart: an activation finished on one phone before PINs were
+     saved on accounts, and an activation that never finished (the answer was lost
+     on the way back). Neither is "active" from the console's point of view. */
   if(u.claimed) return `<p class="xs" style="margin-top:7px;color:var(--warn)">⚠ ${L
-    ?'Activé sur un seul téléphone : le code PIN n\'est pas enregistré sur le compte. Sur un autre téléphone ou une autre adresse, cette personne devra saisir un code. Donnez-lui un nouveau code (↻) pour régler cela une fois pour toutes.'
-    :'Active on one phone only: the PIN is not saved on the account. On another phone or address this person will need a code. Issue a new code (↻) to settle it for good.'}</p>`;
+    ?'Le code a été utilisé, mais aucun code PIN n\'est enregistré sur le compte. Si cette personne ne peut pas se connecter, ou change de téléphone ou d\'adresse : donnez-lui un nouveau code (↻). Une fois son PIN choisi, ce poste passe à « actif ».'
+    :'The code was used, but no PIN is saved on the account. If this person cannot sign in, or changes phone or address: issue a new code (↻). Once their PIN is chosen, this post turns "active".'}</p>`;
   const at  = Number(u.codeAt || 0);
   const ttl = Number(u.codeTtlMs || 7*86400000);
   if(!u.hasCode || !at) return `<p class="xs" style="margin-top:7px;color:var(--warn)">${L
