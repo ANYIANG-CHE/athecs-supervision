@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.8.0';
+const APP_VERSION = '5.8.1';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -2865,7 +2865,7 @@ function paint(html, key, r){
     const dueU = due ? DB.d.users.find(x=>x.id===due) : null;
     /* owed until saveForcedPin() clears it — the phone may still hold the OLD PIN
        that the person forgot, which is why a temporary code was issued at all */
-    const owed = !!(due && DB.d.session === due && dueU);
+    const owed = DB.d.session === due && pinOwed(due);
     if(owed){ if(!$('#fp-new')) forcePinChange(due, 'claim'); }   // already open: keep what was typed
     else {
       if(due && !dueU) DB.d.config.pinDue = '';
@@ -3480,13 +3480,25 @@ function pickAdmSlot(id){
 function resumePin(uid){
   const u = DB.d.users.find(x=>x.id===uid);
   if(!u || admDoor(u) !== 'setpin') return render();
-  DB.d.config.pinDue = u.id;
+  DB.d.config.pinDue = u.id; DB.d.config.pinDueAt = Date.now();
   DB.d.session = u.id; DB.save(); passLanding();
   try{ localStorage.setItem('ath_path','adm'); }catch(e){}
   LG_PATH='adm'; go('#/home'); render();
   return forcePinChange(u.id, 'claim');
 }
 var PIN_SET_TOKEN = null;
+/* IS A PIN CHOICE REALLY OWED?                                        (v5.8.1)
+   pinDue can be a leftover from an activation finished long ago under an older
+   version. Honouring it then forced a working account onto "Choose your PIN" —
+   overwriting a PIN that was fine — and let a supervisor's phone skip its PIN
+   check. It counts only when the account has no PIN at all, or when it was set
+   in the last 24 hours by a code that this phone has just had accepted. */
+function pinOwed(id){
+  const c = DB.d.config || {};
+  if(!id || c.pinDue !== id) return false;
+  const u = DB.d.users.find(x=>x.id===id); if(!u) return false;
+  return !String(u.pin||'') || (Date.now() - Number(c.pinDueAt||0)) < 24*3600*1000;
+}
 function admDoor(u){
   if(!u) return 'code';
   const pin = String(u.pin || '');
@@ -3571,7 +3583,7 @@ async function doLoginAdmin(){
        nothing remembered that. The app re-asserts the PIN screen on every paint while
        this is set, so a background refresh, a rotation or closing the app cannot walk
        away from it. saveForcedPin() is the only thing that clears it. */
-    DB.d.config.pinDue = u.id;
+    DB.d.config.pinDue = u.id; DB.d.config.pinDueAt = Date.now();
     DB.d.session=u.id; DB.save(); passLanding();
     audit('SLOT_CLAIM','user', u.name+' — '+roleLabel(u.role));
     try{ localStorage.setItem('ath_path','adm'); }catch(e){}
@@ -3633,7 +3645,7 @@ async function doLogin(){
   let temp=false;
   /* A PIN choice interrupted on THIS phone (the code was already accepted here):
      finish it instead of asking for a code that has been spent. */
-  const resume = DB.d.config.pinDue === u.id;
+  const resume = pinOwed(u.id);
   if(!resume && (u.pin||'')!==pin){
     let ok=false;
     if(ONLINE && DB.d.config.api && pin.length>=4){
@@ -3672,7 +3684,7 @@ async function doLogin(){
     /* pinDue keeps the "choose your PIN" box on screen through every repaint
        (the hashchange from go() above repainted it away) until it is saved. */
     u.pinResetCode=''; u.pinResetAt=null; u.pinHelp=null;
-    DB.d.config.pinDue = u.id; DB.save();
+    DB.d.config.pinDue = u.id; DB.d.config.pinDueAt = Date.now(); DB.save();
     if(temp) audit('PIN_RESET_USED','user',u.name);
     forcePinChange(u.id,'reset'); return;
   }
@@ -3734,7 +3746,7 @@ function saveForcedPin(uid){
   if(nEl) u.name=(nEl.value||'').trim();
   if(tEl) u.phone=(tEl.value||'').trim();
   u.pinResetCode=''; u.pinResetAt=null; u.pinHelp=null;
-  if(DB.d.config.pinDue === u.id) DB.d.config.pinDue = '';   // the activation is finished
+  if(DB.d.config.pinDue === u.id){ DB.d.config.pinDue = ''; DB.d.config.pinDueAt = 0; }   // finished
   DB.save();
   audit('PIN_CHANGED','user',u.name);
   /* a phone only ever clears its own recovery flags — it never rewrites its status,
