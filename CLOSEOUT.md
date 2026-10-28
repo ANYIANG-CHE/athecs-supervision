@@ -1,6 +1,6 @@
 # ATHECS Integrated Supervision — development close-out
 
-Version at close: **app 5.8.3 · server (Code.gs) 5.8.3** · 28 October 2026
+Version at close: **app 5.8.3 · server (Code.gs) 5.8.4** · 28 October 2026
 Addresses: https://athecs.pages.dev (main) · https://anyiang-che.github.io/athecs-supervision/ (old link)
 
 ## 1. What the app is
@@ -64,6 +64,7 @@ Rules for future work are in `CLAUDE.md`.
   quick pull read the whole ANSWERS tab; the post list read USERS 22 times; phones stacked
   a new round on top of an unfinished one. All three fixed, and a busy server is now
   reported as busy ("your code was not used") instead of "refused" / "wrong PIN".
+  Server 5.8.4: settings read once per request, and only the end of the Journal is read.
 - Forgotten-PIN requests now show in the national Users table (🔑 filter and button).
 - Deployment: one push now updates both addresses; `Code.gs` removed from the repository
   and from every public Cloudflare deployment.
