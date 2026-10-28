@@ -1,6 +1,6 @@
 # ATHECS Integrated Supervision — development close-out
 
-Version at close: **app 5.8.2 · server (Code.gs) 5.8.0** · 28 October 2026
+Version at close: **app 5.8.3 · server (Code.gs) 5.8.3** · 28 October 2026
 Addresses: https://athecs.pages.dev (main) · https://anyiang-che.github.io/athecs-supervision/ (old link)
 
 ## 1. What the app is
@@ -60,6 +60,11 @@ Rules for future work are in `CLAUDE.md`.
 - An old "PIN owed" marker taking over sign-in after the 5.8.0 update.
 - Role list offering "Super user"/"Administrator": refused by the server, then the account
   vanished from the admin's phone. Replaced by **⬆ Make super user…**.
+- Server overload (5.8.3): codes "refused" without being judged, and a slow app. Every
+  quick pull read the whole ANSWERS tab; the post list read USERS 22 times; phones stacked
+  a new round on top of an unfinished one. All three fixed, and a busy server is now
+  reported as busy ("your code was not used") instead of "refused" / "wrong PIN".
+- Forgotten-PIN requests now show in the national Users table (🔑 filter and button).
 - Deployment: one push now updates both addresses; `Code.gs` removed from the repository
   and from every public Cloudflare deployment.
 

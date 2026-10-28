@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.8.2';
+const APP_VERSION = '5.8.3';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -3572,6 +3572,10 @@ async function doLoginAdmin(){
              : 'This account is already active on another phone, and this phone does not yet hold a PIN for it. Ask for a new 6-digit code: Administration ▸ Privileged accounts ▸ ↻ New code.')
         : (L ? 'Aucun code n\'est en attente pour ce compte. Demandez-en un.'
              : 'No code is outstanding for this account. Ask for one.');
+      /* The server never judged the code: busy, or the network dropped the answer. */
+      else if(r && r.busy) msg = L
+        ? 'Le serveur n\'a pas répondu (occupé ou réseau faible). Réessayez dans une minute. Si le message « aucun code en attente » apparaît ensuite, demandez un nouveau code.'
+        : 'The server did not answer (busy, or a weak network). Try again in a minute. If you then see "no code outstanding", ask for a new code.';
       else msg = L ? 'Code refusé. Réessayez, ou demandez un nouveau code.'
                    : 'Code refused. Try again, or ask for a new code.';
       return toast(msg, 7000);
@@ -3654,7 +3658,7 @@ async function doLogin(){
      finish it instead of asking for a code that has been spent. */
   const resume = pinOwed(u.id);
   if(!resume && (u.pin||'')!==pin){
-    let ok=false;
+    let ok=false, noAnswer=false;
     if(ONLINE && DB.d.config.api && pin.length>=4){
       toast(L?'Vérification…':'Checking…', 1200);
       /* 1) the PIN saved on the ACCOUNT — a new phone, a cleared browser, a new address */
@@ -3666,11 +3670,16 @@ async function doLogin(){
       /* 2) a temporary code from central level */
       else{
         const t = await checkTempPin(u.id, pin);
-        if(t){ temp = true; ok = true;
+        if(t && t.noAnswer) noAnswer = true;
+        else if(t){ temp = true; ok = true;
           if(t.setToken){ PIN_SET_TOKEN = {id:u.id, tok:t.setToken, at:Date.now()};
                           DB.d.config.pinTok = PIN_SET_TOKEN; } }
       }
     }
+    /* "Wrong PIN" is a verdict. When the server never gave one, say that instead. */
+    if(!ok && noAnswer) return toast(L
+      ?'Le serveur n\'a pas répondu (occupé ou réseau faible). Votre code n\'a pas été utilisé : réessayez dans une minute.'
+      :'The server did not answer (busy, or a weak network). Your code was not used: try again in a minute.', 6000);
     if(!ok) return toast(!ONLINE && !(u.pin||'')
       ? (L?'Ce téléphone ne connaît pas encore votre code PIN : la première connexion ici a besoin du réseau.'
           :'This phone does not know your PIN yet: the first sign-in here needs a network.')
@@ -4795,12 +4804,18 @@ async function pinSetRemote(uid, pin, opts){
 async function claimSlot(slotId, code){
   const api=DB.d.config.api;
   if(!api || !ONLINE) return {ok:false, offline:true};
-  try{
-    const r=await fetch(api+'?action=claim&token='+encodeURIComponent(apiToken())
-      +'&slotId='+encodeURIComponent(slotId)+'&code='+encodeURIComponent(code));
-    const j=await r.json();
-    return j||{ok:false};
-  }catch(e){ return {ok:false, error:String(e)}; }
+  /* A busy server answers with an error page, or not at all. That is not a refusal
+     — the code was never judged — so it is asked once more before giving up. */
+  for(let attempt=0; attempt<2; attempt++){
+    try{
+      const r=await fetch(api+'?action=claim&token='+encodeURIComponent(apiToken())
+        +'&slotId='+encodeURIComponent(slotId)+'&code='+encodeURIComponent(code));
+      const j=await r.json();
+      if(j && j.ok) return j;
+    }catch(e){}
+    if(attempt===0) await new Promise(r=>setTimeout(r, 4000));
+  }
+  return {ok:false, busy:true};
 }
 
 /* ---------- "where does my account stand?" ----------------------------------
@@ -5018,7 +5033,9 @@ async function refreshRoster(loud){
           phone:s.phone, email:s.email, districts:s.districts||[], sites:s.sites||[],
           dual:s.dual===true, req:s.req||null,
           status:normStatus(s.status)||U_PENDING,
-          active:s.active!==false, enrolled:s.enrolled||Date.now(), remote:true});
+          active:s.active!==false, enrolled:s.enrolled||Date.now(), remote:true,
+          /* a request made before this console first saw the account must show at once */
+          pinHelp:s.pinHelp||null, pinResetAt:s.pinResetAt||null, hasPin:s.hasPin===true});
         added++;
       }
     });
@@ -5196,9 +5213,11 @@ async function checkTempPin(uid, code){
     const r=await fetch(api+'?action=pincheck&token='+encodeURIComponent(apiToken())
       +'&uid='+encodeURIComponent(uid)+'&code='+encodeURIComponent(code));
     const j=await r.json();
-    /* truthy only when valid; carries the one-time right to save the new PIN */
-    return (j && j.ok && j.valid) ? {setToken:String(j.setToken||'')} : false;
-  }catch(e){ return false; }
+    /* valid: carries the one-time right to save the new PIN. noAnswer: the server
+       never judged the code (busy) — distinct from false, which is a refusal */
+    if(j && j.ok && j.valid) return {setToken:String(j.setToken||'')};
+    return (j && j.ok) ? false : {noAnswer:true};
+  }catch(e){ return {noAnswer:true}; }
 }
 
 /* ---------- supervisor side: I forgot my PIN ---------- */
@@ -5225,6 +5244,9 @@ function forgotPinModal(){
       <li>${L?'L\'application vous demande aussitôt de choisir votre nouveau code.'
              :'The app then asks you to choose your new code straight away.'}</li>
     </ol>
+    ${users.length?'':`<div class="banner b-warn">${L
+      ?'Votre compte n\'est pas encore sur ce téléphone (nouveau téléphone ou nouvelle adresse) : la demande ne peut pas partir d\'ici. Fermez, appuyez sur « Je ne trouve pas mon compte », récupérez-le avec votre numéro, puis revenez ici.'
+      :'Your account is not on this phone yet (a new phone or a new address): the request cannot be sent from here. Close this, tap "I cannot find my account", bring it back with your phone number, then come back here.'}</div>`}
     <label class="f"><span>${L?'Qui êtes-vous ?':'Who are you?'}</span>
       <select id="fp-who">${users.map(u=>
         `<option value="${u.id}" ${u.id===cur?'selected':''}>${esc(u.name)}</option>`).join('')
@@ -10053,7 +10075,10 @@ function admUsers(){
       ?`${weak.length} super utilisateur(s) utilisent encore un code PIN par défaut : ${esc(weak.map(u=>u.name).join(', '))}. Changez-le immédiatement.`
       :`${weak.length} super user(s) still use a default PIN: ${esc(weak.map(u=>u.name).join(', '))}. Change it immediately.`}</div>`:''}
     ${(()=>{ const nd=DB.d.users.filter(u=>isDual(u)).length; const L=LANG==='fr';
+      const nh=DB.d.users.filter(u=>!isSlot(u) && u.pinHelp).length;
       return `<div class="row" style="gap:8px;align-items:center;margin-bottom:8px">
+        <button class="btn ${nh?'':'sec'} sm ${USR_FILTER==='help'?'sel-y':''}" onclick="usrFilter('help')">
+          🔑 ${L?'Demandes de code':'Code requests'} <span class="badge">${nh}</span></button>
         <button class="btn sec sm ${USR_FILTER==='dual'?'sel-y':''}" onclick="usrFilter('dual')">
           👥🏥 ${L?'Deux rôles':'Two roles'} <span class="badge">${nd}</span></button>
         <button class="btn sec sm ${USR_FILTER===''?'sel-y':''}" onclick="usrFilter('')">${L?'Tous':'All'}</button>
@@ -10062,7 +10087,8 @@ function admUsers(){
       <thead><tr><th>${T('name')}</th><th>${T('role')}</th><th>${LANG==='fr'?'Fonction':'Function'}</th>
         <th>${LANG==='fr'?'Pièce':'ID'}</th><th>${LANG==='fr'?'Portée':'Scope'}</th>
         <th>${T('status')}</th><th>PIN</th></tr></thead>
-      <tbody>${DB.d.users.filter(u=>USR_FILTER!=='dual'||isDual(u)).map(u=>`<tr class="${u.active===false?'muted':''}">
+      <tbody>${DB.d.users.filter(u=>USR_FILTER==='dual'?isDual(u):USR_FILTER==='help'?(!isSlot(u)&&u.pinHelp):true)
+        .sort((a,b)=>(b.pinHelp?1:0)-(a.pinHelp?1:0)).map(u=>`<tr class="${u.active===false?'muted':''} ${u.pinHelp&&!isSlot(u)?'fill-a':''}">
         <td class="small">${esc(u.name)}</td>
         <td>${isDual(u)||isSlot(u)
           /* ---- A DROP-DOWN CANNOT HOLD TWO ROLES ------------------------------------
@@ -10085,7 +10111,9 @@ function admUsers(){
         <td class="xs">${userStatus(u)}</td>
         <td>${isSlot(u)
           ? `<span class="xs muted">${LANG==='fr'?'attribué':'assigned'}</span>`
-          : `<button class="btn sec sm" onclick="resetPin('${u.id}')">🔑</button>`}</td></tr>`).join('')}
+          : u.pinHelp
+            ? `<button class="btn sm" title="${esc(fmtDT(u.pinHelp))}" onclick="resetPin('${u.id}')">🔑 ${LANG==='fr'?'Donner un code':'Give a code'}</button>`
+            : `<button class="btn sec sm" onclick="resetPin('${u.id}')">🔑</button>`}</td></tr>`).join('')}
       </tbody></table></div>
     <p class="xs muted" style="margin-top:8px">${LANG==='fr'
       ?'Les comptes privilégiés ne se modifient pas ici : ils sont attribués par un administrateur, onglet « Super utilisateurs ». Aucun code PIN n\'est stocké dans ce tableau.'
@@ -11248,11 +11276,13 @@ function autoPushDrafts(){
 }
 
 let ADMIN_TICK=0;
+var ROUND_BUSY=false;   /* a background round is still waiting for the server */
 /* Coming back to the app must not mean waiting out the rest of the 25 seconds. */
 try{
   document.addEventListener('visibilitychange', () => {
     if(document.hidden || !ONLINE || !DB.d.config.api) return;
     try{ if(DB.d.outbox.length) syncNow(true); }catch(e){}
+    if(ROUND_BUSY) return;            // a round is already on its way to the server
     try{ pullRemote(); }catch(e){}
     try{ if(me()) pullData(false).then(r => { if(r && r.changed) render(); }); }catch(e){}
   });
@@ -11271,21 +11301,35 @@ setInterval(()=>{
     if(DB.d.outbox.length) syncNow(true);
     return;
   }
-  pullRemote();
+  /* ONE ROUND AT A TIME.                                               (v5.8.3)
+     When the server answers slowly, a round can take longer than 25 seconds. The
+     next one used to start anyway, so every phone stacked request on request, the
+     server hit its limit on simultaneous requests, and whatever arrived then — an
+     activation code, a temporary code — failed and was reported as "refused".
+     A round now starts only once the previous one has finished: a fast server is
+     asked as often as before, a slow one is given room to catch up. */
+  if(ROUND_BUSY) return;
+  ROUND_BUSY = true;
+  const jobs = [];
+  jobs.push(pullRemote());
   autoPushDrafts();
   publishQuestionnaire();
-  if(DB.d.outbox.length) syncNow(true);
+  if(DB.d.outbox.length) jobs.push(syncNow(true));
   const u=me();
-  if(u){ if(isSlot(u)) refreshRoster(false); else refreshMyState(false); }
+  if(u){ jobs.push(isSlot(u) ? refreshRoster(false) : refreshMyState(false)); }
   /* Nobody signed in: still ask the server about the accounts this phone holds, so a
      reactivation reaches a person who cannot currently get past the sign-in screen. */
-  else if(typeof refreshLocalAccounts==='function'){ refreshLocalAccounts(false); }
+  else if(typeof refreshLocalAccounts==='function'){ jobs.push(refreshLocalAccounts(false)); }
   /* the privileged slots, whether or not anybody is signed in: this is what makes an
      assignment appear, and a withdrawal disappear, without anyone doing anything */
-  if(ADMIN_TICK % 4 === 0 && typeof refreshSlots==='function') refreshSlots(false);
+  if(ADMIN_TICK % 4 === 0 && typeof refreshSlots==='function') jobs.push(refreshSlots(false));
   /* the delta every 25 s; the questionnaire, cycles and registry every 8th pass */
-  if(u) pullData(ADMIN_TICK % 8 === 0).then(r=>{ if(r && r.changed) render(); });
-  if(ADMIN_TICK++ % 8 === 0) refreshAdmins(false);   // ~ every 3 minutes, all roles
+  if(u) jobs.push(pullData(ADMIN_TICK % 8 === 0).then(r=>{ if(r && r.changed) render(); }));
+  if(ADMIN_TICK++ % 8 === 0) jobs.push(refreshAdmins(false));   // ~ every 3 minutes, all roles
+  /* never wait for ever: a request the network silently dropped must not stop every
+     later round, so the flag is released after two minutes whatever happened */
+  Promise.race([Promise.allSettled(jobs), new Promise(r=>setTimeout(r, 120000))])
+    .then(()=>{ ROUND_BUSY = false; });
 }, 25000);
 
 /* ===================== boot ===================== */
