@@ -1,0 +1,17 @@
+# OS / editor clutter
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+
+# Office lock files
+~$*
+
+# Stray copy of sw.js
+sw.js.txt
+
+# Claude Code local settings
+.claude/
+
+# Server code holds the link password: it lives in Apps Script, never on GitHub
+Code.gs

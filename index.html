@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.7.1';
+const APP_VERSION = '5.8.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -2863,8 +2863,10 @@ function paint(html, key, r){
   try{
     const due = (DB.d.config||{}).pinDue;
     const dueU = due ? DB.d.users.find(x=>x.id===due) : null;
-    const owed = !!(due && DB.d.session === due && dueU && !String(dueU.pin||''));
-    if(owed) forcePinChange(due, 'claim');
+    /* owed until saveForcedPin() clears it — the phone may still hold the OLD PIN
+       that the person forgot, which is why a temporary code was issued at all */
+    const owed = !!(due && DB.d.session === due && dueU);
+    if(owed){ if(!$('#fp-new')) forcePinChange(due, 'claim'); }   // already open: keep what was typed
     else {
       if(due && !dueU) DB.d.config.pinDue = '';
       /* And it must come DOWN again. A prompt that is re-asserted on every paint
@@ -3560,6 +3562,7 @@ async function doLoginAdmin(){
        only: it is a credential, it is used within seconds, and it must not outlive
        the activation on a device somebody else may pick up. */
     PIN_SET_TOKEN = {id:u.id, tok:String(r.setToken||''), at:Date.now()};
+    DB.d.config.pinTok = PIN_SET_TOKEN;   /* survives a reload until the server has the PIN */
     /* DEVICE-LOCAL, and the whole point of it: this phone performed the activation.
        It is what allows an interrupted PIN step to be resumed here and nowhere else. */
     u.here=true;
@@ -3607,6 +3610,12 @@ async function doLoginAdmin(){
   if(DEFAULT_PINS.includes(u.pin)){ forcePinChange(u.id); return; }
   maybeTour();          // the rewrite dropped this: a new super user never saw the guide
   pushUser(u); refreshRoster(false); refreshAdmins(false); refreshSlots(false);
+  /* The PIN never reached the account (the save was interrupted or refused):
+     send it again with the activation token this phone still holds. */
+  const pt = DB.d.config.pinTok;
+  if(!u.hasPin && pt && pt.id === u.id)
+    pinSetRemote(u.id, u.pin, {setToken:pt.tok}).then(res => {
+      if(res && res.ok){ u.hasPin = true; DB.d.config.pinTok = null; DB.save(); } });
 }
 
 async function doLogin(){
@@ -3622,13 +3631,30 @@ async function doLogin(){
      never matched here: the server compares it and burns it. So it can only be used
      once, only within 24 hours, and only when a reset is actually outstanding. */
   let temp=false;
-  if((u.pin||'')!==pin){
+  /* A PIN choice interrupted on THIS phone (the code was already accepted here):
+     finish it instead of asking for a code that has been spent. */
+  const resume = DB.d.config.pinDue === u.id;
+  if(!resume && (u.pin||'')!==pin){
+    let ok=false;
     if(ONLINE && DB.d.config.api && pin.length>=4){
       toast(L?'Vérification…':'Checking…', 1200);
-      temp = await checkTempPin(u.id, pin);
+      /* 1) the PIN saved on the ACCOUNT — a new phone, a cleared browser, a new address */
+      const v = await pinCheck(u.id, pin);
+      if(v && v.locked) return toast(L
+        ?'Trop de tentatives. Réessayez dans '+(v.waitMin||15)+' minute(s).'
+        :'Too many attempts. Try again in '+(v.waitMin||15)+' minute(s).', 5000);
+      if(v && v.valid){ u.pin = pin; u.hasPin = true; DB.save(); ok = true; }
+      /* 2) a temporary code from central level */
+      else{
+        const t = await checkTempPin(u.id, pin);
+        if(t){ temp = true; ok = true;
+          if(t.setToken){ PIN_SET_TOKEN = {id:u.id, tok:t.setToken, at:Date.now()};
+                          DB.d.config.pinTok = PIN_SET_TOKEN; } }
+      }
     }
-    if(!temp) return toast(!ONLINE && !(u.pin||'')
-      ? (L?'Code temporaire : connectez-vous au réseau pour l\'utiliser':'Temporary code: connect to a network to use it')
+    if(!ok) return toast(!ONLINE && !(u.pin||'')
+      ? (L?'Ce téléphone ne connaît pas encore votre code PIN : la première connexion ici a besoin du réseau.'
+          :'This phone does not know your PIN yet: the first sign-in here needs a network.')
       : (L?'Code PIN incorrect':'Wrong PIN'));
   }
 
@@ -3642,10 +3668,19 @@ async function doLogin(){
   if(isDual(u) && path!=='adm'){ SPACE = path;
     try{ localStorage.setItem('ath_space', path); }catch(e){} }
   DB.d.session=u.id; DB.save(); passLanding(); audit('LOGIN','user',u.name); go('#/home'); render();
-  if(temp){
-    u.pinResetCode=''; u.pinResetAt=null; u.pinHelp=null; DB.save();
-    audit('PIN_RESET_USED','user',u.name); forcePinChange(u.id,'reset'); return;
+  if(temp || resume){
+    /* pinDue keeps the "choose your PIN" box on screen through every repaint
+       (the hashchange from go() above repainted it away) until it is saved. */
+    u.pinResetCode=''; u.pinResetAt=null; u.pinHelp=null;
+    DB.d.config.pinDue = u.id; DB.save();
+    if(temp) audit('PIN_RESET_USED','user',u.name);
+    forcePinChange(u.id,'reset'); return;
   }
+  /* The PIN never reached the account: send it again with the token still held. */
+  const pt = DB.d.config.pinTok;
+  if(!u.hasPin && pt && pt.id === u.id)
+    pinSetRemote(u.id, u.pin, {setToken:pt.tok}).then(res => {
+      if(res && res.ok){ u.hasPin = true; DB.d.config.pinTok = null; DB.save(); } });
   if(isSlot(u) && DEFAULT_PINS.includes(u.pin)){ forcePinChange(u.id); return; }
   maybeTour();
   if(isSlot(u)){ pushUser(u); refreshRoster(false); } else refreshMyState(false);
@@ -3704,24 +3739,23 @@ function saveForcedPin(uid){
   audit('PIN_CHANGED','user',u.name);
   /* a phone only ever clears its own recovery flags — it never rewrites its status,
      districts or role by pushing a whole record it may have received long ago */
-  if(isSlot(u)){
-    /* v5.7.0 — THE PIN GOES ONTO THE ACCOUNT, not only into this browser.
-       Authorised by the one-time token the activation handed back, or, when this
-       is an ordinary change of PIN, by the PIN that is already there. If the
-       network refuses, the local copy still works on this device and the person
-       is told plainly that it has not reached the account yet — rather than being
-       left to discover it on their next handset. */
-    const t = (PIN_SET_TOKEN && PIN_SET_TOKEN.id === u.id
-               && (Date.now() - PIN_SET_TOKEN.at) < 14*60*1000) ? PIN_SET_TOKEN.tok : '';
+  /* v5.7.0 — THE PIN GOES ONTO THE ACCOUNT, not only into this browser — and since
+     v5.8.0 for every account, not only the privileged posts, so a supervisor or a
+     facility focal point signs in with the same PIN on any phone and any address.
+     Authorised by the one-time token the code handed back, or, for an ordinary
+     change of PIN, by the PIN that is already there. If it does not get through,
+     the local copy still works here and the next online sign-in retries it. */
+  const pt = PIN_SET_TOKEN || DB.d.config.pinTok;
+  const t = (pt && pt.id === u.id) ? pt.tok : '';
+  if(isSlot(u) || t || u.hasPin)
     pinSetRemote(u.id, a, {setToken:t, current:(t ? '' : String(u.pinWas||''))})
       .then(res => {
-        if(res && res.ok){ u.hasPin = true; PIN_SET_TOKEN = null; DB.save(); }
+        if(res && res.ok){ u.hasPin = true; PIN_SET_TOKEN = null; DB.d.config.pinTok = null; DB.save(); }
         else toast(L
           ?'Code PIN enregistré sur ce téléphone, mais pas encore sur le compte — reconnectez-vous une fois en ligne.'
           :'PIN saved on this phone but not yet on the account — sign in once with a network.', 6000);
       });
-  }
-  else queue('userFlag',{id:u.id, pinResetCode:'', pinResetAt:'', pinHelp:''});
+  if(!isSlot(u)) queue('userFlag',{id:u.id, pinResetCode:'', pinResetAt:'', pinHelp:''});
   closeModal(); toast(L?'✓ Code PIN enregistré':'✓ PIN saved');
   render(); maybeTour();
   if(isSlot(u)) refreshRoster(false); else refreshMyState(false);
@@ -4543,6 +4577,7 @@ async function refreshMyState(loud){
     const st=normStatus(s.status);
     if(st) u.status = st;                 // an unreadable status leaves the local one alone
     u.active = s.active !== false;
+    if(s.hasPin !== undefined) u.hasPin = s.hasPin === true;
     /* ---- the second hat, and its removal --------------------------------------------
        Scope used to be accepted only when it was NOT empty, so taking a role away never
        reached the phone: central cleared the districts and the supervisor carried on
@@ -4601,6 +4636,7 @@ async function refreshLocalAccounts(loud){
       const st = normStatus(s.status);
       if(st) u.status = st;
       u.active = s.active !== false;
+      if(s.hasPin !== undefined) u.hasPin = s.hasPin === true;
       if(Array.isArray(s.districts) && s.districts.length) u.districts = s.districts;
       const sv = realSites(s.sites); if(sv.length){ u.sites=sv; u.siteId=sv[0]; }
       u.decisionNote = s.decisionNote || '';
@@ -4855,8 +4891,8 @@ async function findMyAccount(){
       <button class="btn sm" onclick="adoptAccount('${esc(u.id)}')">${L?'C\'est moi':'That\'s me'}</button>
     </div>`).join('')}</div>
     <p class="xs muted" style="margin-top:6px">${L
-      ?'Le serveur ne renvoie jamais un code PIN : ce téléphone ne connaîtra donc pas celui que vous aviez. Après avoir récupéré le compte, appuyez sur « Obtenir un code temporaire » — un super utilisateur vous en donne un, et l\'application vous fait aussitôt choisir votre nouveau code.'
-      :'The server never returns a PIN, so this phone will not know the one you had. Once the account is back, tap "Get a temporary code" — a super user gives you one, and the app then asks you to choose your new PIN.'}</p>`;
+      ?'Si votre code PIN est enregistré sur votre compte, tapez-le simplement après avoir récupéré le compte (il faut du réseau la première fois). Sinon, appuyez sur « Obtenir un code temporaire » — un super utilisateur vous en donne un, et l\'application vous fait aussitôt choisir votre code.'
+      :'If your PIN is saved on your account, just type it once the account is back (the first time needs a network). Otherwise tap "Get a temporary code" — a super user gives you one, and the app then asks you to choose your PIN.'}</p>`;
   FOUND_ACCOUNTS = j.found;
 }
 let FOUND_ACCOUNTS = [];
@@ -4874,7 +4910,8 @@ function adoptAccount(uid){
     sites:realSites(s.sites), siteId:realSites(s.sites)[0],
     status:normStatus(s.status)||U_PENDING, active:s.active!==false,
     dual:s.dual===true, req:s.req||null,
-    decisionNote:s.decisionNote||'', enrolled:s.enrolled||Date.now(), pin:''});
+    decisionNote:s.decisionNote||'', enrolled:s.enrolled||Date.now(), pin:'',
+    hasPin:s.hasPin===true});
   DB.save(); audit('ACCOUNT_ADOPTED','user', s.name+' récupéré sur ce téléphone');
   closeModal();
   setPath(s.dual===true && (LG_PATH==='site'||LG_PATH==='sup') ? LG_PATH
@@ -4882,8 +4919,11 @@ function adoptAccount(uid){
   setTimeout(()=>{
     const sel=$('#lg-user'); if(sel) sel.value=s.id;
     const pin=$('#lg-pin'); if(pin) pin.focus();
-    toast(L?'✓ Compte récupéré. Ce téléphone n\'a pas votre code PIN : appuyez sur « Obtenir un code temporaire » juste en dessous.'
-           :'✓ Account restored. This phone does not have your PIN: tap "Get a temporary code" just below.', 6500);
+    toast(s.hasPin===true
+      ? (L?'✓ Compte récupéré. Tapez votre code PIN habituel.'
+          :'✓ Account restored. Type your usual PIN.')
+      : (L?'✓ Compte récupéré. Ce téléphone n\'a pas votre code PIN : appuyez sur « Obtenir un code temporaire » juste en dessous.'
+          :'✓ Account restored. This phone does not have your PIN: tap "Get a temporary code" just below.'), 6500);
   }, 260);
 }
 function findMyAccountModal(){
@@ -4919,7 +4959,7 @@ async function refreshRoster(loud){
     const j=await r.json();
     if(applyReset(j)) return;
     if(!j || !j.ok || !Array.isArray(j.users)) { if(loud) toast('—'); return; }
-    let added=0, updated=0;
+    let added=0, updated=0; const was = JSON.stringify(DB.d.users);
     j.users.forEach(s=>{
       if(!s.id) return;
       /* A privileged slot is NOT an ordinary account and this is not the place that owns
@@ -4948,6 +4988,7 @@ async function refreshRoster(loud){
           // PIN recovery: who has asked, and whether a code is still outstanding.
           // The code itself is never transmitted.
           local.pinHelp=s.pinHelp||null;
+          if(s.hasPin !== undefined) local.hasPin = s.hasPin === true;
           local.pinResetAt=s.pinResetAt||null;
           if(!s.pinPending) local.pinResetCode='';
           updated++;
@@ -4962,10 +5003,13 @@ async function refreshRoster(loud){
         added++;
       }
     });
-    DB.save();
+    /* `updated` counts every account on every pass, so it cannot say whether anything
+       changed. Repainting the whole screen every 25 s for nothing was the shaking. */
+    const changed = JSON.stringify(DB.d.users) !== was;
+    if(changed) DB.save();
     if(loud) toast(LANG==='fr'?`Liste à jour — ${added} nouveau(x), ${updated} mis à jour`
                               :`Roster updated — ${added} new, ${updated} updated`, 3000);
-    render();
+    if(changed) render();
   }catch(e){ if(loud) toast(LANG==='fr'?'Serveur injoignable':'Server unreachable'); }
 }
 
@@ -5060,17 +5104,49 @@ function tempEnds(u){ return u && u.pinResetAt ? fmtDT(u.pinResetAt + TEMP_TTL) 
 
 function resetPin(uid){
   const u=DB.d.users.find(x=>x.id===uid); if(!u) return;
-  const L=LANG==='fr';
   const code=String(Math.floor(100000+Math.random()*900000));
-  u.pinResetCode=code; u.pinResetAt=Date.now(); u.pinHelp=null;
+  u.pinResetCode=code; u.pinResetAt=Date.now(); u.pinHelp=null; u.pinResetSent=false;
   DB.save(); audit('PIN_RESET','user',u.name);
-  queue('userFlag',{id:u.id, pinResetCode:code, pinResetAt:u.pinResetAt, pinHelp:''});
+  sendTempPin(uid);
+}
+/* A CODE THE SERVER DOES NOT HAVE IS A CODE THAT WILL BE REFUSED.         (v5.8.0)
+   It used to wait in the outbox behind every other unsent item while the console
+   already displayed it — so it was read out, typed, and answered "wrong PIN". It now
+   goes straight to the server, and is only shown once the server has it. */
+async function sendTempPin(uid){
+  const u=DB.d.users.find(x=>x.id===uid); if(!u||!u.pinResetCode) return;
+  const payload={id:u.id, pinResetCode:u.pinResetCode, pinResetAt:u.pinResetAt, pinHelp:''};
+  showTempPin(uid, 'sending');
+  let sent=false;
+  if(ONLINE && DB.d.config.api){
+    try{
+      const r=await fetch(DB.d.config.api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({token:apiToken(), kind:'userFlag', id:'UF-'+Date.now(),
+                             uid:(me()||{}).id||'', payload})});
+      const j=await r.json(); sent=!!(j && j.ok);
+    }catch(e){}
+  }
+  /* an older copy of this code waiting in the outbox must not land after this one */
+  DB.d.outbox = DB.d.outbox.filter(o=>!(o.kind==='userFlag' && o.payload && o.payload.id===uid
+                                         && o.payload.pinResetCode!==undefined));
+  if(!sent) queue('userFlag', payload);
+  u.pinResetSent=sent; DB.save();
   showTempPin(uid);
 }
-function showTempPin(uid){
+function showTempPin(uid, phase){
   const u=DB.d.users.find(x=>x.id===uid); if(!u||!u.pinResetCode) return;
   const L=LANG==='fr';
+  if(phase==='sending') return modal(L?'Code temporaire':'Temporary code',
+    `<p class="small">${L?'Enregistrement du code sur le serveur…':'Saving the code on the server…'}</p>`, '');
+  if(u.pinResetSent===false) return modal(L?'Code temporaire':'Temporary code', `
+    <div class="banner b-warn">${L
+      ?'Le code n\'a pas encore atteint le serveur (réseau). Ne le communiquez pas encore : il serait refusé.'
+      :'The code has not reached the server yet (network). Do not read it out yet: it would be refused.'}</div>`,
+    `<button class="btn sec" onclick="closeModal()">${L?'Fermer':'Close'}</button>
+     <button class="btn" onclick="sendTempPin('${u.id}')">${L?'Réessayer':'Try again'}</button>`);
   modal(L?'Code temporaire':'Temporary code', `
+    <div class="banner b-ok xs">✓ ${L?'Enregistré sur le serveur — vous pouvez le communiquer.'
+                                    :'Saved on the server — you can read it out.'}</div>
     <p class="small">${L
       ?`Lisez ce code à <b>${esc(u.name)}</b> au téléphone${u.phone?' ('+esc(u.phone)+')':''}.`
       :`Read this code to <b>${esc(u.name)}</b> over the phone${u.phone?' ('+esc(u.phone)+')':''}.`}</p>
@@ -5101,7 +5177,8 @@ async function checkTempPin(uid, code){
     const r=await fetch(api+'?action=pincheck&token='+encodeURIComponent(apiToken())
       +'&uid='+encodeURIComponent(uid)+'&code='+encodeURIComponent(code));
     const j=await r.json();
-    return !!(j && j.ok && j.valid);
+    /* truthy only when valid; carries the one-time right to save the new PIN */
+    return (j && j.ok && j.valid) ? {setToken:String(j.setToken||'')} : false;
   }catch(e){ return false; }
 }
 
@@ -8497,8 +8574,11 @@ function admSlots(){
             ${u.title?' <b>'+esc(u.title)+'</b>':''}
             <span class="muted"> · ${esc(where)}</span></div>
         </div>
-        <span class="chip ${!named?'n':u.claimed?'g':'a'}">${
-          !named?(L?'libre':'free'):u.claimed?(L?'actif':'active'):(L?'à activer':'to activate')}</span>
+        <span class="chip ${!named?'n':(u.claimed&&u.hasPin)?'g':'a'}">${
+          !named?(L?'libre':'free')
+          :(u.claimed&&u.hasPin)?(L?'actif':'active')
+          :u.claimed?(L?'actif · 1 téléphone':'active · 1 phone')
+          :(L?'à activer':'to activate')}</span>
       </div>
       ${named && !isA ? codeState(u) : ''}
       ${named && !isA && !recodeReady() ? `<p class="xs" style="margin-top:6px;color:var(--warn)">${L
@@ -8707,7 +8787,15 @@ function recodeReady(){
 }
 function codeState(u){
   const L = LANG === 'fr';
-  if(u.claimed) return '';
+  /* "Activated" is not the same as "can sign in anywhere". A post activated before
+     v5.7.1 holds its PIN on one phone only: on any other phone or address it meets
+     the code door again. Say so, instead of showing it as plainly active. */
+  if(u.claimed && u.hasPin) return `<p class="xs" style="margin-top:7px;color:var(--ok)">✓ ${L
+    ?'Activé — code PIN enregistré sur le compte : fonctionne sur tout téléphone.'
+    :'Active — PIN saved on the account: works on any phone.'}</p>`;
+  if(u.claimed) return `<p class="xs" style="margin-top:7px;color:var(--warn)">⚠ ${L
+    ?'Activé sur un seul téléphone : le code PIN n\'est pas enregistré sur le compte. Sur un autre téléphone ou une autre adresse, cette personne devra saisir un code. Donnez-lui un nouveau code (↻) pour régler cela une fois pour toutes.'
+    :'Active on one phone only: the PIN is not saved on the account. On another phone or address this person will need a code. Issue a new code (↻) to settle it for good.'}</p>`;
   const at  = Number(u.codeAt || 0);
   const ttl = Number(u.codeTtlMs || 7*86400000);
   if(!u.hasCode || !at) return `<p class="xs" style="margin-top:7px;color:var(--warn)">${L
