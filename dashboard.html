@@ -198,11 +198,22 @@ h3{font-size:.84rem;margin:0 0 2px;letter-spacing:-.005em}
 
 /* ---------- tables ---------- */
 .scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
-.scrollx table{min-width:560px}
-table{width:100%;border-collapse:collapse;font-size:.85rem}
-th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
-th{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);
-   font-weight:640;cursor:pointer;white-space:nowrap;position:sticky;top:0;background:var(--surface);z-index:1}
+.scrollx table{min-width:0}
+table{width:100%;border-collapse:collapse;font-size:.83rem}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+/* Headers wrap onto two or three short lines instead of stretching a column to the
+   width of its longest word group, so a full table fits one screen. */
+th{font-size:.64rem;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-3);line-height:1.25;
+   font-weight:660;cursor:pointer;white-space:normal;vertical-align:bottom;
+   hyphens:auto;-webkit-hyphens:auto;position:sticky;top:0;background:var(--surface);z-index:1}
+th.num{text-align:right}
+/* the download strip above every table */
+.xp{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;align-items:center;margin:0 0 8px}
+.xp span{font-size:.66rem;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
+.xp button{background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2);border-radius:8px;
+  padding:5px 10px;font-size:.72rem;font-weight:650;cursor:pointer;min-height:30px}
+.xp button:hover{background:var(--brand);border-color:var(--brand);color:#fff}
+.xp button[disabled]{opacity:.55;cursor:progress}
 th.sorted{color:var(--ink)}
 td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 td.nm{font-weight:620;color:var(--ink)}
@@ -217,6 +228,8 @@ tbody tr:hover{background:var(--surface-2)}
    the word is in the cell. A grid of coloured squares would be unreadable to
    the person who most needs it and unprintable for everybody. */
 .mx td{padding:7px 9px}
+/* the facility name stays readable and in view while a wide table scrolls sideways */
+.mx td.nm,.mx th:first-child{min-width:150px;position:sticky;left:0;background:var(--surface);z-index:2}
 .mx .cell{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:620;
   white-space:nowrap}
 
@@ -438,7 +451,7 @@ const TXT = {
   progress:'Avancement par district', progressSub:'Chaque formation sanitaire prévue, dans son état',
   sections:'Score par section', sectionsSub:'De la plus faible à la plus forte',
   trend:'Évolution', trendSub:'Score global par cycle, sur la sélection',
-  recos:'Recommandations', byInst:'Les trois instruments',
+  recos:'Recommandations', byInst:'Les instruments',
   stVerified:'Vérifiée', stWaiting:'En attente', stReturned:'Retournée',
   stStarted:'Commencée', stNone:'Pas commencée',
   notPlanned:'Hors plan',
@@ -450,7 +463,7 @@ const TXT = {
   supervision:'Supervision intégrée', milestone:'Foundational Milestone', ahdFull:'Préparation AHD',
   prov:'provisoire', planned:'prévues', done:'faites', of:'sur',
   never:'Jamais supervisée', lastSeen:'Dernière supervision',
-  dup:'Doublon', refresh:'Actualiser', updated:'Mis à jour'
+  notIncl:'Non concernée', dup:'Doublon', refresh:'Actualiser', updated:'Mis à jour'
  },
  en:{
   title:'Integrated Supervision — Dashboard', region:'West Region',
@@ -479,7 +492,7 @@ const TXT = {
   progress:'Progress by district', progressSub:'Every planned facility, in its state',
   sections:'Score by section', sectionsSub:'Weakest to strongest',
   trend:'Trend', trendSub:'Overall score by cycle, for this selection',
-  recos:'Recommendations', byInst:'The three instruments',
+  recos:'Recommendations', byInst:'The instruments',
   stVerified:'Verified', stWaiting:'Awaiting', stReturned:'Returned',
   stStarted:'Started', stNone:'Not started',
   notPlanned:'Off plan',
@@ -491,7 +504,7 @@ const TXT = {
   supervision:'Integrated supervision', milestone:'Foundational Milestone', ahdFull:'AHD readiness',
   prov:'provisional', planned:'planned', done:'done', of:'of',
   never:'Never supervised', lastSeen:'Last supervision',
-  dup:'Duplicate', refresh:'Refresh', updated:'Updated'
+  notIncl:'Not included', dup:'Duplicate', refresh:'Refresh', updated:'Updated'
  }
 };
 const T = k => (TXT[LANG] && TXT[LANG][k]) || TXT.fr[k] || k;
@@ -693,6 +706,10 @@ function board(cid){
 }
 
 /* ---------- the declarations, per facility ---------- */
+/* the facilities an AHD / Milestone instrument covers: those holding a page for it */
+function instSites(kind){
+  return new Set(((A && A.pages) || []).filter(p => p.k === kind).map(p => p.s));
+}
 function pageState(siteId, kind){
   const rows = ((A && A.pages) || []).filter(p => p.s === siteId && p.k === kind);
   if(!rows.length) return 'none';
@@ -768,7 +785,7 @@ function drillOpen(title, sub, rows, cols){
         <p class="sub">${esc(sub)} · ${rows.length} ${esc(T('rows'))}</p></div>
       <button class="x" onclick="drillExport()">⬇ CSV</button>
       <button class="x" onclick="drillClose()">✕</button></div>
-    <div class="db"><div class="scrollx"><table>
+    <div class="db"><div style="padding-top:10px">${xpBar(title)}</div><div class="scrollx"><table>
       <thead><tr>
         <th style="cursor:default">${esc(T('facility'))}</th>
         <th class="hide-s" style="cursor:default">${esc(T('dis'))}</th>
@@ -838,9 +855,21 @@ function drillReco(){
   drillOpen(T('recos'), placeLabel() + ' · ' + ((cycleById(F.cycle) || {}).name || ''),
     drillRows(cellsFor().filter(c => (c.at || 0) > 0), {by:'score'}), 'reco');
 }
-function drillDistrict(d){
-  const keep = cellsFor().filter(c => (c.site || {}).district === d);
-  drillOpen(d, (cycleById(F.cycle) || {}).name || '', drillRows(keep, {by:'score'}));
+function drillSite(id){
+  const s = siteById(id) || {};
+  const keep = cellsFor().filter(c => c.s === id);
+  drillOpen(s.name || id, (s.district ? s.district + ' · ' : '') + ((cycleById(F.cycle) || {}).name || ''),
+    keep.length ? drillRows(keep) : [{id, name:s.name || id, district:s.district || '', state:'none',
+      n:0, d:0, v:null, date:'', open:0, late:0, drafts:0, drUp:0}]);
+}
+/* the facilities whose score falls in one band */
+function drillBand(b){
+  const keep = cellsFor().filter(c => {
+    const n = (c.n || 0) + (F.prov ? (c.pn || 0) : 0), d = (c.d || 0) + (F.prov ? (c.pd || 0) : 0);
+    return d > 0 && band(pct(n, d)) === b;
+  });
+  drillOpen(b === 'good' ? T('perf') : b === 'warn' ? T('acc') : T('crit'),
+    placeLabel() + ' · ' + ((cycleById(F.cycle) || {}).name || ''), drillRows(keep, {by:'score'}));
 }
 
 /* Horizontal bars, one series, direct value on every row. */
@@ -875,9 +904,9 @@ function rankBars(rows, opts){
     </div>`;
   }).join('');
 }
-/* A section × district table. A grid of coloured squares would be unreadable to
+/* A section × facility table. A grid of coloured squares would be unreadable to
    the person who most needs it, so every cell carries its number and its colour. */
-function heatTable(secs, groups, data){
+function heatTable(secs, groups, data, label){
   if(!secs.length || !groups.length) return `<div class="empty">${esc(T('noData'))}</div>`;
   /* the ramp is scaled to what is actually on this screen, not to 0–100: with every
      score between 58 and 89 a fixed scale would paint the whole table one colour and
@@ -887,7 +916,7 @@ function heatTable(secs, groups, data){
     if(o && o[1] > 0) all.push(pct(o[0], o[1])); }));
   const lo = all.length ? Math.min(...all) : 0, hi = all.length ? Math.max(...all) : 100;
   return `<div class="scrollx"><table class="mx">
-    <thead><tr><th style="cursor:default">${esc(T('dis'))}</th>
+    <thead><tr><th style="cursor:default">${esc(T('facility'))}</th>
       ${secs.map(x => `<th style="cursor:default">${esc(x)}</th>`).join('')}
       <th class="num" style="cursor:default">${esc(T('score'))}</th></tr></thead>
     <tbody>${groups.map(g => {
@@ -901,8 +930,8 @@ function heatTable(secs, groups, data){
         return `<td class="num" style="font-weight:650;${q ? 'background:' + q.bg + ';color:' + q.ink : ''}"
           title="${esc(bandWord(v))}">${pc(v)}</td>`;
       }).join('');
-      return `<tr><td class="nm rowc" onclick="drillDistrict('${String(g).replace(/'/g, "\\'")}')">${
-        esc(g)}</td>${tds}<td class="num" style="font-weight:700;color:${
+      return `<tr><td class="nm rowc" onclick="drillSite('${String(g).replace(/'/g, "\\'")}')">${
+        esc(label(g))}</td>${tds}<td class="num" style="font-weight:700;color:${
         COLOR[band(pct(tn, td))]}">${pc(pct(tn, td))}</td></tr>`;
     }).join('')}</tbody></table></div>`;
 }
@@ -1145,22 +1174,14 @@ function viewCycle(){
                             .filter(d => d !== null && d >= 0 && d <= 400)
                             .sort((a, b) => b - a)[0];
 
-  /* ---- by district, or by facility once a district is chosen ---- */
-  const key = (F.district || F.site) ? 'name' : 'district';
-  const groups = {};
-  rows.forEach(r => {
-    const k = key === 'district' ? r.site.district : r.site.name;
-    const g = groups[k] || (groups[k] = {t:0, n:0, d:0, late:0});
-    g[r.state] = (g[r.state] || 0) + 1; g.t++;
-    const c = r.cell; if(!c) return;
-    /* pooled per group, from the same halves the headline uses — so a district's
-       score and the regional score are the same arithmetic at two scales */
-    g.n += (c.n || 0) + (F.prov ? (c.pn || 0) : 0);
-    g.d += (c.d || 0) + (F.prov ? (c.pd || 0) : 0);
-    g.late += (c.al || 0);
-  });
-  Object.keys(groups).forEach(k => { groups[k].pct = pct(groups[k].n, groups[k].d); });
-  const gnames = Object.keys(groups).sort();
+  /* ---- one row per planned facility: the dashboard is facility-based ---- */
+  const facs = rows.map(r => {
+    const c = r.cell || {};
+    const n = (c.n || 0) + (F.prov ? (c.pn || 0) : 0), d = (c.d || 0) + (F.prov ? (c.pd || 0) : 0);
+    return {r, v:pct(n, d), late:c.al || 0, open:(c.at || 0) - (c.ar || 0),
+            dr: c.drTot ? Math.round((c.drAns / c.drTot) * 100) : null, up:c.drUp || 0};
+  }).sort((a, b) => String(a.r.site.name).localeCompare(String(b.r.site.name)));
+  const stCount = {}; rows.forEach(r => stCount[r.state] = (stCount[r.state] || 0) + 1);
 
   /* ---- what is holding things up: only what is actually true ---- */
   const stuck = [];
@@ -1309,73 +1330,54 @@ function viewCycle(){
   <h2>${esc(T('stand'))}</h2>
   <p class="sub">${esc(T('standSub'))}</p>
 
-  <div class="card" style="margin-bottom:14px">
+  <div class="card">
+    <div class="row wide" style="padding-top:0">
+      <span class="lab">${LANG === 'fr' ? 'Formations sanitaires prévues' : 'Planned facilities'}</span>
+      ${stack(stCount, rows.length)}
+      <span class="val">${submitted}/${planned}</span></div>
+    <div class="legend" style="margin-bottom:16px">${ORDER.slice().reverse().map(k =>
+      `<span><i style="background:${STATE[k].c};${k === 'none' ? 'box-shadow:inset 0 0 0 1px var(--ring)' : ''}"></i>${
+        esc(T(STATE[k].w))} · ${stCount[k] || 0}</span>`).join('')}</div>
+    ${xpBar(T('stand'))}
     <div class="scrollx"><table>
       <thead><tr>
-        <th style="cursor:default">${esc(key === 'district' ? T('dis') : T('facility'))}${iB('grid')}</th>
-        <th class="num" style="cursor:default">${esc(T('planned2'))}</th>
-        <th class="num" style="cursor:default">${esc(T('submitted'))}</th>
-        <th class="num" style="cursor:default">${esc(T('verified'))}</th>
-        <th class="num hide-s" style="cursor:default">${esc(T('drafting'))}</th>
-        <th class="num" style="cursor:default">${esc(T('notStarted'))}</th>
-        <th class="num" style="cursor:default">${esc(T('coverage'))}</th>
+        <th style="cursor:default">${esc(T('facility'))}${iB('grid')}</th>
+        <th class="hide-s" style="cursor:default">${esc(T('dis'))}</th>
+        <th style="cursor:default">${esc(T('state'))}</th>
         <th class="num" style="cursor:default">${esc(T('score'))}</th>
-        <th class="num hide-s" style="cursor:default">${esc(T('late'))}</th>
+        <th class="num hide-s" style="cursor:default">${esc(T('prog'))}</th>
+        <th class="hide-s" style="cursor:default">${esc(T('lastMoved'))}</th>
+        <th class="num" style="cursor:default">${esc(T('open'))}</th>
+        <th class="num" style="cursor:default">${esc(T('late'))}</th>
       </tr></thead>
-      <tbody>${gnames.map(k => {
-        const g = groups[k];
-        const sub = (g.verified || 0) + (g.waiting || 0);
-        const c = g.t ? (sub / g.t) * 100 : null;
-        return `<tr>
-          <td class="nm">${esc(k)}</td>
-          <td class="num">${g.t}</td>
-          <td class="num">${sub || '—'}</td>
-          <td class="num" style="${g.verified ? 'color:var(--good);font-weight:650' : ''}">${g.verified || '—'}</td>
-          <td class="num hide-s">${g.started || '—'}</td>
-          <td class="num" style="${g.none ? 'color:var(--crit);font-weight:650' : ''}">${g.none || '—'}</td>
-          <td class="num" style="color:${COLOR[covBand(c)]};font-weight:650">${pc(c)}</td>
-          <td class="num" style="color:${COLOR[band(g.pct)]};font-weight:650">${pc(g.pct)}</td>
-          <td class="num hide-s" style="${g.late ? 'color:var(--crit);font-weight:650' : ''}">${
-            g.late || '—'}</td></tr>`;
-      }).join('')}
-      <tr style="border-top:2px solid var(--line)">
-        <td class="nm">${LANG === 'fr' ? 'Total' : 'Total'}</td>
-        <td class="num">${planned}</td>
-        <td class="num">${submitted || '—'}</td>
-        <td class="num">${verified.length || '—'}</td>
-        <td class="num hide-s">${drafting.length || '—'}</td>
-        <td class="num">${none.length || '—'}</td>
-        <td class="num" style="color:${COLOR[covBand(cov)]};font-weight:650">${pc(cov)}</td>
-        <td class="num" style="color:${COLOR[band(headline(cells).pct)]};font-weight:650">${
-          pc(headline(cells).pct)}</td>
-        <td class="num hide-s" style="${late ? 'color:var(--crit);font-weight:650' : ''}">${late || '—'}</td></tr>
-      </tbody></table>
+      <tbody>${facs.map(f => `<tr class="rowc" onclick="drillSite('${f.r.site.id}')">
+          <td class="nm">${esc(f.r.site.name)}<span class="s-only">${esc(f.r.site.district)}</span></td>
+          <td class="hide-s">${esc(f.r.site.district || '—')}</td>
+          <td>${chip(f.r.state)}</td>
+          <td class="num" style="color:${f.v === null ? 'var(--ink-3)' : COLOR[band(f.v)]};font-weight:650">${pc(f.v)}</td>
+          <td class="num hide-s">${f.r.state === 'started' && f.dr !== null ? f.dr + '%' : '—'}</td>
+          <td class="hide-s">${f.r.state === 'started' && f.up ? dmy(f.up) : '—'}</td>
+          <td class="num">${f.open || '—'}</td>
+          <td class="num" style="${f.late ? 'color:var(--crit);font-weight:650' : ''}">${f.late || '—'}</td></tr>`).join('')}
+      </tbody>
+      <tfoot><tr style="border-top:2px solid var(--line)">
+        <td class="nm">Total</td>
+        <td class="hide-s">${planned} ${LANG === 'fr' ? 'prévues' : 'planned'}</td>
+        <td>${submitted}/${planned} · ${pc(cov)}</td>
+        <td class="num" style="color:${COLOR[band(headline(cells).pct)]};font-weight:700">${pc(headline(cells).pct)}</td>
+        <td class="num hide-s"></td><td class="hide-s"></td>
+        <td class="num">${openA || '—'}</td>
+        <td class="num" style="${late ? 'color:var(--crit);font-weight:650' : ''}">${late || '—'}</td></tr></tfoot>
+      </table>
       ${iN('grid', LANG === 'fr'
-        ? '<b>Couverture</b> = soumises ou validées ÷ prévues, par district. <b>Score</b> = Σ(numérateur) ÷ '
-          + 'Σ(dénominateur) sur les supervisions retenues de ce district — pondéré, jamais une moyenne de '
-          + 'pourcentages, donc une grosse FS y pèse plus qu\u2019une petite. <b>En retard</b> = recommandations '
-          + 'non résolues dont l\u2019échéance est passée. La ligne Total recalcule chaque colonne sur l\u2019ensemble, '
-          + 'elle n\u2019additionne pas les pourcentages des lignes.'
-        : '<b>Coverage</b> = submitted or validated ÷ planned, per district. <b>Score</b> = Σ(numerator) ÷ '
-          + 'Σ(denominator) over that district\u2019s supervisions — weighted, never an average of percentages, '
-          + 'so a large facility weighs more than a small one. <b>Overdue</b> = unresolved recommendations past '
-          + 'their deadline. The Total row recomputes each column over everything; it does not add up the '
-          + 'percentages above it.')}</div>
-  </div>
-
-  <div class="card">
-    ${gnames.length ? gnames.map(k => {
-      const g = groups[k];
-      return `<div class="row wide">
-        <span class="lab">${esc(k)}</span>
-        ${stack(g, g.t)}
-        <span class="val">${(g.verified || 0) + (g.waiting || 0)}/${g.t}</span></div>`;
-    }).join('') : `<div class="empty">${esc(T('noData'))}</div>`}
-    <div class="legend">${ORDER.slice().reverse().map(k => {
-      const n = rows.filter(r => r.state === k).length;
-      return `<span><i style="background:${STATE[k].c};${k === 'none' ? 'box-shadow:inset 0 0 0 1px var(--ring)' : ''}"></i>${
-        esc(T(STATE[k].w))} · ${n}</span>`;
-    }).join('')}</div>
+        ? 'Une ligne par formation sanitaire prévue ; cliquez une ligne pour ses chiffres. <b>Score</b> = Σ(numérateur) ÷ '
+          + 'Σ(dénominateur) de sa supervision retenue. <b>Avancement</b> et <b>Dernière modification</b> ne concernent que les brouillons. '
+          + '<b>En retard</b> = recommandations non résolues dont l’échéance est passée. La ligne Total recalcule le score '
+          + 'sur l’ensemble (pondéré), elle ne fait pas la moyenne des lignes.'
+        : 'One row per planned facility; press a row for its figures. <b>Score</b> = Σ(numerator) ÷ Σ(denominator) of its '
+          + 'supervision. <b>Progress</b> and <b>Last change</b> apply to drafts only. <b>Overdue</b> = unresolved '
+          + 'recommendations past their deadline. The Total row recomputes the score over everything (weighted); it does '
+          + 'not average the rows.')}</div>
   </div>
 
   ${drafting.length ? `
@@ -1383,7 +1385,7 @@ function viewCycle(){
   <p class="sub">${LANG === 'fr'
     ? 'Chaque brouillon ouvert : jusqu\u2019où il est allé, et quand il a bougé pour la dernière fois. Ceux qui n\u2019ont pas bougé depuis ' + STALE_DAYS + ' jours sont en rouge.'
     : 'Every draft open: how far it has got, and when it last moved. Those that have not moved for ' + STALE_DAYS + ' days are in red.'}</p>
-  <div class="card"><div class="scrollx"><table>
+  <div class="card">${xpBar(T('drafting'))}<div class="scrollx"><table>
     <thead><tr><th style="cursor:default">${esc(T('facility'))}</th>
       <th class="hide-s" style="cursor:default">${esc(T('dis'))}</th>
       <th class="num" style="cursor:default">${esc(T('prog'))}</th>
@@ -1441,34 +1443,19 @@ function viewPerformance(){
     });
     return g;
   };
-  const gD = grpPool('district');
-  const disRank = Object.keys(gD).filter(k => gD[k].d > 0)
-    .map(k => ({lab:k, v:pct(gD[k].n, gD[k].d), sub:gD[k].sites.size + ' ' + T('fac'),
-                go:`drillDistrict('${String(k).replace(/'/g, "\\'")}')`}))
-    .sort((a, b) => a.v - b.v);
   const gF = grpPool('facility');
   const facRank = Object.keys(gF).filter(k => gF[k].d > 0)
-    .map(k => ({lab:k, v:pct(gF[k].n, gF[k].d)}))
+    .map(k => ({lab:k, v:pct(gF[k].n, gF[k].d), go:`drillSite('${[...gF[k].sites][0]}')`}))
     .sort((a, b) => a.v - b.v);
+  /* how many facilities sit in each of the app's three bands — counts, so a
+     different measure from the scores and therefore a different chart */
+  const bandN = {good:0, warn:0, crit:0};
+  facRank.forEach(r => bandN[band(r.v)]++);
 
-  /* coverage per district — a different measure, so a different chart. Never
-     the same axis as the score. */
-  const bRows = board();
-  const gCov = {};
-  bRows.forEach(r => {
-    const k = r.site.district || '—';
-    const o = gCov[k] || (gCov[k] = {t:0, done:0});
-    o.t++; if(r.state === 'verified' || r.state === 'waiting') o.done++;
-  });
-  const covRank = Object.keys(gCov).map(k => ({lab:k, v:gCov[k].t ? (gCov[k].done / gCov[k].t) * 100 : null,
-      sub:gCov[k].done + '/' + gCov[k].t,
-      go:`drillDistrict('${String(k).replace(/'/g, "\\'")}')`}))
-    .sort((a, b) => (a.v === null) - (b.v === null) || a.v - b.v);
-
-  /* section × district, from the same halves again */
+  /* section × facility, from the same halves again */
   const heat = {};
   cells.forEach(c => {
-    const k = (c.site || {}).district || '—';
+    const k = c.s;
     const add = sec => Object.keys(sec || {}).forEach(x => {
       const o = (heat[k] = heat[k] || {});
       const p0 = o[x] || (o[x] = [0, 0]);
@@ -1477,7 +1464,8 @@ function viewPerformance(){
     add(c.sec); if(F.prov) add(c.psec);
   });
   const heatSecs = [...new Set(Object.keys(heat).flatMap(k => Object.keys(heat[k])))].sort();
-  const heatDis = Object.keys(heat).sort();
+  const heatName = id => (siteById(id) || {}).name || id;
+  const heatDis = Object.keys(heat).sort((x, y) => String(heatName(x)).localeCompare(String(heatName(y))));
   /* recommendations, counts only — the text never leaves the app */
   const rcT = cells.reduce((a, c) => a + (c.at || 0), 0);
   const rcR = cells.reduce((a, c) => a + (c.ar || 0), 0);
@@ -1625,26 +1613,43 @@ function viewPerformance(){
         + 'inside the unresolved figure, never added to it. So the three figures do not sum to the total.')}
   </div>
 
-  ${disRank.length > 1 ? `<div class="cards two">
+  ${facRank.length > 1 ? `<div class="cards two">
     <div class="card">
-      <h3>${LANG === 'fr' ? 'Score par district' : 'Score by district'}</h3>
-      <p class="sub">${LANG === 'fr' ? 'Du plus faible au plus fort · cliquez une barre pour voir ses formations sanitaires'
-                                     : 'Weakest to strongest · press a bar for its facilities'}</p>
-      ${rankBars(disRank)}
+      <h3>${LANG === 'fr' ? 'Score par formation sanitaire' : 'Score by facility'}</h3>
+      <p class="sub">${LANG === 'fr' ? 'De la plus faible à la plus forte · cliquez une barre pour ses chiffres'
+                                     : 'Weakest to strongest · press a bar for its figures'}${facRank.length > 20
+        ? ' · ' + (LANG === 'fr' ? '20 plus faibles sur ' : '20 weakest of ') + facRank.length : ''}</p>
+      ${rankBars(facRank.slice(0, 20))}
     </div>
     <div class="card">
-      <h3>${esc(T('coverage'))} ${LANG === 'fr' ? 'par district' : 'by district'}</h3>
-      <p class="sub">${LANG === 'fr' ? 'Soumises ou validées ÷ prévues — une autre mesure, donc un autre graphique'
-                                     : 'Submitted or validated ÷ planned — a different measure, so a different chart'}</p>
-      ${rankBars(covRank, {cov:true})}
+      <h3>${LANG === 'fr' ? 'Formations sanitaires par bande' : 'Facilities by band'}</h3>
+      <p class="sub">${LANG === 'fr' ? 'Combien de formations sanitaires dans chaque bande de l’application — un décompte, donc un autre graphique'
+                                     : 'How many facilities sit in each of the app’s bands — a count, so a different chart'}</p>
+      <div style="display:flex;align-items:baseline;gap:8px;margin:4px 0 10px">
+        <span style="font-size:2rem;font-weight:680;letter-spacing:-.02em">${bandN.good + bandN.warn}</span>
+        <span style="font-size:.8rem;color:var(--ink-2)">${LANG === 'fr'
+          ? 'sur ' + facRank.length + ' à 90 % ou plus'
+          : 'of ' + facRank.length + ' at 90% or above'}</span></div>
+      <span class="stack" style="height:22px">${['good', 'warn', 'crit'].map(k => bandN[k]
+        ? `<i style="width:${bandN[k] / facRank.length * 100}%;background:${COLOR[k]}"
+             data-t="${esc(k === 'good' ? T('perf') : k === 'warn' ? T('acc') : T('crit'))} — ${bandN[k]}"></i>` : '').join('')}</span>
+      <div style="margin-top:12px">${['good', 'warn', 'crit'].map(k => `
+        <div class="rankrow" onclick="drillBand('${k}')" style="grid-template-columns:14px 1fr auto auto">
+          <span class="dot" style="background:${COLOR[k]};margin:0"></span>
+          <span class="lab" style="color:var(--ink)">${esc(k === 'good' ? T('perf') + ' · ≥ 100 %' : k === 'warn'
+            ? T('acc') + ' · 90–99 %' : T('crit') + ' · < 90 %')}</span>
+          <span class="val">${bandN[k]}</span>
+          <span class="val" style="color:var(--ink-3);font-weight:500;min-width:52px">${pc(bandN[k] / facRank.length * 100)}</span>
+        </div>`).join('')}</div>
     </div>
   </div>` : ''}
 
   ${heatSecs.length && heatDis.length > 1 ? `<div class="card" style="margin-top:14px">
-    <h3>${LANG === 'fr' ? 'Section par district' : 'Section by district'}</h3>
-    <p class="sub">${LANG === 'fr' ? 'Où exactement se trouve l\u2019écart. Chaque cellule est poolée sur ce district.'
-                                   : 'Where exactly the gap is. Each cell is pooled over that district.'}</p>
-    ${heatTable(heatSecs, heatDis, heat)}
+    <h3>${LANG === 'fr' ? 'Section par formation sanitaire' : 'Section by facility'}</h3>
+    <p class="sub">${LANG === 'fr' ? 'Où exactement se trouve l’écart. Cliquez un nom pour ses chiffres.'
+                                   : 'Where exactly the gap is. Press a name for its figures.'}</p>
+    ${xpBar(LANG === 'fr' ? 'Section par formation sanitaire' : 'Section by facility')}
+    ${heatTable(heatSecs, heatDis, heat, heatName)}
     <p class="xs" style="color:var(--ink-3);margin:10px 0 0">${LANG === 'fr'
       ? 'Le fond va du plus clair (le plus faible de ce tableau) au plus foncé (le plus fort) — l\u2019échelle est celle des chiffres affichés, pas 0 à 100, sinon tout serait de la même couleur. Le chiffre est écrit dans chaque case : la couleur n\u2019est jamais la seule information.'
       : 'The background runs from lightest (the weakest figure in this table) to darkest (the strongest) — the scale is the range actually shown, not 0 to 100, or everything would be one colour. Every cell carries its number: colour is never the only channel.'}</p>
@@ -1658,7 +1663,7 @@ function viewPerformance(){
     <div class="card">
       <h3>${esc(T('trend'))}</h3><p class="sub">${esc(T('trendSub'))}</p>
       ${lineChart(tr, 'tr')}
-      ${tr.length >= 2 ? `<div class="scrollx" style="margin-top:10px"><table style="min-width:0">
+      ${tr.length >= 2 ? `<div style="margin-top:10px">${xpBar(T('trend'))}</div><div class="scrollx"><table style="min-width:0">
         <thead><tr><th style="cursor:default">${esc(T('cycle'))}</th>
           <th class="num" style="cursor:default">${esc(T('score'))}</th></tr></thead>
         <tbody>${tr.map(r => `<tr><td>${esc(r.lab)}</td><td class="num">${pc(r.v)}</td></tr>`).join('')}</tbody>
@@ -1677,6 +1682,7 @@ function viewPerformance(){
 
 /* ---------- the facility table: every name, every state, every number ---------- */
 function facRows(){
+  const inAhd = instSites('ahd'), inFm = instSites('fm');
   const rows = board().map(r => {
     const c = r.cell;
     const a = c ? pool([c], 'a') : {n:0, d:0, pct:null};
@@ -1702,7 +1708,8 @@ function facRows(){
       drInc: c ? (c.drInc || 0) : 0,
       open: c ? ((c.at || 0) - (c.ar || 0)) : 0,
       late: c ? (c.al || 0) : 0,
-      ahd: pageState(r.site.id, 'ahd'), fm: pageState(r.site.id, 'fm')
+      ahd: inAhd.has(r.site.id) ? pageState(r.site.id, 'ahd') : null,
+      fm:  inFm.has(r.site.id)  ? pageState(r.site.id, 'fm')  : null
     };
   });
   const q = QTXT.trim().toLowerCase();
@@ -1762,6 +1769,7 @@ function viewFacilities(){
       <button class="clearf" onclick="exportCsv()">⬇ ${esc(T('exportCsv'))}</button>
       <span style="margin-left:auto;font-size:.74rem;color:var(--ink-3)">${rows.length} ${esc(T('rows'))}</span>
     </div>
+    ${xpBar(T('fac'))}
     <div class="scrollx"><table>
       <thead><tr>
         ${th('name', T('facility'))}
@@ -1785,7 +1793,7 @@ function viewFacilities(){
           ${pc(r.v)}${r.provOnly ? ` <span class="pill" title="${esc(
             LANG === 'fr' ? 'Soumise, pas encore validée' : 'Submitted, not yet validated')
           }">${esc(T('prov'))}</span>` : ''}</td>
-        <td class="hide-s">${esc(r.date || '—')}</td>
+        <td class="hide-s" style="white-space:nowrap">${esc(r.date || '—')}</td>
         <td class="hide-s">${r.drafts
           ? dmy(r.drUp) + (ago(r.drUp) === null ? '' : ' · ' + ago(r.drUp) + ' ' + T('days'))
             + (r.drPct === null ? '' : ' · ' + r.drPct + '%')
@@ -1803,16 +1811,30 @@ function viewFacilities(){
 /* ---------- the three instruments, side by side ---------- */
 function viewInstruments(){
   const rows = board();
+  /* an archived instrument leaves this tab exactly as it leaves the tab bar */
+  const live = liveInstruments().map(f => f.kind);
   const inst = [
     {k:'sup', c:'var(--sup)', lab:T('supervision')},
     {k:'ahd', c:'var(--ahd)', lab:T('ahdFull')},
     {k:'fm',  c:'var(--fm)',  lab:T('milestone')}
-  ];
-  const stateOf = (r, k) => k === 'sup' ? r.state : pageState(r.site.id, k);
+  ].filter(i => i.k === 'sup' || live.includes(i.k));
+  /* EACH INSTRUMENT COUNTS ONLY ITS OWN FACILITIES. The mentorship's are the
+     cycle's plan; an AHD or Milestone instrument's are the facilities that hold a
+     page for it — the only list of them the workbook keeps. A facility outside an
+     instrument is "not included", never "not started": it was never asked. */
+  const planned = new Set(rows.map(r => r.site.id));
+  const set = {sup: planned, ahd: instSites('ahd'), fm: instSites('fm')};
+  const ids = new Set();
+  inst.forEach(i => set[i.k].forEach(id => ids.add(id)));
+  const supState = {}; rows.forEach(r => supState[r.site.id] = r.state);
+  const mrows = [...ids].map(siteById).filter(placeOk)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  const stateOf = (site, k) => !set[k].has(site.id) ? null
+                             : k === 'sup' ? supState[site.id] : pageState(site.id, k);
   const tally = {};
   inst.forEach(i => {
     tally[i.k] = {t:0};
-    rows.forEach(r => { const s = stateOf(r, i.k);
+    mrows.forEach(site => { const s = stateOf(site, i.k); if(s === null) return;
       tally[i.k][s] = (tally[i.k][s] || 0) + 1; tally[i.k].t++; });
   });
   return `
@@ -1835,21 +1857,26 @@ function viewInstruments(){
         esc(T(STATE[k].w))}</span>`).join('')}</div>
     <p class="xs" style="color:var(--ink-3);margin:9px 0 0">${LANG === 'fr'
       ? 'Le chiffre à droite compte les formations sanitaires <b>soumises ou validées</b>, sur le nombre prévu.'
-      : 'The figure on the right counts facilities <b>submitted or validated</b>, out of the number planned.'}</p>
+      : 'The figure on the right counts facilities <b>submitted or validated</b>, out of the number planned.'}
+      ${LANG === 'fr'
+        ? ' Chaque instrument ne compte que ses propres formations sanitaires : le plan du cycle pour le mentorat, celles qui ont une fiche pour AHD et Milestone.'
+        : ' Each instrument counts only its own facilities: the cycle plan for the mentorship, those holding a page for AHD and the Milestone.'}</p>
   </div>
 
   <div class="card" style="margin-top:14px">
     <h3>${LANG === 'fr' ? 'Où en est chaque formation sanitaire' : 'Where each facility stands'}</h3>
     <p class="sub">${LANG === 'fr' ? 'Une ligne par formation sanitaire, une colonne par instrument.'
                                    : 'One row per facility, one column per instrument.'}</p>
+    ${xpBar(T('byInst'))}
     <div class="scrollx"><table class="mx">
       <thead><tr><th style="cursor:default">${esc(T('facility'))}</th>
         ${inst.map(i => `<th style="cursor:default"><span class="dot" style="background:${i.c}"></span>${esc(i.lab)}</th>`).join('')}
       </tr></thead>
-      <tbody>${rows.length ? rows.slice().sort((a, b) => String(a.site.name).localeCompare(String(b.site.name)))
-        .map(r => `<tr>
-          <td class="nm">${esc(r.site.name)}<span class="s-only">${esc(r.site.district)}</span></td>
-          ${inst.map(i => { const s = stateOf(r, i.k); const st = STATE[s];
+      <tbody>${mrows.length ? mrows.map(site => `<tr>
+          <td class="nm">${esc(site.name)}<span class="s-only">${esc(site.district)}</span></td>
+          ${inst.map(i => { const s = stateOf(site, i.k);
+            if(s === null) return `<td style="color:var(--ink-3)">— ${esc(T('notIncl'))}</td>`;
+            const st = STATE[s];
             return `<td><span class="cell"><span class="dot" style="background:${st.c};${
               s==='none'?'box-shadow:inset 0 0 0 1px var(--ring)':''}"></span>${esc(T(st.w))}</span></td>`;
           }).join('')}
@@ -1946,7 +1973,7 @@ function exportCsv(){
     r.drafts || '', r.drUp ? new Date(r.drUp).toISOString().slice(0, 10) : '',
     r.drPct === null ? '' : r.drPct, r.drInc ? 'yes' : '',
     r.open, r.late, r.offPlan ? 'yes' : '', r.dup ? 'yes' : '',
-    T(STATE[r.ahd].w), T(STATE[r.fm].w)].map(q).join(','));
+    r.ahd === null ? T('notIncl') : T(STATE[r.ahd].w), r.fm === null ? T('notIncl') : T(STATE[r.fm].w)].map(q).join(','));
   /* A BOM, because Excel on a French Windows reads a UTF-8 CSV without one as
      Latin-1 and turns every accented facility name into mojibake. */
   const blob = new Blob(['﻿' + [head.map(q).join(',')].concat(body).join('\r\n')],
@@ -1956,6 +1983,212 @@ function exportCsv(){
   a.download = 'ATHECS_' + ((cycleById(F.cycle) || {}).name || 'cycle').replace(/\s+/g,'_') + '.csv';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/* =====================================================================
+   EVERY TABLE, DOWNLOADABLE — Excel, Word, PowerPoint
+
+   The file is read off the table on screen, so it carries exactly the rows,
+   the filters and the colours the person is looking at: one path, never a
+   second calculation that could disagree with the page. Colours are read with
+   the light theme forced for a moment, so a file made in dark mode still
+   prints. The three libraries come from the CDN on the first click only —
+   this page is online-only anyway, and nobody who never exports pays for them.
+     Excel: header frozen (and the first column), filter on, header repeated on print.
+     Word:  header row repeated on every page.
+     PowerPoint: the table runs onto as many slides as it needs, header on each.
+   ===================================================================== */
+const XP_LIB = {
+  xlsx:['ExcelJS',   'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'],
+  docx:['docx',      'https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js'],
+  pptx:['PptxGenJS', 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js']
+};
+function xpLib(k){
+  const g = XP_LIB[k][0];
+  if(window[g]) return Promise.resolve(window[g]);
+  return new Promise((ok, no) => {
+    const s = document.createElement('script');
+    s.src = XP_LIB[k][1];
+    s.onload = () => window[g] ? ok(window[g]) : no(new Error(g));
+    s.onerror = () => no(new Error(XP_LIB[k][1]));
+    document.head.appendChild(s);
+  });
+}
+const xpBar = title => `<div class="xp" data-t="${esc(title)}"><span>⬇</span>
+  <button type="button" onclick="xpRun(this,'xlsx')">Excel</button>
+  <button type="button" onclick="xpRun(this,'docx')">Word</button>
+  <button type="button" onclick="xpRun(this,'pptx')">PowerPoint</button></div>`;
+
+/* 'rgb(1, 2, 3)' → '010203'; transparent → '' */
+function xpHex(c){
+  const m = /rgba?\(([^)]+)\)/.exec(c || ''); if(!m) return '';
+  const v = m[1].split(',').map(x => parseFloat(x));
+  if(v.length > 3 && v[3] === 0) return '';
+  return v.slice(0, 3).map(x => Math.round(x).toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+const xpTint = (h, k) => h ? [0, 2, 4].map(i => Math.round(parseInt(h.substr(i, 2), 16) * (1 - k) + 255 * k)
+                               .toString(16).padStart(2, '0')).join('').toUpperCase() : '';
+
+/* The table as plain cells: text, numeric value, colours, weight, span. */
+function xpGrab(tbl){
+  const root = document.documentElement, was = root.getAttribute('data-theme');
+  root.setAttribute('data-theme', 'light');
+  try{
+    const nHead = tbl.tHead ? tbl.tHead.rows.length : 1;
+    const rows = [...tbl.rows].filter(tr => !tr.querySelector('.empty')).map((tr, ri) => [...tr.cells].map(td => {
+      const c = td.cloneNode(true);
+      c.querySelectorAll('.s-only,.info,.infonote').forEach(x => x.remove());
+      const t = c.textContent.replace(/[▲▼]/g, '').replace(/\s+/g, ' ').trim();
+      const cs = getComputedStyle(td);
+      const dot = td.querySelector('.dot');
+      const head = ri < nHead;
+      let v = null, fmt = null;
+      if(!head && /^-?[\d\s .,]+%?$/.test(t) && /\d/.test(t)){
+        v = parseFloat(t.replace(/[\s %]/g, '').replace(',', '.'));
+        fmt = /%$/.test(t) ? '0.0"%"' : (/[.,]/.test(t) ? '0.0' : '0');
+        if(isNaN(v)) v = null;
+      }
+      return {t, v, fmt, head, span: td.colSpan || 1,
+        num: td.classList.contains('num') || v !== null,
+        /* the amber of "acceptable" is a screen colour; on paper it is darkened to stay legible */
+        fg: head ? 'FFFFFF' : ({FAB219:'9A6400'})[xpHex(cs.color)] || xpHex(cs.color) || '0F1723',
+        bg: head ? '0B3C71' : xpHex(cs.backgroundColor)
+            || (dot ? xpTint(xpHex(getComputedStyle(dot).backgroundColor), .78) : ''),
+        b: head || +cs.fontWeight >= 600};
+    }));
+    /* the Total row (a tfoot, or a first cell reading "Total") is bold all along */
+    [...tbl.rows].forEach((tr, ri) => {
+      const r = rows[ri]; if(!r || ri < nHead) return;
+      if(tr.parentNode.tagName === 'TFOOT' || /^total$/i.test((r[0] || {}).t || ''))
+        r.forEach(c => { c.total = true; c.b = true; });
+    });
+    return {rows, nHead};
+  } finally {
+    if(was) root.setAttribute('data-theme', was); else root.removeAttribute('data-theme');
+  }
+}
+function xpSave(blob, name){
+  const u = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = u; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 4000);
+}
+function xpSub(){
+  return [placeLabel(), (cycleById(F.cycle) || {}).name || '', F.prov ? T('allSubs') : T('valOnly'),
+          new Date().toLocaleDateString(LANG === 'fr' ? 'fr-FR' : 'en-GB')].filter(Boolean).join(' · ');
+}
+async function xpRun(btn, kind){
+  const box = btn.closest('.card, .drill');
+  const tbl = box && box.querySelector('table');
+  if(!tbl) return;
+  const title = btn.parentNode.getAttribute('data-t') || 'ATHECS';
+  const g = xpGrab(tbl);
+  const file = ('ATHECS_' + title + '_' + ((cycleById(F.cycle) || {}).name || ''))
+                 .replace(/[^\wÀ-ſ-]+/g, '_').replace(/_+$/, '');
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  try{
+    const lib = await xpLib(kind);
+    if(kind === 'xlsx') await xpXlsx(lib, g, title, file);
+    if(kind === 'docx') await xpDocx(lib, g, title, file);
+    if(kind === 'pptx') await xpPptx(lib, g, title, file);
+  }catch(e){
+    alert((LANG === 'fr' ? 'Le fichier n’a pas pu être créé. Vérifiez la connexion et réessayez.\n'
+                         : 'The file could not be made. Check the connection and try again.\n') + (e && e.message || e));
+  }finally{ btn.disabled = false; btn.textContent = old; }
+}
+/* column widths in characters: the longest body cell; headers may wrap, so they count only up to 14 */
+function xpWidths(g){
+  const w = [];
+  g.rows.forEach(r => { let i = 0; r.forEach(c => {
+    if(c.span === 1){ const L = c.head ? Math.min(14, c.t.length) : c.t.length; w[i] = Math.max(w[i] || 6, L + 2); }
+    i += c.span; }); });
+  return w.map(x => Math.min(x, 42));
+}
+async function xpXlsx(ExcelJS, g, title, file){
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'ATHECS';
+  const ws = wb.addWorksheet(title.replace(/[\\\/?*\[\]:]/g, ' ').slice(0, 31) || 'ATHECS');
+  const W = xpWidths(g), n = W.length, top = 4;          /* title, subtitle, blank, then the table */
+  ws.columns = W.map(x => ({width:x}));
+  if(n > 1){ ws.mergeCells(1, 1, 1, n); ws.mergeCells(2, 1, 2, n); }
+  Object.assign(ws.getCell(1, 1), {value:title, font:{bold:true, size:14, color:{argb:'FF0B3C71'}}});
+  Object.assign(ws.getCell(2, 1), {value:xpSub(), font:{italic:true, size:9, color:{argb:'FF52514E'}}});
+  const edge = {style:'thin', color:{argb:'FFD5DEEA'}};
+  g.rows.forEach((r, ri) => {
+    const row = ws.getRow(top + ri); let col = 1;
+    r.forEach(c => {
+      const cell = row.getCell(col);
+      cell.value = c.v !== null ? c.v : c.t;
+      if(c.fmt) cell.numFmt = c.fmt;
+      cell.font = {bold:c.b, size:c.head ? 9 : 10, color:{argb:'FF' + c.fg}};
+      const fill = c.bg || (c.total ? 'F0F5FB' : '');
+      if(fill) cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FF' + fill}};
+      cell.alignment = {vertical:c.head ? 'middle' : 'top', wrapText:c.head, horizontal:c.num ? 'right' : 'left'};
+      cell.border = {top:edge, left:edge, bottom:edge, right:edge};
+      if(c.span > 1) ws.mergeCells(top + ri, col, top + ri, col + c.span - 1);
+      col += c.span;
+    });
+    if(ri < g.nHead) row.height = 30;
+  });
+  const hEnd = top + g.nHead - 1;
+  ws.views = [{state:'frozen', xSplit:1, ySplit:hEnd}];
+  if(g.nHead === 1 && n > 1) ws.autoFilter = {from:{row:hEnd, column:1}, to:{row:hEnd, column:n}};
+  ws.pageSetup = {orientation: n > 6 ? 'landscape' : 'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0,
+                  printTitlesRow: top + ':' + hEnd, paperSize:9};
+  const buf = await wb.xlsx.writeBuffer();
+  xpSave(new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), file + '.xlsx');
+}
+async function xpDocx(D, g, title, file){
+  const W = xpWidths(g), sum = W.reduce((a, b) => a + b, 0) || 1;
+  const wide = W.length > 6;
+  const tw = wide ? 14400 : 9600;                        /* usable twips: A4 landscape / portrait */
+  const rows = g.rows.map((r, ri) => {
+    let col = 0;
+    return new D.TableRow({tableHeader: ri < g.nHead, cantSplit:true, children: r.map(c => {
+      const w = W.slice(col, col + c.span).reduce((a, b) => a + b, 0); col += c.span;
+      const fill = c.bg || (c.total ? 'F0F5FB' : '');
+      return new D.TableCell({columnSpan:c.span,
+        width:{size:Math.round(tw * w / sum), type:D.WidthType.DXA},
+        margins:{top:50, bottom:50, left:80, right:80},
+        verticalAlign: c.head ? D.VerticalAlign.BOTTOM : D.VerticalAlign.TOP,
+        shading: fill ? {type:D.ShadingType.CLEAR, color:'auto', fill} : undefined,
+        children:[new D.Paragraph({alignment: c.num ? D.AlignmentType.RIGHT : D.AlignmentType.LEFT,
+          children:[new D.TextRun({text:c.t, bold:c.b, color:c.fg, size:c.head ? 16 : 18, font:'Calibri'})]})]});
+    })});
+  });
+  const bd = {style:D.BorderStyle.SINGLE, size:4, color:'D5DEEA'};
+  const doc = new D.Document({creator:'ATHECS', title, sections:[{
+    properties:{page:{size:{orientation: wide ? D.PageOrientation.LANDSCAPE : D.PageOrientation.PORTRAIT},
+                      margin:{top:850, bottom:850, left:850, right:850}}},
+    children:[
+      new D.Paragraph({spacing:{after:60}, children:[new D.TextRun({text:title, bold:true, size:30, color:'0B3C71', font:'Calibri'})]}),
+      new D.Paragraph({spacing:{after:200}, children:[new D.TextRun({text:xpSub(), italics:true, size:18, color:'52514E', font:'Calibri'})]}),
+      new D.Table({rows, width:{size:tw, type:D.WidthType.DXA},
+        borders:{top:bd, bottom:bd, left:bd, right:bd, insideHorizontal:bd, insideVertical:bd}})
+    ]}]});
+  xpSave(await D.Packer.toBlob(doc), file + '.docx');
+}
+async function xpPptx(P, g, title, file){
+  const p = new P();
+  p.layout = 'LAYOUT_WIDE';                               /* 13.33 × 7.5 in */
+  p.defineSlideMaster({title:'ATH', background:{color:'FFFFFF'}, objects:[
+    {rect:{x:0, y:0, w:13.33, h:.12, fill:{color:'0B3C71'}}},
+    {text:{text:title, options:{x:.45, y:.25, w:12.4, h:.5, fontSize:20, bold:true, color:'0B3C71', fontFace:'Calibri'}}},
+    {text:{text:xpSub(), options:{x:.45, y:.72, w:12.4, h:.3, fontSize:11, italic:true, color:'52514E', fontFace:'Calibri'}}},
+    {text:{text:'ATHECS · NACC / ICAP', options:{x:.45, y:7.05, w:6, h:.3, fontSize:9, color:'898781'}}}
+  ], slideNumber:{x:12.4, y:7.05, fontSize:9, color:'898781'}});
+  const W = xpWidths(g), sum = W.reduce((a, b) => a + b, 0) || 1;
+  const rows = g.rows.map(r => r.map(c => ({text:c.t, options:{
+    bold:c.b, color:c.fg, align:c.num ? 'right' : 'left', valign:c.head ? 'bottom' : 'top',
+    colspan:c.span > 1 ? c.span : undefined,
+    fill: c.bg ? {color:c.bg} : (c.total ? {color:'F0F5FB'} : undefined),
+    fontSize: c.head ? 9 : 10}})));
+  p.addSlide({masterName:'ATH'}).addTable(rows, {x:.45, y:1.15, w:12.4, colW:W.map(x => 12.4 * x / sum),
+    fontFace:'Calibri', border:{type:'solid', pt:.5, color:'D5DEEA'}, margin:.05,
+    autoPage:true, autoPageRepeatHeader:true, autoPageHeaderRows:g.nHead, autoPageSlideStartY:1.15,
+    newSlideStartY:1.15, masterName:'ATH'});
+  await p.writeFile({fileName:file + '.pptx'});
 }
 
 function drawBody(){
