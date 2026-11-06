@@ -407,7 +407,7 @@ svg.chart .cross{stroke:var(--axis);stroke-width:1;stroke-dasharray:3 3;opacity:
    The page now states its OWN version, beside the server's, and says so out
    loud when the two do not match. A deployment that is half done should
    announce itself. */
-const PAGE_VERSION = '5.7.1';
+const PAGE_VERSION = '5.8.6';
 const API   = 'https://script.google.com/macros/s/AKfycbyAjaQ1yALvefsUxZhvQbUFPo-yXXuDguqV0ni2Iz0UQXENF-uBRNU1I4zrhtQeK-ESbQ/exec';
 const TOKEN = 'ATHECS-DASH-2026';
 
@@ -2211,16 +2211,20 @@ function draw(){
   if(!A) return;
   drawTabs(); drawFilters(); drawBody();
   const srv = String(J.version || '');
-  const stale = srv && srv !== PAGE_VERSION;
+  /* The page and the server carry their own version numbers and release
+     separately, so they never have to be EQUAL: a dashboard-only release puts the
+     page ahead. What is wrong is a page OLDER than the server — the server has
+     moved on and this copy of the page has not been published with it. */
+  const older = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number);
+    for(let i = 0; i < 3; i++){ if((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); } return false; };
+  const stale = srv && older(PAGE_VERSION, srv);
   $('#foot').innerHTML = `
     ${stale ? `<div class="note" style="border-left:3px solid var(--warn);text-align:left;margin:0 0 14px">
-      <b>${LANG === 'fr' ? 'Déploiement incomplet' : 'Half-finished deployment'}</b> — ${LANG === 'fr'
+      <b>${LANG === 'fr' ? 'Page en retard sur le serveur' : 'This page is behind the server'}</b> — ${LANG === 'fr'
         ? 'cette page est en <b>v' + esc(PAGE_VERSION) + '</b> et le serveur en <b>v' + esc(srv)
-          + '</b>. Les deux doivent correspondre. Téléversez le <b>dashboard.html</b> de la version '
-          + esc(srv) + ' (et <b>index.html</b> avec lui), puis rechargez avec Ctrl+F5.'
+          + '</b>. Rechargez avec Ctrl+F5 ; si le message reste, la dernière version de la page n’a pas encore été publiée.'
         : 'this page is <b>v' + esc(PAGE_VERSION) + '</b> and the server is <b>v' + esc(srv)
-          + '</b>. The two must match. Upload the <b>dashboard.html</b> from version ' + esc(srv)
-          + ' (and <b>index.html</b> with it), then reload with Ctrl+F5.'}</div>` : ''}
+          + '</b>. Reload with Ctrl+F5; if this stays, the latest page has not been published yet.'}</div>` : ''}
     ${esc(T('updated'))} ${esc(new Date(J.generated).toLocaleString(LANG === 'fr' ? 'fr-FR' : 'en-GB'))}
     · ${LANG === 'fr' ? 'page' : 'page'} v${esc(PAGE_VERSION)} · ${LANG === 'fr' ? 'serveur' : 'server'} v${esc(srv)}
     ${J.superseded ? ' · ' + J.superseded + (LANG === 'fr' ? ' doublon(s) mis de côté' : ' duplicate(s) set aside') : ''}
