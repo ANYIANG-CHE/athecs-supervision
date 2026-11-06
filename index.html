@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.8.7';
+const APP_VERSION = '5.8.8';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -14268,13 +14268,12 @@ const pepfarQ = iso => { const m = /^(\d{4})-(\d{2})/.exec(String(iso || '')); i
 
 /* What one site contributes to the consolidated tool, from its answers alone. */
 function ahdCdcRow(L, site, data){
-  const sc = ahdScore(L, data), p = (data && data.profile) || {}, resp = (data && data.resp) || {};
-  const p1 = L.sections[1].items.filter(it => !it.parent && it.p === 'P1'
-    && ['Partial', 'No'].indexOf(String((resp[it.k] || {}).v)) >= 0).map(it => it.no);
+  const sc = ahdScore(L, data), p = (data && data.profile) || {};
+  /* Column J, "Key Comments / TA Needs", is left to the IP: the SOP gives it no
+     source in the site assessment, and the P1 gaps already have their own columns. */
   const cells = {
     D:[xlDate(p.adate), true], E:[pepfarQ(p.adate)], F:[p.partner || 'NACC'], G:[p.level || ''],
-    H:[ahdTier(L, p.txcurr)], I:[String(p.txcurr || '').trim() === '' ? '' : Number(p.txcurr), true],
-    J:[p1.length ? 'P1 gaps: ' + p1.join(', ') : (sc.gaps ? 'No P1 gap' : '')]
+    H:[ahdTier(L, p.txcurr)], I:[String(p.txcurr || '').trim() === '' ? '' : Number(p.txcurr), true]
   };
   for(let d = 1; d <= 16; d++){
     const o = sc.dom[d] || {ready:0, partial:0, no:0, na:0, p1:0}, c0 = 28 + (d - 1) * 6;   /* AB = 28 */
@@ -14322,7 +14321,13 @@ async function ahdCdcReport(formId){
     Object.keys(cells).forEach(col => { now = xlSet(now, col + at[0], cells[col][0], cells[col][1]); });
     s2 = s2.replace(was, () => now);
     done.push(s);
-    if(fmStatus(e) === 'SUBMITTED' || sc.missing) unchecked.push(s.facility + (sc.missing ? ' (' + sc.missing + ' blank)' : ' (not validated)'));
+    const prof = (e.data || {}).profile || {};
+    const gone = [['adate', 'assessment date'], ['level', 'facility level'], ['txcurr', 'TX_CURR']]
+      .filter(x => String(prof[x[0]] || '').trim() === '').map(x => x[1]);
+    if(fmStatus(e) === 'SUBMITTED' || sc.missing || gone.length)
+      unchecked.push(s.facility + ' — ' + [fmStatus(e) === 'SUBMITTED' ? 'not validated' : '',
+        sc.missing ? sc.missing + ' answer(s) blank' : '', gone.length ? 'blank on its page: ' + gone.join(', ') : '']
+        .filter(Boolean).join('; '));
   });
   by['xl/worksheets/sheet2.xml'].text = s2;
   /* the Dashboard opens on this region */
