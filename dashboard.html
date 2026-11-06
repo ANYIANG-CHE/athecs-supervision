@@ -508,6 +508,8 @@ const TXT = {
  }
 };
 const T = k => (TXT[LANG] && TXT[LANG][k]) || TXT.fr[k] || k;
+/* a value placed inside an inline handler: a JS string literal, then HTML-escaped */
+const jsArg = v => esc(JSON.stringify(String(v)));
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const $ = s => document.querySelector(s);
@@ -930,7 +932,7 @@ function heatTable(secs, groups, data, label){
         return `<td class="num" style="font-weight:650;${q ? 'background:' + q.bg + ';color:' + q.ink : ''}"
           title="${esc(bandWord(v))}">${pc(v)}</td>`;
       }).join('');
-      return `<tr><td class="nm rowc" onclick="drillSite('${String(g).replace(/'/g, "\\'")}')">${
+      return `<tr><td class="nm rowc" onclick="drillSite(${jsArg(g)})">${
         esc(label(g))}</td>${tds}<td class="num" style="font-weight:700;color:${
         COLOR[band(pct(tn, td))]}">${pc(pct(tn, td))}</td></tr>`;
     }).join('')}</tbody></table></div>`;
@@ -1350,7 +1352,7 @@ function viewCycle(){
         <th class="num" style="cursor:default">${esc(T('open'))}</th>
         <th class="num" style="cursor:default">${esc(T('late'))}</th>
       </tr></thead>
-      <tbody>${facs.map(f => `<tr class="rowc" onclick="drillSite('${f.r.site.id}')">
+      <tbody>${facs.map(f => `<tr class="rowc" onclick="drillSite(${jsArg(f.r.site.id)})">
           <td class="nm">${esc(f.r.site.name)}<span class="s-only">${esc(f.r.site.district)}</span></td>
           <td class="hide-s">${esc(f.r.site.district || '—')}</td>
           <td>${chip(f.r.state)}</td>
@@ -1445,7 +1447,7 @@ function viewPerformance(){
   };
   const gF = grpPool('facility');
   const facRank = Object.keys(gF).filter(k => gF[k].d > 0)
-    .map(k => ({lab:k, v:pct(gF[k].n, gF[k].d), go:`drillSite('${[...gF[k].sites][0]}')`}))
+    .map(k => ({lab:k, v:pct(gF[k].n, gF[k].d), go:`drillSite(${jsArg([...gF[k].sites][0])})`}))
     .sort((a, b) => a.v - b.v);
   /* how many facilities sit in each of the app's three bands — counts, so a
      different measure from the scores and therefore a different chart */
