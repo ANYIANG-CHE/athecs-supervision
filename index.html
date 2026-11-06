@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.8.9';
+const APP_VERSION = '5.9.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -14327,13 +14327,26 @@ const pepfarQ = iso => { const m = /^(\d{4})-(\d{2})/.exec(String(iso || '')); i
   return 'FY' + String((mo >= 10 ? y + 1 : y) % 100).padStart(2, '0') + ' Q' + (Math.floor(((mo + 2) % 12) / 3) + 1); };
 
 /* What one site contributes to the consolidated tool, from its answers alone. */
+/* Rules set by the regional coordinator for the CDC report (2026-11-06):
+   the implementing partner is NACC for every West site; the facility level is
+   read from the site tier (CDC's Lists sheet pairs them), and the tier from
+   TX_CURR — so what a site typed for "level" never reaches the report.
+   AHD_CDC_TXCURR carries a TX_CURR the coordinator supplied for a page left
+   blank after AHD closed; a value on the page itself always wins. */
+const AHD_CDC_LEVEL = {'Tier 1':'Primary', 'Tier 2':'Secondary', 'Tier 3':'Tertiary', 'Tier 4':'Other'};
+const AHD_CDC_TXCURR = {S036: 327};   /* CS Medicalise Kueka */
+function ahdCdcTx(site, p){
+  const own = String((p || {}).txcurr || '').trim();
+  return own !== '' ? Number(own) : (site && AHD_CDC_TXCURR[site.id] !== undefined ? AHD_CDC_TXCURR[site.id] : '');
+}
 function ahdCdcRow(L, site, data){
   const sc = ahdScore(L, data), p = (data && data.profile) || {};
+  const tx = ahdCdcTx(site, p), tier = tx === '' ? '' : ahdTier(L, tx);
   /* Column J, "Key Comments / TA Needs", is left to the IP: the SOP gives it no
      source in the site assessment, and the P1 gaps already have their own columns. */
   const cells = {
-    D:[xlDate(p.adate), true], E:[pepfarQ(p.adate)], F:[p.partner || 'NACC'], G:[p.level || ''],
-    H:[ahdTier(L, p.txcurr)], I:[String(p.txcurr || '').trim() === '' ? '' : Number(p.txcurr), true]
+    D:[xlDate(p.adate), true], E:[pepfarQ(p.adate)], F:['NACC'], G:[AHD_CDC_LEVEL[tier] || ''],
+    H:[tier], I:[tx, true]
   };
   for(let d = 1; d <= 16; d++){
     const o = sc.dom[d] || {ready:0, partial:0, no:0, na:0, p1:0}, c0 = 28 + (d - 1) * 6;   /* AB = 28 */
@@ -14382,8 +14395,8 @@ async function ahdCdcReport(formId){
     s2 = s2.replace(was, () => now);
     done.push(s);
     const prof = (e.data || {}).profile || {};
-    const gone = [['adate', 'assessment date'], ['level', 'facility level'], ['txcurr', 'TX_CURR']]
-      .filter(x => String(prof[x[0]] || '').trim() === '').map(x => x[1]);
+    const gone = (String(prof.adate || '').trim() === '' ? ['assessment date'] : [])
+      .concat(ahdCdcTx(s, prof) === '' ? ['TX_CURR (so no tier or level)'] : []);
     if(fmStatus(e) === 'SUBMITTED' || sc.missing || gone.length)
       unchecked.push(s.facility + ' — ' + [fmStatus(e) === 'SUBMITTED' ? 'not validated' : '',
         sc.missing ? sc.missing + ' answer(s) blank' : '', gone.length ? 'blank on its page: ' + gone.join(', ') : '']
