@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.8.8';
+const APP_VERSION = '5.8.9';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -4327,13 +4327,48 @@ function watchVideo(){
 }
 
 /* ===================== SYNC STATUS — visible to every role ===================== */
+/* What one outbox item is, why it has not gone, and what the person can do. */
+function obWhat(o){
+  const p=o.payload||{}, site=(DB.d.sites||[]).find(x=>x.id===p.siteId);
+  return [o.kind, site&&site.facility, p.formId, p.name||p.title].filter(Boolean).map(esc).join(' · ');
+}
+function obAdvice(o, L){
+  const e=o.lastError||'';
+  if(o.parked && /form is (closed|archived)/i.test(e)) return L
+    ?'Cet instrument est clôturé sur le serveur : il n\'accepte plus rien. Vos réponses restent sur cet appareil. Demandez à la coordination régionale de le rouvrir un instant, puis appuyez sur Renvoyer.'
+    :'This instrument is closed on the server, so it accepts nothing more. Your answers stay on this device. Ask the regional coordination to reopen it for a moment, then press Send again.';
+  if(o.parked) return L
+    ?'Le serveur refuse cet élément à chaque essai. Il reste sur cet appareil. Montrez cet écran à la coordination régionale.'
+    :'The server refuses this item every time. It stays on this device. Show this screen to the regional coordination.';
+  if(!e) return L?'Pas encore essayé — il part au prochain envoi.':'Not tried yet — it goes at the next send.';
+  if(/busy/i.test(e)) return L?'Le serveur est occupé. Rien à faire : il partira seul.':'The server is busy. Nothing to do: it goes by itself.';
+  if(/no connection/i.test(e)) return L?'Le serveur n\'a pas été joint. Il partira seul dès qu\'il y a du réseau.':'The server could not be reached. It goes by itself when there is network.';
+  return L?'Pas encore accepté ; réessayé à chaque envoi. Si cela dure, montrez cet écran à la coordination régionale.'
+          :'Not accepted yet; retried at every send. If this lasts, show this screen to the regional coordination.';
+}
+function obList(L){
+  return DB.d.outbox.map(o=>`<div class="banner ${o.parked?'b-err':'b-warn'}" style="margin:6px 0 0;display:block">
+    <b>${o.parked?(L?'⚠ Mis de côté':'⚠ Set aside'):'⇅'} ${obWhat(o)}</b>
+    <div class="xs">${L?'Saisi ':'Entered '}${fmtDT(o.ts)}${o.tries?' · '+o.tries+(L?' essai(s)':' attempt(s)'):''}${
+      o.lastTry?' · '+(L?'dernier ':'last ')+fmtDT(o.lastTry):''}</div>
+    ${o.lastError?`<div class="xs">${L?'Réponse du serveur : ':'Server answer: '}<code>${esc(o.lastError)}</code></div>`:''}
+    <div class="xs">${obAdvice(o, L)}</div>
+    ${o.parked?`<button class="btn sec sm" style="margin-top:4px" ${ONLINE&&DB.d.config.api?'':'disabled'} onclick="obUnpark('${o.id}')">⇅ ${L?'Renvoyer':'Send again'}</button>`:''}
+  </div>`).join('');
+}
+function obUnpark(id){
+  const o=DB.d.outbox.find(x=>x.id===id); if(!o) return;
+  delete o.parked; DB.save(); syncNow();
+}
 function syncCard(){
   const c=DB.d.config, n=DB.d.outbox.length, L=LANG==='fr';
+  const np=DB.d.outbox.filter(o=>o.parked).length;
   const last=c.lastSync?fmtDT(c.lastSync):null;
-  const cls = !c.api ? 'b-err' : (n ? 'b-warn' : 'b-ok');
+  const cls = !c.api || np ? 'b-err' : (n ? 'b-warn' : 'b-ok');
   const msg = !c.api
     ? (L?'Aucun serveur configuré — contactez l\'administrateur.':'No server configured — contact the administrator.')
     : n ? (L?`${n} élément(s) en attente d'envoi`:`${n} item(s) waiting to be sent`)
+          + (np ? (L?` — dont ${np} mis de côté (refusé par le serveur)`:` — ${np} set aside (refused by the server)`) : '')
         : (L?'Tout est envoyé au serveur':'Everything has been sent to the server');
   return `<div class="card tight">
     <div class="spread">
@@ -4349,6 +4384,7 @@ function syncCard(){
       </div>
     </div>
     ${c.lastData?`<div class="xs muted" style="margin-top:6px">${L?'Dernière réception : ':'Last received: '}${fmtDT(c.lastData)}</div>`:''}
+    ${n?`<details style="margin-top:6px" ${np?'open':''}><summary class="xs">${L?'Voir ce qui attend, et pourquoi':'See what is waiting, and why'}</summary>${obList(L)}</details>`:''}
   </div>`;
 }
 
@@ -10506,6 +10542,8 @@ function revokeRoleAsk(uid){
 }
 
 /* ===================== SYNC (Google Sheets via Apps Script) ===================== */
+/* Server answers that will not change by retrying (Code.gs saveFormEntry / doPost). */
+const OB_FOREVER=/form is (closed|archived)|unknown (form|kind)|too large|not serialisable|no entry id/i;
 function queue(kind, payload){
   DB.d.outbox.push({id:DB.id('OB'), kind, payload, ts:Date.now(), tries:0});
   DB.save();
@@ -10516,11 +10554,19 @@ async function syncNow(quiet){
   if(!api){ if(!quiet) toast(LANG==='fr'?'Aucune URL d\'API configurée (Console → Paramètres)':'No API URL configured (Console → Settings)'); return; }
   if(!ONLINE){ if(!quiet) toast(T('offline')); return; }
   if(syncNow._busy) return; syncNow._busy=true;
-  const box=DB.d.outbox.slice();
-  let ok=0, fail=0, badToken=false, busy=false;
+  /* A set-aside item is not sent again until somebody asks (Send again on the sync card). */
+  const box=DB.d.outbox.filter(o=>!o.parked);
+  let ok=0, fail=0, badToken=false, busy=false, parked=0, pages=0;
+  /* An entity whose earlier write failed holds its later writes back, so an old copy
+     can never land after a newer one. */
+  const held=new Set();
   for(const item of box){
+    const key=item.kind+':'+String((item.payload&&item.payload.id)||item.id);
+    if(held.has(key)) continue;
+    item.lastTry=Date.now();
+    let res;
     try{
-      const res=await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      res=await fetch(api,{method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
         /* ---- EVERY PUSH NAMES THE ACCOUNT SENDING IT -------------------------------
            The server reserves a handful of writes to a level — opening a cycle,
            publishing the questionnaire, giving somebody a console — and it cannot
@@ -10530,22 +10576,36 @@ async function syncNow(quiet){
            is already on every pull. */
         body:JSON.stringify({token:apiToken(), kind:item.kind, id:item.id,
                              uid:(me()||{}).id||'', payload:item.payload})});
-      const j=await res.json();
-      if(j && j.ok){ DB.d.outbox=DB.d.outbox.filter(x=>x.id!==item.id); ok++; }
-      /* The workbook is busy with somebody else's write. Nothing is wrong, nothing is
-         lost: this stays in the outbox and goes on the next pass. */
-      else if(j && j.busy){ busy=true; item.tries++; break; }
-      /* "bad token" is the server refusing this device outright. Counting it as an
-         ordinary failure produced "Synchronisé : 0" — which looks like success with
-         nothing to send, and hid a total communication breakdown. */
-      else if(j && /bad token/i.test(String(j.error||''))){ badToken=true; fail++; break; }
-      else { item.tries++; fail++; }
-    }catch(e){ item.tries++; fail++; break; }
+    }catch(e){ item.tries++; item.lastError='no connection to the server'; fail++; break; }
+    let j=null; try{ j=await res.json(); }catch(e){}
+    if(j && j.ok){ DB.d.outbox=DB.d.outbox.filter(x=>x.id!==item.id); ok++; pages=0; continue; }
+    item.tries++; fail++; held.add(key);
+    /* A page instead of data: this one item may be what breaks the server, so the pass
+       goes on to the next — but two in a row means the server itself is down. */
+    if(!j){ item.lastError='the server answered with a page, not data (HTTP '+res.status+')';
+            if(pages++) break; continue; }
+    pages=0;
+    /* The server's own words are kept on the item: the sync card shows them. */
+    item.lastError=String(j.error||j.why||'refused, no reason given');
+    /* The workbook is busy with somebody else's write. Nothing is wrong, nothing is
+       lost: this stays in the outbox and goes on the next pass. */
+    if(j.busy){ busy=true; fail--; break; }
+    /* "bad token" is the server refusing this device outright. Counting it as an
+       ordinary failure produced "Synchronisé : 0" — which looks like success with
+       nothing to send, and hid a total communication breakdown. */
+    if(/bad token/i.test(item.lastError)){ badToken=true; break; }
+    /* A refusal that will be the same answer for ever (a CLOSED instrument, a kind this
+       server does not know) used to be retried at every sync, silently. It is set aside
+       instead — kept on the phone, shown on the sync card, never deleted. */
+    if(j.refused || OB_FOREVER.test(item.lastError)){ item.parked=Date.now(); parked++; }
   }
   DB.d.config.lastSync=Date.now(); DB.save(); syncNow._busy=false;
   DB.d.messages.forEach(m=>{ if(m.pending && !DB.d.outbox.some(o=>o.kind==='message'&&o.payload.id===m.id)) m.pending=false; });
   DB.save();
   if(badToken){ render(); return tokenRefused(); }
+  if(parked) toast(LANG==='fr'
+    ?'⚠ '+parked+' élément(s) refusé(s) par le serveur — mis de côté sur cet appareil, rien n\'est perdu. Voir la carte Synchronisation.'
+    :'⚠ '+parked+' item(s) refused by the server — set aside on this device, nothing is lost. See the sync card.', 7000);
   if(busy && !quiet) toast(LANG==='fr'
     ?'Le serveur est occupé — vos données restent en attente et repartiront seules.'
     :'The server is busy — your data stays queued and will go by itself.', 4500);
