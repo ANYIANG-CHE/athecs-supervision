@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.8.5';
+const APP_VERSION = '5.8.6';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -12284,6 +12284,8 @@ function viewForms(){
                    : 'Each one is the two pages of the Word document.'}</p>
     <button class="btn blk" ${nSub ? '' : 'disabled'} onclick="fmDownloadDialog('${f.id}', null)">
       ${ahdIs(f) ? '⬇ Download Excel…' : '⬇ Download PDF…'}</button>
+    ${ahdIs(f) ? `<button class="btn sec blk" style="margin-top:8px" ${nSub ? '' : 'disabled'}
+      onclick="ahdCdcReport('${f.id}')">⬇ CDC consolidated report (one workbook, all sites)</button>` : ''}
     <p class="xs muted" style="margin:8px 0 0">${ahdIs(f)
       ? 'One file per site, as the tool is issued — every formula, dropdown and '
         + 'the Readiness_Dashboard come back alive and recalculate when it opens.'
@@ -13351,12 +13353,14 @@ function ahdScore(L, data){
     if(it.parent) return;                       /* summaries are not scored */
     out.total++;
     const d = out.dom[it.d] || (out.dom[it.d] = {ready:0, applicable:0, na:0,
-                                                 missing:0, p1:0, gaps:0, total:0});
+                                                 missing:0, p1:0, gaps:0, total:0,
+                                                 partial:0, no:0});
     d.total++;
     const v = String((resp[it.k] || {}).v || '');
     if(v === 'Yes'){ out.ready++; out.applicable++; d.ready++; d.applicable++; }
     else if(v === 'Partial' || v === 'No'){
       out.applicable++; d.applicable++;
+      d[v === 'Partial' ? 'partial' : 'no']++;      /* the CDC consolidated tool counts them apart */
       out.gaps++; d.gaps++;
       if(it.p === 'P1'){ out.p1++; d.p1++; }
     }
@@ -14220,6 +14224,121 @@ async function ahdDownload(formId, siteId){
     if(sites.length > 1) await new Promise(r => setTimeout(r, 450));
   }
   toast('✓ ' + sites.length + ' workbook' + (sites.length === 1 ? '' : 's') + ' downloaded', 4000);
+}
+
+/* =====================================================================
+   THE CDC CONSOLIDATED REPORT                                  (v5.8.6)
+
+   CDC asks each IP for ONE workbook covering every supported site: the
+   "AHD Consolidated Site Readiness Reporting Tool". Each site is a row that
+   is already printed in it; the IP fills the metadata and, per domain, the
+   Yes / Partial / No / N/A counts and the P1 gaps. Everything else in that
+   workbook is formulas, so this writes the input cells only and lets Excel
+   recalculate.
+
+   ahd-cdc-report.xlsx is CDC's file as issued, with one repair approved by
+   the regional coordinator: CDC deleted the Site ID and action columns from
+   the Report sheet before release, and every formula that used them read
+   #REF! — every site's status and most of the Dashboard. Those formulas were
+   pointed at what is left (or marked n/a). Nothing else was changed.
+
+   Which row is which site: CDC spells the West's facilities its own way, and
+   19 of its names lost their accents to a broken character. So a site is
+   placed by its row, and the row's name is checked (letters and digits only)
+   before anything is written. A re-issued tool with rows moved is refused,
+   never filled into the wrong facility.
+   shortcut: the table covers the 28 West AHD sites; a new site needs a line here.
+   ===================================================================== */
+const AHD_CDC_ROWS = {"S003":[275,"hdbafang"],"S002":[276,"hpitaladlucembankabafang"],"S014":[277,"hopitaldedistrictdebandjoun"],"S015":[278,"hopitaleecmbouo"],"S020":[279,"hpitaldedistrictdebangangt"],"S021":[280,"hpitaleecbangoua"],"S024":[281,"hdbangourain"],"S032":[282,"hddschang"],"S035":[283,"hopitalstvincentdepaul"],"S036":[284,"csmedicalisekueka"],"S038":[285,"hpitaldedistrictfoumban"],"S046":[286,"hpitaldedistrictfoumbot"],"S051":[287,"hdgalim"],"S054":[288,"hopitaldedistrictkouoptamo"],"S056":[289,"cmamagba"],"S057":[290,"hdmalantouen"],"S060":[291,"hopitaldedistrictmassangam"],"S065":[292,"cmababadjou"],"S062":[293,"hdmbouda"],"S064":[294,"hpitaladlucemmbouda"],"S073":[295,"achaannexetamdja"],"S070":[296,"cbcbamendzi"],"S069":[297,"cmadjeleng"],"S076":[298,"cmalafebaleng"],"S071":[299,"hdmififamla"],"S066":[300,"hpitaldelapolicebafoussam"],"S078":[301,"hrbafoussam"],"S084":[302,"hpitaldedistrictsantchou"]};
+const ahdCdcKey = s => String(s || '').normalize('NFD').replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+const xlCol = n => { let s = ''; for(; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; };
+/* 'YYYY-MM-DD' → Excel's day number, so the date column and "days since" work */
+const xlDate = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  return m ? Math.round((Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(1899, 11, 30)) / 864e5) : ''; };
+/* PEPFAR's fiscal year starts in October: 2026-11-03 is FY27 Q1 */
+const pepfarQ = iso => { const m = /^(\d{4})-(\d{2})/.exec(String(iso || '')); if(!m) return '';
+  const y = +m[1], mo = +m[2];
+  return 'FY' + String((mo >= 10 ? y + 1 : y) % 100).padStart(2, '0') + ' Q' + (Math.floor(((mo + 2) % 12) / 3) + 1); };
+
+/* What one site contributes to the consolidated tool, from its answers alone. */
+function ahdCdcRow(L, site, data){
+  const sc = ahdScore(L, data), p = (data && data.profile) || {}, resp = (data && data.resp) || {};
+  const p1 = L.sections[1].items.filter(it => !it.parent && it.p === 'P1'
+    && ['Partial', 'No'].indexOf(String((resp[it.k] || {}).v)) >= 0).map(it => it.no);
+  const cells = {
+    D:[xlDate(p.adate), true], E:[pepfarQ(p.adate)], F:[p.partner || 'NACC'], G:[p.level || ''],
+    H:[ahdTier(L, p.txcurr)], I:[String(p.txcurr || '').trim() === '' ? '' : Number(p.txcurr), true],
+    J:[p1.length ? 'P1 gaps: ' + p1.join(', ') : (sc.gaps ? 'No P1 gap' : '')]
+  };
+  for(let d = 1; d <= 16; d++){
+    const o = sc.dom[d] || {ready:0, partial:0, no:0, na:0, p1:0}, c0 = 28 + (d - 1) * 6;   /* AB = 28 */
+    [o.ready, o.partial, o.no, o.na, o.p1].forEach((v, i) => { cells[xlCol(c0 + i)] = [v, true]; });
+  }
+  return {cells, sc};
+}
+
+let AHD_CDC_TPL = null;
+async function ahdCdcReport(formId){
+  if(!can('dataDownload')){ toast('Downloading belongs to the regional team.', 3000); return; }
+  const f = fmForms().filter(x => x.id === formId)[0];
+  if(!f || !f.layout) return;
+  const sites = fmSubmitted(formId);
+  if(!sites.length){ toast('No site has been submitted yet.', 3500); return; }
+  try{
+    if(!AHD_CDC_TPL){
+      const r = await fetch('ahd-cdc-report.xlsx', {cache:'force-cache'});
+      if(!r.ok) throw new Error('missing');
+      AHD_CDC_TPL = new Uint8Array(await r.arrayBuffer());
+    }
+  }catch(err){ toast('The CDC report template is not on this device yet. Connect once and try again.', 5000); return; }
+
+  const entries = zipRead(AHD_CDC_TPL), by = {};
+  entries.forEach(e => { by[e.name] = e; });
+  const sst = [];
+  zipText(by['xl/sharedStrings.xml']).replace(/<si>([\s\S]*?)<\/si>/g, (m, si) => {
+    sst.push(si.replace(/<rPh[\s\S]*?<\/rPh>/g, '').replace(/<[^>]+>/g, '')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+    return '';
+  });
+  let s2 = zipText(by['xl/worksheets/sheet2.xml']);
+  const nameAt = row => { const m = new RegExp('<c r="C' + row + '"[^>]*t="s"[^>]*><v>(\\d+)</v>').exec(s2);
+                          return m ? sst[+m[1]] : ''; };
+
+  const done = [], refused = [], unchecked = [];
+  sites.forEach(s => {
+    const e = fmEntry(formId, s.id) || {};
+    const at = AHD_CDC_ROWS[s.id];
+    if(!at || ahdCdcKey(nameAt(at[0])) !== at[1]){ refused.push(s.facility); return; }
+    const {cells, sc} = ahdCdcRow(f.layout, s, e.data || {});
+    /* edit the one row, not the whole sheet once per cell */
+    const was = new RegExp('<row r="' + at[0] + '"[^>]*>[\\s\\S]*?</row>').exec(s2)[0];
+    let now = was;
+    Object.keys(cells).forEach(col => { now = xlSet(now, col + at[0], cells[col][0], cells[col][1]); });
+    s2 = s2.replace(was, () => now);
+    done.push(s);
+    if(fmStatus(e) === 'SUBMITTED' || sc.missing) unchecked.push(s.facility + (sc.missing ? ' (' + sc.missing + ' blank)' : ' (not validated)'));
+  });
+  by['xl/worksheets/sheet2.xml'].text = s2;
+  /* the Dashboard opens on this region */
+  let s3 = zipText(by['xl/worksheets/sheet3.xml']);
+  s3 = xlSet(xlSet(s3, 'B3', 'Ouest'), 'E3', 'All Districts');
+  by['xl/worksheets/sheet3.xml'].text = s3;
+
+  const bytes = await zipWrite(entries);
+  const url = URL.createObjectURL(new Blob([bytes],
+    {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'AHD_Consolidated_Ouest_' + todayISO() + '.xlsx';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+  modal('CDC consolidated report', `
+    <p class="small">✓ <b>${done.length}</b> site${done.length === 1 ? '' : 's'} written into CDC's consolidated tool
+      (Report sheet, West rows). Excel recalculates readiness, status and the Dashboard when the file opens.</p>
+    ${refused.length ? `<div class="banner b-warn"><b>Not written — no matching row in CDC's tool:</b><br>${
+      refused.map(esc).join('<br>')}</div>` : ''}
+    ${unchecked.length ? `<div class="banner b-warn"><b>Written, but check before sending:</b><br>${
+      unchecked.map(esc).join('<br>')}</div>` : ''}`,
+    `<button class="btn" onclick="closeModal()">OK</button>`);
 }
 
 /* =====================================================================

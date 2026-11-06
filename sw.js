@@ -158,7 +158,7 @@ async function putDoc(cache, res){
    base64 inside index.html, and it is precached here: an assessor finishing a
    site with no network must still be able to produce the file. A failure to
    fetch it must not fail the install — the app works without the export. */
-const EXTRA = ['./ahd-template.xlsx'];
+const EXTRA = ['./ahd-template.xlsx', './ahd-cdc-report.xlsx'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
