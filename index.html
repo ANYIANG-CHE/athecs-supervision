@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.9.0';
+const APP_VERSION = '5.9.1';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -7049,8 +7049,11 @@ function submitVisit(vid){
   }
   v.status='SUBMITTED'; v.submitted=Date.now(); v.scores=visitScores(v); v.updated=Date.now();
   DB.save(); audit('VISIT_SUBMIT','visit',siteById(v.siteId).facility);
+  /* Only an account that may manage cycles sends the cycle's own record. A district
+     supervisor's submit used to send it too, and the server refused it on every
+     sync for ever ("cycle belongs to the region team") — v5.9.1. */
   const c=DB.d.cycles.find(x=>x.id===v.cycleId);
-  if(c) queue('cycle', c);
+  if(c && can('cycleManage')) queue('cycle', c);
   queue('visit', {visit:visitForSync(v), answers:answersForSync(vid), actions:visitActions(vid)});
   modal(LANG==='fr'?'Supervision soumise':'Visit submitted', `
     <div class="banner b-ok">${LANG==='fr'
@@ -10554,6 +10557,14 @@ async function syncNow(quiet){
   if(!api){ if(!quiet) toast(LANG==='fr'?'Aucune URL d\'API configurée (Console → Paramètres)':'No API URL configured (Console → Settings)'); return; }
   if(!ONLINE){ if(!quiet) toast(T('offline')); return; }
   if(syncNow._busy) return; syncNow._busy=true;
+  /* A copy of a cycle queued by an account that cannot manage cycles (the v5.9.1 bug
+     above) can never be accepted, and it holds nothing of the field's work — the
+     server's cycle is the real one. Let it go rather than show it as unsent for ever. */
+  if(me() && !can('cycleManage')){
+    const n0=DB.d.outbox.length;
+    DB.d.outbox=DB.d.outbox.filter(o=>o.kind!=='cycle');
+    if(DB.d.outbox.length!==n0) DB.save();
+  }
   /* A set-aside item is not sent again until somebody asks (Send again on the sync card). */
   const box=DB.d.outbox.filter(o=>!o.parked);
   let ok=0, fail=0, badToken=false, busy=false, parked=0, pages=0;
