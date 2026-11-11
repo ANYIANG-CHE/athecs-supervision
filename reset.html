@@ -98,11 +98,20 @@ function note(s){ line.push(s); document.getElementById('log').textContent = lin
    Now it fetches the document itself, with the HTTP cache refused, reads the
    version out of it, and reports THAT. The address it then goes to carries
    the version, so what arrived is visible without opening anything. */
+/* No step of an update may wait for ever. A browser can leave an unregister, a
+   cache delete or a fetch pending indefinitely (an installed window holding its
+   worker, a host that resolves and never connects). Each step gets a few
+   seconds, then the update carries on and says what it could not do. (v5.11.2) */
+function within(p, ms, fallback){
+  return Promise.race([p, new Promise(function(res){ setTimeout(function(){ res(fallback); }, ms); })]);
+}
 var LANDED_VER = '';
+/* whatever happens, the page moves on within 25 seconds */
+setTimeout(function(){ location.replace('index.html?fresh=' + Date.now()); }, 25000);
 async function readVersion(){
   try{
-    var r = await fetch('index.html?_=' + Date.now(), {cache:'no-store', credentials:'omit'});
-    var t = await r.text();
+    var t = await within(fetch('index.html?_=' + Date.now(), {cache:'no-store', credentials:'omit'})
+      .then(function(r){ return r.text(); }), 9000, '');
     var m = /APP_VERSION\s*=\s*'([^']+)'/.exec(t);
     return m ? m[1] : '';
   }catch(e){ return ''; }
@@ -118,9 +127,9 @@ function go(){
 
   try{
     if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations){
-      var regs = await navigator.serviceWorker.getRegistrations();
+      var regs = await within(navigator.serviceWorker.getRegistrations(), 4000, []);
       for(var i = 0; i < regs.length; i++){
-        try{ if(await regs[i].unregister()) killedSW++; }catch(e){ trouble = true; }
+        try{ if(await within(regs[i].unregister(), 4000, false)) killedSW++; }catch(e){ trouble = true; }
       }
     }
     note('workers: ' + killedSW);
@@ -128,11 +137,11 @@ function go(){
 
   try{
     if(window.caches){
-      var keys = await caches.keys();
+      var keys = await within(caches.keys(), 4000, []);
       for(var j = 0; j < keys.length; j++){
-        try{ if(await caches.delete(keys[j])) killedCache++; }catch(e){ trouble = true; }
+        try{ if(await within(caches.delete(keys[j]), 4000, false)) killedCache++; }catch(e){ trouble = true; }
       }
-      var left = await caches.keys();
+      var left = await within(caches.keys(), 4000, []);
       if(left.length) trouble = true;
     }
     note('caches: ' + killedCache);
