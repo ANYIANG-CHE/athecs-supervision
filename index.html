@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.10.1';
+const APP_VERSION = '5.11.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -1588,8 +1588,15 @@ try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ 
 applyTheme();
 
 /* ===================== store ===================== */
+/* DEMO MODE (v5.11.0): a separate store, and the server out of reach. */
+var DEMO = (function(){ try{ return localStorage.getItem('ath_demo') === '1'; }catch(e){ return false; } })();
+if(DEMO){
+  const _fetch = window.fetch.bind(window);
+  window.fetch = (u, o) => /script\.google\.com/.test(String((u && u.url) || u))
+    ? Promise.reject(new Error('demo mode: the server is not contacted')) : _fetch(u, o);
+}
 const DB = {
-  k:'athecs_v1',
+  k: DEMO ? 'athecs_demo' : 'athecs_v1',
   d:null,
   load(){
     try{ this.d = JSON.parse(localStorage.getItem(this.k)) || null; }catch(e){ this.d=null; }
@@ -1675,7 +1682,8 @@ const DB = {
       && ['SUPER','ADMIN'].includes(String(o.payload.role||'').toUpperCase())));
 
     if(!d.config.dqa) d.config.dqa = {tolPct:5, exactBelow:100, yellowPct:10};
-    if(!d.config.api && typeof DEFAULT_API==='string' && DEFAULT_API) d.config.api = DEFAULT_API;
+    if(DEMO) d.config.api = '';
+    else if(!d.config.api && typeof DEFAULT_API==='string' && DEFAULT_API) d.config.api = DEFAULT_API;
     if(!d.threads.length){
       d.threads = [{id:'T-GEN', scope:'GENERAL', title:'Annonces régionales — Région de l\'Ouest', created:Date.now()}];
     }
@@ -2665,7 +2673,7 @@ function shell(inner, navKey){
      ${isSuper()?`<a href="#/admin" class="${navKey==='admin'?'on':''}">${T('admin')}</a>`:''}
      ${navDash()}
    </div>`);
-  return `
+  return `${demoBar()}
   <div class="topbar">
     <div class="topbar-in">
       <div class="netdot ${ONLINE?'':'off'}" title="${ONLINE
@@ -3098,7 +3106,11 @@ function appUpdateAsk(){
    this phone — this opens a link, and says so plainly when there is no network. */
 function openDashboard(){
   const L=LANG==='fr';
-  const url=(DB.d.config.dashUrl||DASH_URL||'').trim();
+  let url=(DB.d.config.dashUrl||DASH_URL||'').trim();
+  /* district staff land on their own district */
+  const du=me();
+  if(url && du && du.role==='DISTRICT' && (du.districts||[])[0])
+    url += (url.indexOf('?')<0?'?':'&') + 'district=' + encodeURIComponent(du.districts[0]);
   if(!url) return modal(L?'Tableau de bord national':'National dashboard',
     `<div class="banner b-warn">${L
       ?'L\'adresse du tableau de bord n\'a pas encore été renseignée par le niveau central.'
@@ -4396,6 +4408,7 @@ function obList(L){
     ${o.lastError?`<div class="xs">${L?'Réponse du serveur : ':'Server answer: '}<code>${esc(o.lastError)}</code></div>`:''}
     <div class="xs">${obAdvice(o, L)}</div>
     ${o.parked?`<button class="btn sec sm" style="margin-top:4px" ${ONLINE&&DB.d.config.api?'':'disabled'} onclick="obUnpark('${o.id}')">⇅ ${L?'Renvoyer':'Send again'}</button>`:''}
+    ${o.parked && OB_ADMIN_KINDS.indexOf(o.kind)>=0?`<button class="btn sec sm" style="margin-top:4px" onclick="obDiscard('${o.id}')">✕ ${L?'Abandonner (aucune donnée de terrain)':'Discard (no field data)'}</button>`:''}
   </div>`).join('');
 }
 function obUnpark(id){
@@ -8597,14 +8610,15 @@ function viewAdmin(tab){
     .concat(can('siteReqDecide')? [['sites',L?'Demandes de sites':'Site requests']] : [])
     .concat([['users',L?'Utilisateurs':'Users'],['cfg',L?'Paramètres':'Settings'],
              ['audit',L?'Journal':'Audit log']])
-    .concat(can('slotAssign')? [['slots', L?'Super utilisateurs':'Super users']] : []);
+    .concat(can('slotAssign')? [['slots', L?'Super utilisateurs':'Super users']] : [])
+    .concat([['sync', L?'Envois & blocages':'Sync & stuck work']]);
   /* A tab reached by a stored address rather than by pressing it — the hash survives a
      reload, and a narrowing can arrive between the two. A name that is not a tab at all
      lands on Supervisions; a tab that EXISTS but is above this level lands on the refusal
      below, in words. Falling back for both would have hidden the explanation behind a
      screen that silently showed something else. */
   const ALL_TABS = ['supervisions','cycles','approvals','questions','sites',
-                    'users','cfg','audit','slots'];
+                    'users','cfg','audit','slots','sync'];
   if(!ALL_TABS.includes(tab)) tab = 'supervisions';
   return `<div class="card tight"><div class="spread">
       <h2 style="margin:0">${T('admin')}</h2>${scopeChip()}</div></div>
@@ -8616,6 +8630,7 @@ function viewAdmin(tab){
    : tab==='approvals'? admApprovals()
    : tab==='questions'? (can('questionEdit') ?admQuestions():scopeDenied('questionEdit'))
    : tab==='sites'?     (can('siteReqDecide')?admSites()    :scopeDenied('siteReqDecide'))
+   : tab==='sync'? admSync()
    : tab==='users'?admUsers(): tab==='cfg'?admCfg(): admAudit() }`;
 }
 
@@ -10591,7 +10606,9 @@ function revokeRoleAsk(uid){
 /* Server answers that will not change by retrying (Code.gs saveFormEntry / doPost). */
 const OB_FOREVER=/form is (closed|archived)|unknown (form|kind)|too large|not serialisable|no entry id/i;
 function queue(kind, payload){
-  DB.d.outbox.push({id:DB.id('OB'), kind, payload, ts:Date.now(), tries:0});
+  /* who queued it, so it is sent under that account even if somebody else signs in
+     on this device before it leaves (v5.11.0) */
+  DB.d.outbox.push({id:DB.id('OB'), kind, payload, ts:Date.now(), tries:0, uid:DB.d.session||''});
   DB.save();
   if(ONLINE) setTimeout(()=>syncNow(true), 400);
 }
@@ -10629,7 +10646,7 @@ async function syncNow(quiet){
            the kinds that do not exist yet. Nothing secret travels: an account id
            is already on every pull. */
         body:JSON.stringify({token:apiToken(), kind:item.kind, id:item.id,
-                             uid:(me()||{}).id||'', payload:item.payload})});
+                             uid:item.uid||(me()||{}).id||'', payload:item.payload})});
     }catch(e){ item.tries++; item.lastError='no connection to the server'; fail++; break; }
     let j=null; try{ j=await res.json(); }catch(e){}
     if(j && j.ok){ DB.d.outbox=DB.d.outbox.filter(x=>x.id!==item.id); ok++; pages=0; continue; }
@@ -10654,6 +10671,7 @@ async function syncNow(quiet){
     if(j.refused || OB_FOREVER.test(item.lastError)){ item.parked=Date.now(); parked++; }
   }
   DB.d.config.lastSync=Date.now(); DB.save(); syncNow._busy=false;
+  syncReport();
   DB.d.messages.forEach(m=>{ if(m.pending && !DB.d.outbox.some(o=>o.kind==='message'&&o.payload.id===m.id)) m.pending=false; });
   DB.save();
   if(badToken){ render(); return tokenRefused(); }
@@ -10904,6 +10922,7 @@ async function pullData(full, deep){
      Data pulls always got through — that is how the v4.0.0 phone stayed
      in touch while never learning that it was three versions behind. */
   if(j.appExpected) DB.d.config.appExpected = String(j.appExpected);
+  if(Array.isArray(j.syncStatus)) DB.d.syncStatus = j.syncStatus;
   if(typeof applyReset==='function') applyReset(j);
 
   /* ---- THE SERVER TELLS THIS PHONE WHAT ITS SCOPE IS -----------------------------
@@ -14487,6 +14506,224 @@ async function ahdCdcReport(formId){
 }
 
 /* =====================================================================
+   WHAT EVERY PHONE IS HOLDING, SEEN FROM THE CONSOLE              (v5.11.0)
+
+   A supervisor whose submission never left the phone believes it was sent,
+   and the console sees only a draft. Nobody could see the gap. Each phone now
+   reports, after every sync, what it still holds: its app version, how many
+   items wait, which were set aside, and the server's answer for each. The
+   report carries no answers and no names of patients — the kind of each item,
+   the facility, and the error. The console reads the reports of the people in
+   its scope (Sync & stuck work tab).
+
+   Sent straight, not through the outbox: a report about the outbox must never
+   itself become something stuck in it. An older server answers "unknown kind";
+   that is ignored.
+   ===================================================================== */
+function deviceId(){
+  const c = DB.d.config;
+  if(!c.deviceId){ c.deviceId = 'D' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); DB.save(); }
+  return c.deviceId;
+}
+async function syncReport(force){
+  try{
+    const u = me(), api = DB.d.config.api;
+    if(!u || !api || !ONLINE || DEMO) return;
+    const items = DB.d.outbox.slice(0, 15).map(o => ({k:o.kind, what:obWhat(o).replace(/<[^>]*>/g, ''),
+      ts:o.ts, tries:o.tries || 0, err:String(o.lastError || '').slice(0, 160), parked:!!o.parked}));
+    const rep = {uid:u.id, name:u.name || '', role:u.role || '', districts:(u.districts || []).join(', '),
+      ver:APP_VERSION, device:deviceId(), ua:(navigator.userAgent || '').slice(0, 90),
+      pending:DB.d.outbox.length, parked:DB.d.outbox.filter(o => o.parked).length,
+      lastSync:DB.d.config.lastSync || 0, items};
+    /* only when something changed, or every six hours as a sign of life */
+    const sig = JSON.stringify([rep.uid, rep.ver, rep.pending, rep.parked, items.map(i => i.k + i.tries + i.err)]);
+    const c = DB.d.config;
+    if(!force && c.repSig === sig && Date.now() - (c.repAt || 0) < 6 * 3600e3) return;
+    await fetch(api, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({token:apiToken(), kind:'syncReport', id:'SR-' + rep.device, uid:u.id, payload:rep})});
+    c.repSig = sig; c.repAt = Date.now(); DB.save();
+  }catch(e){ /* a report that cannot go is not worth bothering anybody with */ }
+}
+
+/* The administrative kinds: writes that change the shape of the work, never the
+   work itself. One of them set aside can be discarded — nothing from the field
+   is in it. Supervisions, pages, recommendations and messages never can. */
+var OB_ADMIN_KINDS = ['cycle', 'formDelete', 'formPublish', 'sites', 'questions', 'qPublish',
+                        'siteReq', 'assign', 'release', 'scopeSet', 'recode', 'roleGrant', 'roleRevoke'];
+function obDiscard(id){
+  const o = DB.d.outbox.find(x => x.id === id); if(!o || OB_ADMIN_KINDS.indexOf(o.kind) < 0) return;
+  DB.d.outbox = DB.d.outbox.filter(x => x.id !== id);
+  audit('OUTBOX_DISCARD', o.kind, String(o.lastError || '').slice(0, 120));
+  DB.save(); render();
+}
+
+/* ---- the console tab ---- */
+function admSync(){
+  const L = LANG === 'fr';
+  const reps = (DB.d.syncStatus || []).slice().sort((a, b) =>
+    (b.parked - a.parked) || (b.pending - a.pending) || String(a.name).localeCompare(String(b.name)));
+  const want = String((DB.d.config || {}).appExpected || APP_VERSION);
+  const old = r => typeof verLt === 'function' && verLt(String(r.ver || '0'), want);
+  const ago = t => t ? fmtDT(t) : '—';
+  const rows = reps.map((r, i) => {
+    const u = (DB.d.users || []).find(x => x.id === r.uid) || {};
+    const tel = String(u.phone || '').replace(/[^\d+]/g, '');
+    return `<tr>
+      <td class="stick"><b>${esc(r.name || r.uid)}</b><div class="xs muted">${esc(roleLabelFor(r.role))}${r.districts ? ' · ' + esc(r.districts) : ''}</div></td>
+      <td><span class="chip ${old(r) ? 'a' : 'g'}" style="${old(r) ? 'background:#fde2e1;color:#b3261e' : ''}">v${esc(r.ver || '?')}</span></td>
+      <td style="text-align:center">${r.pending ? '<b>' + r.pending + '</b>' : '0'}</td>
+      <td style="text-align:center">${r.parked ? '<span class="chip a" style="background:#fde2e1;color:#b3261e">' + r.parked + '</span>' : '0'}</td>
+      <td class="xs">${ago(r.at)}</td>
+      <td style="white-space:nowrap">${tel ? `<a class="btn sec sm" href="tel:${esc(tel)}">☎</a> <a class="btn sec sm" target="_blank" rel="noopener" href="https://wa.me/${esc(tel.replace(/^\+/, '').replace(/^(6\d{8})$/, '237$1'))}">WhatsApp</a>` : ''}</td></tr>
+      ${(r.items || []).length ? `<tr><td colspan="6" style="padding-top:0"><details><summary class="xs">${L ? 'Voir les éléments' : 'See the items'} (${r.items.length})</summary>
+        ${(r.items || []).map(it => `<div class="xs" style="margin:4px 0;padding:6px;border-left:3px solid ${it.parked ? '#b3261e' : '#d97706'}">
+          <b>${it.parked ? '⚠ ' : ''}${esc(it.k)}</b> ${esc(it.what || '')} · ${L ? 'saisi' : 'entered'} ${ago(it.ts)} · ${it.tries} ${L ? 'essai(s)' : 'attempt(s)'}
+          ${it.err ? '<br><code>' + esc(it.err) + '</code>' : ''}</div>`).join('')}</details></td></tr>` : ''}`;
+  }).join('');
+  return `${(me() || {}).role === 'ADMIN' && !DEMO ? `<div class="card"><div class="spread" style="flex-wrap:wrap;gap:8px">
+      <div style="min-width:0"><b>${L ? 'Mode démo' : 'Demo mode'}</b><div class="xs muted">${L
+        ? 'Essayer chaque instrument et chaque type de compte sur cet appareil, sans rien envoyer ; puis revenir au réel.'
+        : 'Try every instrument and every account type on this device, sending nothing; then go back to live.'}</div></div>
+      <button class="btn" onclick="demoEnter()">${L ? 'Ouvrir le mode démo' : 'Open demo mode'}</button></div></div>` : ''}
+    <div class="card">
+      <h3 style="margin:0 0 4px">${L ? 'Ce que chaque téléphone retient' : 'What each phone is holding'}</h3>
+      <p class="small muted" style="margin:0 0 10px">${L
+        ? 'Chaque téléphone envoie ici, après chaque synchronisation, sa version et ce qui n’est pas encore parti, avec la réponse du serveur. En rouge : version en retard sur ' + esc(want) + ' ou éléments refusés.'
+        : 'After each sync, each phone reports its version and what has not left it yet, with the server’s answer. In red: a version behind ' + esc(want) + ', or items refused.'}</p>
+      ${reps.length ? `<div class="tw pin"><table><thead><tr><th class="col-name">${L ? 'Personne' : 'Person'}</th><th>Version</th>
+        <th>${L ? 'En attente' : 'Waiting'}</th><th>${L ? 'Refusés' : 'Refused'}</th><th>${L ? 'Dernier rapport' : 'Last report'}</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`
+        : `<p class="small muted" style="margin:0">${L
+          ? 'Aucun rapport reçu pour l’instant. Les téléphones en envoient dès qu’ils passent en v5.11.0 et que le serveur 5.8.7 est déployé.'
+          : 'No report received yet. Phones send one once they run v5.11.0 and server 5.8.7 is deployed.'}</p>`}
+    </div>
+    ${admStuck()}`;
+}
+
+/* Planned facilities of a cycle with work in progress and nothing submitted:
+   the supervisions that may be sitting on a phone. Read from this console's own
+   copy, which holds the drafts the phones pushed. */
+function admStuck(){
+  const L = LANG === 'fr';
+  const cycles = (DB.d.cycles || []).slice();
+  if(!cycles.length) return '';
+  const pick = cycles.find(c => c.id === (window.STUCK_CY || '')) || activeCycle() || cycles[cycles.length - 1];
+  const plan = (typeof cyclePlan === 'function' ? cyclePlan(pick) : []) || [];
+  const reps = DB.d.syncStatus || [];
+  const rows = plan.map(id => {
+    const s = siteById(id) || {facility:id, district:''};
+    const vs = DB.d.visits.filter(v => v.siteId === id && v.cycleId === pick.id);
+    if(vs.some(v => v.status === 'SUBMITTED' || v.status === 'APPROVED')) return null;
+    const last = vs.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0))[0];
+    const who = last ? (DB.d.users.find(u => u.id === last.uid) || {name:last.supervisor || ''}) : null;
+    const recos = last ? DB.d.actions.filter(a => a.visitId === last.id).length : 0;
+    const rep = who && who.id ? reps.filter(r => r.uid === who.id).sort((a, b) => (b.at || 0) - (a.at || 0))[0] : null;
+    const state = !last ? (L ? 'Rien de commencé' : 'Nothing started')
+      : last.status === 'RETURNED' ? (L ? 'Retournée, pas resoumise' : 'Returned, not resubmitted')
+      : recos ? (L ? 'Brouillon avec plan d’action — sans doute fini sur le téléphone' : 'Draft with an action plan — probably finished on the phone')
+      : (L ? 'Brouillon' : 'Draft');
+    const tel = who ? String(who.phone || '').replace(/[^\d+]/g, '') : '';
+    return `<tr><td class="stick"><b>${esc(s.facility)}</b><div class="xs muted">${esc(s.district || '')}</div></td>
+      <td>${esc(state)}${last && last.status === 'RETURNED' && last.reviewNote ? '<div class="xs muted">' + esc(last.reviewNote) + '</div>' : ''}</td>
+      <td>${who ? esc(who.name || '') : '—'}${rep ? `<div class="xs ${typeof verLt === 'function' && verLt(String(rep.ver), String(DB.d.config.appExpected || APP_VERSION)) ? '' : 'muted'}" style="${typeof verLt === 'function' && verLt(String(rep.ver), String(DB.d.config.appExpected || APP_VERSION)) ? 'color:#b3261e' : ''}">v${esc(rep.ver)} · ${rep.pending} ${L ? 'en attente' : 'waiting'}</div>` : (who ? `<div class="xs muted">${L ? 'pas de rapport du téléphone' : 'no report from the phone'}</div>` : '')}</td>
+      <td class="xs">${last ? fmtDT(last.updated || last.created || 0) : '—'}</td>
+      <td style="text-align:center">${recos || '—'}</td>
+      <td style="white-space:nowrap">${tel ? `<a class="btn sec sm" href="tel:${esc(tel)}">☎</a>` : ''}</td></tr>`;
+  }).filter(Boolean);
+  return `<div class="card">
+    <div class="spread" style="flex-wrap:wrap;gap:8px"><h3 style="margin:0">${L ? 'Supervisions prévues qui ne sont pas arrivées' : 'Planned supervisions that have not arrived'}</h3>
+      <select onchange="window.STUCK_CY=this.value;render()">${cycles.map(c => `<option value="${esc(c.id)}" ${c.id === pick.id ? 'selected' : ''}>${esc(c.name)}${c.status === 'OPEN' ? ' ●' : ''}</option>`).join('')}</select></div>
+    <p class="small muted" style="margin:6px 0 10px">${L
+      ? 'Formations sanitaires prévues sans supervision soumise. Un brouillon qui porte déjà un plan d’action a presque toujours été terminé : sa soumission est restée sur le téléphone du superviseur. Ouvrir l’application sur ce téléphone (v5.9.1 ou plus) l’envoie ; si le cycle est clos, rouvrez-le d’abord.'
+      : 'Planned facilities with no submitted supervision. A draft that already carries an action plan was almost always finished: its submission stayed on the supervisor’s phone. Opening the app on that phone (v5.9.1 or later) sends it; if the cycle is closed, reopen it first.'}</p>
+    ${rows.length ? `<div class="tw pin"><table><thead><tr><th class="col-name">${L ? 'Formation sanitaire' : 'Facility'}</th><th>${L ? 'État' : 'State'}</th>
+      <th>${L ? 'Superviseur' : 'Supervisor'}</th><th>${L ? 'Dernière modif.' : 'Last change'}</th><th>${L ? 'Recos' : 'Recos'}</th><th></th></tr></thead>
+      <tbody>${rows.join('')}</tbody></table></div>`
+      : `<p class="small" style="margin:0">✓ ${L ? 'Toutes les formations sanitaires prévues ont une supervision soumise.' : 'Every planned facility has a submitted supervision.'}</p>`}
+  </div>`;
+}
+
+/* =====================================================================
+   DEMO MODE — the administrator tries everything, then goes back to live
+
+   A separate store on this device ('athecs_demo'), chosen before anything
+   loads, so the live data is never read or written while in demo. The server
+   is out of reach: its address is blank in demo and every request to it is
+   refused at the door (top of the script). Demo accounts of every type are
+   made from the live register, and a bar at the top switches between them.
+   Leaving the demo returns to the live store exactly as it was; resetting it
+   throws the demo store away.
+   ===================================================================== */
+function demoEnter(){
+  const L = LANG === 'fr', u = me();
+  if(!u || u.role !== 'ADMIN') return toast(L ? 'Réservé à l’administrateur' : 'Administrator only', 3000);
+  const live = DB.d;
+  const ds = [...new Set((live.sites || []).map(s => s.district).filter(Boolean))].sort();
+  const d1 = ds[0] || '', d2 = ds[1] || d1;
+  const site1 = (live.sites || []).find(s => s.district === d1) || {};
+  /* the app's own blank store first, so every list the screens expect exists */
+  const copy = {config:live.config || {}};
+  ['sites', 'cycles', 'questions', 'forms'].forEach(k => { if(Array.isArray(live[k]) && live[k].length) copy[k] = live[k]; });
+  const demo = Object.assign(DB.fresh(), JSON.parse(JSON.stringify(copy)));
+  if(!Array.isArray(demo.forms)) demo.forms = [];
+  if(!demo.forms.some(f => (f.layout || {}).kind === 'dtaa'))
+    demo.forms.push({id:'DTAA-DEMO', title:'Évaluation initiale du district (DTAA)', subtitle:'', status:'OPEN',
+      scope:'DISTRICT', fillers:'DISTRICT', version:1, layout:JSON.parse(JSON.stringify(DTAA_DEMO_LAYOUT))});
+  demo.forms.forEach(f => { if(String(f.status) !== 'ARCHIVED') f.status = 'OPEN'; });
+  demo.config.api = ''; demo.config.demo = true; delete demo.config.deviceId;
+  const mk = (id, name, role, extra) => Object.assign({id, name, role, status:'ACTIVE', active:true, pin:'0000', hasPin:true,
+    fn:'Démo', phone:'', enrolled:Date.now()}, extra || {});
+  demo.users = [
+    mk('DEMO-ADMIN', 'Démo — Administrateur', 'ADMIN', {grade:'national', claimed:true, slot:true}),
+    mk('DEMO-REG', 'Démo — Console régionale', 'SUPER', {grade:'region', claimed:true, slot:true}),
+    mk('DEMO-DCON', 'Démo — Console district ' + d1, 'SUPER', {grade:'district', districts:[d1], claimed:true, slot:true}),
+    mk('DEMO-SUP', 'Démo — Superviseur ' + d1 + '/' + d2, 'SUPERVISOR', {districts:[d1, d2]}),
+    mk('DEMO-SITE', 'Démo — Personnel ' + (site1.facility || ''), 'SITE', {sites:[site1.id], siteId:site1.id, districts:[d1]}),
+    mk('DEMO-DIST', 'Démo — Équipe du district ' + d1, 'DISTRICT', {districts:[d1]})
+  ];
+  demo.session = 'DEMO-ADMIN';
+  try{
+    localStorage.setItem('athecs_demo', JSON.stringify(demo));
+    localStorage.setItem('ath_demo', '1');
+  }catch(e){ return toast(L ? 'Stockage plein : impossible d’ouvrir la démo' : 'Storage full: cannot open the demo', 4000); }
+  try{ sessionStorage.setItem('ath_landed', '1'); }catch(e){}
+  location.hash = '#/home'; location.reload();
+}
+function demoExit(){
+  try{ localStorage.removeItem('ath_demo'); }catch(e){}
+  location.hash = '#/home'; location.reload();
+}
+function demoReset(){
+  const L = LANG === 'fr';
+  if(!confirmBox(L ? 'Effacer tout ce qui a été saisi dans la démo et revenir aux données réelles ?'
+                   : 'Erase everything entered in the demo and go back to live data?')) return;
+  try{ localStorage.removeItem('athecs_demo'); localStorage.removeItem('ath_demo'); }catch(e){}
+  location.hash = '#/home'; location.reload();
+}
+function confirmBox(msg){ try{ return window.confirm(msg); }catch(e){ return false; } }
+function demoAs(uid){
+  if(!DEMO) return;
+  DB.d.session = uid; DB.save(); passLanding();
+  try{ localStorage.setItem('ath_path', uid === 'DEMO-SITE' ? 'site' : uid === 'DEMO-DIST' ? 'dist'
+    : (uid === 'DEMO-SUP' ? 'sup' : 'adm')); }catch(e){}
+  goHome();
+}
+function demoBar(){
+  if(!DEMO) return '';
+  const L = LANG === 'fr', u = me() || {};
+  return `<div style="background:#b45309;color:#fff;padding:6px 12px;font-size:.82rem;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <b>${L ? 'MODE DÉMO — rien n’est envoyé au serveur' : 'DEMO MODE — nothing is sent to the server'}</b>
+    <span style="opacity:.9">${L ? 'Voir comme :' : 'View as:'}</span>
+    <select style="max-width:240px" onchange="demoAs(this.value)">${(DB.d.users || []).filter(x => /^DEMO-/.test(x.id)).map(x =>
+      `<option value="${esc(x.id)}" ${x.id === u.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
+    <button class="btn sec sm" onclick="demoExit()">${L ? 'Revenir au réel' : 'Back to live'}</button>
+    <button class="btn sec sm" onclick="demoReset()">${L ? 'Effacer la démo' : 'Erase the demo'}</button></div>`;
+}
+
+/* the district baseline's default lists, for the demo only — live comes from the server */
+var DTAA_DEMO_LAYOUT = {"kind":"dtaa","version":1,"lists":{"roles":[{"k":"mcd","fr":"Médecin chef de district (MCD)","en":"District medical officer (DMO)"},{"k":"cbs","fr":"Chef bureau santé (CBS)","en":"Head of health office (CBS)"},{"k":"bagf","fr":"Chef bureau des affaires générales et financières","en":"Head of general and financial affairs"},{"k":"pfgas","fr":"Point focal GAS","en":"GAS focal point"},{"k":"pfpev","fr":"Point focal PEV","en":"EPI focal point"},{"k":"pfuhc","fr":"Point focal CSU / UHC","en":"UHC focal point"},{"k":"pfpalu","fr":"Point focal Paludisme","en":"Malaria focal point"},{"k":"pfvih","fr":"Point focal VIH","en":"HIV focal point","focal":"vih"},{"k":"pfptme","fr":"Point focal PTME","en":"PMTCT focal point","focal":"ptme"},{"k":"pftb","fr":"Point focal TB","en":"TB focal point","focal":"tb"},{"k":"pffech","fr":"Point focal FECh","en":"FECh focal point","focal":"fech"},{"k":"pfmnt","fr":"Point focal MNT","en":"NCD focal point","focal":"mnt"},{"k":"chas","fr":"Chef d’aire de santé","en":"Health area head"},{"k":"drv","fr":"Chauffeur","en":"Driver"},{"k":"jan","fr":"Agent d’entretien","en":"Janitor"},{"k":"oth","fr":"Autre","en":"Other"}],"integ":[{"k":"tb","fr":"VIH – TB","en":"HIV – TB"},{"k":"ptme","fr":"VIH – PTME / SMNI","en":"HIV – PMTCT / MNCH"},{"k":"mnt","fr":"VIH – MNT","en":"HIV – NCD"},{"k":"pev","fr":"VIH – PEV","en":"HIV – EPI"}],"topics":[{"k":"pec","fr":"Prise en charge globale du VIH","en":"Comprehensive HIV care"},{"k":"coh","fr":"Suivi de cohorte","en":"Cohort monitoring"},{"k":"tpt","fr":"Traitement préventif de la tuberculose (TPT)","en":"TB preventive treatment (TPT)"},{"k":"ped","fr":"Prise en charge des enfants vivant avec le VIH","en":"Care of children living with HIV"},{"k":"idx","fr":"Dépistage par cas index","en":"Index testing"},{"k":"ahd","fr":"Maladie VIH avancée","en":"Advanced HIV disease"},{"k":"mnt","fr":"Dépistage des MNT chez les PVVIH","en":"NCD screening in PLHIV"},{"k":"heid","fr":"Suivi des nourrissons exposés au VIH","en":"HIV-exposed infant follow-up"},{"k":"arvp","fr":"Schémas ARV pédiatriques","en":"Paediatric ARV regimens"},{"k":"arva","fr":"Schémas ARV adultes","en":"Adult ARV regimens"},{"k":"sup","fr":"Supervision","en":"Supervision"},{"k":"men","fr":"Mentorat","en":"Mentoring"}],"needs":[{"k":"pc","fr":"Ordinateur","en":"Computer"},{"k":"prn","fr":"Imprimante","en":"Printer"},{"k":"a4","fr":"Papier A4 (rames)","en":"A4 paper (reams)"},{"k":"pen","fr":"Stylos (bics)","en":"Pens"},{"k":"note","fr":"Blocs-notes","en":"Notebooks"},{"k":"run","fr":"Run charts (projet CQI)","en":"Run charts (CQI project)"}],"src":[{"k":"obs","fr":"Observé","en":"Observed"},{"k":"doc","fr":"Document vu","en":"Document seen"},{"k":"dec","fr":"Déclaré","en":"Declared"}]}};
+
+/* =====================================================================
    THE DISTRICT BASELINE (DTAA)                                  (v5.9.0)
 
    One page per HEALTH DISTRICT — not per facility — filled by district staff
@@ -14677,7 +14914,12 @@ function dtaaPaint(formId, sid){
 /* ------------------------------------------------------------------ screens */
 function viewDistHome(){
   const L = LANG === 'fr', u = me() || {};
-  const cards = (typeof fmHomeCard === 'function') ? fmHomeCard() : '';
+  const cards = ((typeof fmHomeCard === 'function') ? fmHomeCard() : '')
+    + `<div class="card"><div class="spread" style="flex-wrap:wrap;gap:8px"><div style="min-width:0">
+        <b>📊 ${L ? 'Le mentorat dans mon district' : 'The mentorship in my district'}</b>
+        <div class="xs muted">${L ? 'Couverture, scores et recommandations résolues ou en attente, par formation sanitaire.'
+                                  : 'Coverage, scores and recommendations resolved or pending, per facility.'}</div></div>
+        <button class="btn sec" onclick="openDashboard()">${L ? 'Ouvrir le tableau de bord' : 'Open the dashboard'} ↗</button></div></div>`;
   return `<div class="card">
       <h3 style="margin:0 0 4px">${L ? 'Équipe cadre du district' : 'District team'} — ${esc((u.districts || []).join(', '))}</h3>
       <p class="small muted" style="margin:0">${L
@@ -14758,7 +15000,7 @@ function viewDtaaFill(formId, sid){
   const A = (s) => esc(String(s === undefined || s === null ? '' : s));
   const q = s => s.replace(/'/g, "\\'");
   const set = (path, extra) => `onchange="dtaaSet('${dtaaK(formId)}','${dtaaK(sid)}','${dtaaP(path)}',this.value${extra ? ',true' : ''})"`;
-  const inp = (path, type, ph) => `<input type="${type || 'text'}" ${type === 'number' ? 'inputmode="numeric" min="0"' : ''}
+  const inp = (path, type, ph) => `<input autocomplete="off" type="${type || 'text'}" ${type === 'number' ? 'inputmode="numeric" min="0"' : ''}
       ${type === 'date' ? 'max="' + todayISO() + '"' : ''} value="${A(dtaaGet(x, path))}" placeholder="${A(ph || '')}" ${dis} ${set(path)}>`;
   const yn = (path, repaint) => `<select ${dis} ${set(path, repaint)}>
       <option value="">${T('select')}</option>
@@ -14782,18 +15024,18 @@ function viewDtaaFill(formId, sid){
       <td class="stick"><select ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'role',this.value,true)">
         <option value="">${T('select')}</option>${dtaaList(f, 'roles').filter(o => !o.hidden || p.role === o.k)
           .map(o => `<option value="${dtaaK(o.k)}" ${p.role === o.k ? 'selected' : ''}>${A(dtaaLab(o))}</option>`).join('')}</select></td>
-      <td><input value="${A(p.name)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'name',this.value)"></td>
-      <td><input type="tel" value="${A(p.phone)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'phone',this.value)"></td>
-      <td><input type="email" value="${A(p.email)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'email',this.value)"></td>
+      <td><input autocomplete="off" value="${A(p.name)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'name',this.value)"></td>
+      <td><input autocomplete="off" type="tel" value="${A(p.phone)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'phone',this.value)"></td>
+      <td><input autocomplete="off" type="email" value="${A(p.email)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'email',this.value)"></td>
       <td><select ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'inpost',this.value,true)">
         ${['Oui', 'Non'].map(v => `<option value="${dtaaK(v)}" ${(p.inpost || 'Oui') === v ? 'selected' : ''}>${v === 'Oui' ? (L ? 'Oui' : 'Yes') : (L ? 'Non' : 'No')}</option>`).join('')}</select></td>
       <td>${lock ? '' : `<button class="btn sec sm" onclick="dtaaDel('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i})">✕</button>`}</td></tr>`).join('');
   const s1 = `<div class="grid g2">
-      ${lab(L ? 'I.1 Région' : 'I.1 Region', '<input readonly class="ro" value="Ouest">')}
-      ${lab('I.2 District', `<input readonly class="ro" value="${A(d)}">`)}
+      ${lab(L ? 'I.1 Région' : 'I.1 Region', '<input autocomplete="off" readonly class="ro" value="Ouest">')}
+      ${lab('I.2 District', `<input autocomplete="off" readonly class="ro" value="${A(d)}">`)}
       ${lab(L ? 'I.3 Nombre d’aires de santé' : 'I.3 Number of health areas', inp('gen.nAreas', 'number', L ? 'registre : ' + areasReg : 'register: ' + areasReg))}
       ${lab(L ? 'I.4 Nombre de formations sanitaires' : 'I.4 Number of health facilities', inp('gen.nFacs', 'number', L ? 'registre : ' + facsReg : 'register: ' + facsReg))}
-      ${lab(L ? 'Date de l’évaluation' : 'Assessment date', `<input readonly class="ro" value="${A((x.gen || {}).adate || todayISO())}">`)}
+      ${lab(L ? 'Date de l’évaluation' : 'Assessment date', `<input autocomplete="off" readonly class="ro" value="${A((x.gen || {}).adate || todayISO())}">`)}
     </div>
     <p class="small" style="margin:12px 0 6px"><b>${L ? 'I.5 Personnel du district' : 'I.5 District staff'}</b> — ${L
       ? 'une ligne par personne. Les points focaux (II.1–II.5) et les contacts (IV.1) se déduisent de ce tableau.'
@@ -14828,14 +15070,14 @@ function viewDtaaFill(formId, sid){
     const head = s.area !== lastArea ? `<tr><td colspan="4" class="xs muted" style="background:var(--surface-3)"><b>${A(s.area || '—')}</b></td></tr>` : '';
     lastArea = s.area;
     return head + `<tr><td class="stick">${A(s.facility)}</td>${pocCells(s.id, v)}</tr>`;
-  }).join('') + (x.pocExtra || []).map((v, i) => `<tr><td class="stick"><input placeholder="${L ? 'Formation sanitaire (hors registre)' : 'Facility (not in the register)'}" value="${A(v.name)}" ${dis}
+  }).join('') + (x.pocExtra || []).map((v, i) => `<tr><td class="stick"><input autocomplete="off" placeholder="${L ? 'Formation sanitaire (hors registre)' : 'Facility (not in the register)'}" value="${A(v.name)}" ${dis}
       onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','pocExtra',${i},'name',this.value)">${lock ? '' : ` <button class="btn sec sm" onclick="dtaaDel('${dtaaK(formId)}','${dtaaK(sid)}','pocExtra',${i})">✕</button>`}</td>${pocCells('', v, i)}</tr>`).join('');
   const pc = dtaaPocCount(d, x);
   const srcSel = k => `<label class="f" style="max-width:220px"><span>Source</span>${pick('src.' + k, 'src')}</label>`;
   const r = x.res || {};
   const integ = r.integ || {};
   const integOpts = dtaaList(f, 'integ').filter(o => !o.hidden || (integ.opts || []).includes(o.k)).map(o =>
-    `<label class="chk"><input type="checkbox" ${(integ.opts || []).includes(o.k) ? 'checked' : ''} ${dis}
+    `<label class="chk"><input autocomplete="off" type="checkbox" ${(integ.opts || []).includes(o.k) ? 'checked' : ''} ${dis}
       onchange="dtaaTog('${dtaaK(formId)}','${dtaaK(sid)}','res.integ.opts','${dtaaK(o.k)}',this.checked)"><span>${A(dtaaLab(o))}</span></label>`).join('');
   const s2 = `<div class="tw"><table><tbody>${focRows}</tbody></table></div>
     <p class="xs muted" style="margin:6px 0 14px">${L ? 'Déduit du tableau I.5 : une personne en poste avec cette fonction = Oui.' : 'Derived from table I.5: a person in post with that role = Yes.'}</p>
@@ -14876,7 +15118,7 @@ function viewDtaaFill(formId, sid){
     <div class="tw pin"><table class="dash"><thead><tr><th class="col-name">${T('name')}</th>${topics.map(t =>
       `<th class="col-num" title="${A(dtaaLab(t))}">${A(ahdShort ? ahdShort(dtaaLab(t), 22) : dtaaLab(t))}</th>`).join('')}</tr></thead>
       <tbody>${people.map(p => `<tr><td class="stick">${A(p.name)}<div class="xs muted">${A(dtaaLab(dtaaFind(f, 'roles', p.role)))}</div></td>${topics.map(t =>
-        `<td><input class="fmnum" inputmode="numeric" maxlength="4" style="width:4.2em" placeholder="—" value="${A(((x.train || {})[p.id] || {})[t.k])}" ${dis}
+        `<td><input autocomplete="off" class="fmnum" inputmode="numeric" maxlength="4" style="width:4.2em" placeholder="—" value="${A(((x.train || {})[p.id] || {})[t.k])}" ${dis}
           onchange="dtaaSet('${dtaaK(formId)}','${dtaaK(sid)}','train.${dtaaK(p.id)}.${dtaaK(t.k)}',this.value.replace(/\\D/g,'').slice(0,4))"></td>`).join('')}</tr>`).join('')}
         <tr><td class="stick"><b>${L ? 'Équipe : formée ?' : 'Team: trained?'}</b></td>${topics.map(t => {
           const n = trained(t.k);
@@ -14887,7 +15129,7 @@ function viewDtaaFill(formId, sid){
   /* IV — lists */
   const contacts = (x.staff || []).filter(p => { const ro = dtaaFind(f, 'roles', p.role); return ro && (ro.k === 'mcd' || ro.focal); });
   const rowsOf = (list, cols) => (x[list] || []).map((v, i) => `<tr>${cols.map((c, ci) =>
-      `<td ${ci === 0 ? 'class="stick"' : ''}><input ${c.t ? 'type="' + c.t + '"' : ''} ${c.t === 'number' ? 'inputmode="numeric" min="0" style="width:6em"' : ''} value="${A(v[c.k])}" placeholder="${A(c.ph || '')}" ${dis}
+      `<td ${ci === 0 ? 'class="stick"' : ''}><input autocomplete="off" ${c.t ? 'type="' + c.t + '"' : ''} ${c.t === 'number' ? 'inputmode="numeric" min="0" style="width:6em"' : ''} value="${A(v[c.k])}" placeholder="${A(c.ph || '')}" ${dis}
         onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','${dtaaK(list)}',${i},'${dtaaK(c.k)}',this.value)"></td>`).join('')}
       <td>${lock ? '' : `<button class="btn sec sm" onclick="dtaaDel('${dtaaK(formId)}','${dtaaK(sid)}','${dtaaK(list)}',${i})">✕</button>`}</td></tr>`).join('');
   const table = (list, cols, addLabel) => `<div class="tw pin"><table><thead><tr>${cols.map((c, i) => `<th ${i === 0 ? 'class="col-name"' : ''}>${c.h}</th>`).join('')}<th></th></tr></thead>
@@ -14902,7 +15144,7 @@ function viewDtaaFill(formId, sid){
     <p class="small" style="margin:14px 0 6px"><b>${L ? 'IV.3 Téléphones FECh' : 'IV.3 FECh phones'}</b></p>
     ${table('fech', [{k:'phone', h:L ? 'N° du téléphone FECh' : 'FECh phone number', t:'tel'}, {k:'holder', h:L ? 'Détenteur' : 'Holder'}, {k:'hphone', h:L ? 'Téléphone du détenteur' : 'Holder’s phone', t:'tel'}], L ? 'Ajouter un téléphone' : 'Add a phone')}
     <p class="small" style="margin:14px 0 6px"><b>${L ? 'IV.4 Besoins en outils et quantités' : 'IV.4 Tools needed and quantities'}</b></p>
-    <div class="tw"><table><tbody>${needs.map(o => `<tr><td class="stick">${A(dtaaLab(o))}</td><td><input inputmode="numeric" type="number" min="0" style="width:6em"
+    <div class="tw"><table><tbody>${needs.map(o => `<tr><td class="stick">${A(dtaaLab(o))}</td><td><input autocomplete="off" inputmode="numeric" type="number" min="0" style="width:6em"
         value="${A((x.needs || {})[o.k])}" ${dis} onchange="dtaaSet('${dtaaK(formId)}','${dtaaK(sid)}','needs.${dtaaK(o.k)}',this.value)"></td></tr>`).join('')}</tbody></table></div>
     ${table('needsExtra', [{k:'item', h:L ? 'Autre article' : 'Other item'}, {k:'qty', h:L ? 'Quantité' : 'Quantity', t:'number'}], L ? 'Autre article' : 'Other item')}
     <p class="small" style="margin:14px 0 6px"><b>${L ? 'IV.5 Partenaires intervenant dans le district' : 'IV.5 Partners working in the district'}</b></p>
@@ -15008,9 +15250,9 @@ function dtaaOptEdit(formId, list){
                 topics:L ? 'Thèmes de formation' : 'Training topics', needs:L ? 'Articles (besoins)' : 'Items (needs)', src:'Sources'};
   const cur = list || DTAA_EDIT.cur || 'integ'; DTAA_EDIT.cur = cur;
   const rows = (DTAA_EDIT.lists[cur] || []).map((o, i) => `<tr>
-      <td><input value="${esc(o.fr || '')}" oninput="DTAA_EDIT.lists['${dtaaK(cur)}'][${i}].fr=this.value"></td>
-      <td><input value="${esc(o.en || '')}" oninput="DTAA_EDIT.lists['${dtaaK(cur)}'][${i}].en=this.value"></td>
-      <td style="text-align:center"><input type="checkbox" ${o.hidden ? '' : 'checked'} onchange="DTAA_EDIT.lists['${dtaaK(cur)}'][${i}].hidden=!this.checked"></td></tr>`).join('');
+      <td><input autocomplete="off" value="${esc(o.fr || '')}" oninput="DTAA_EDIT.lists['${dtaaK(cur)}'][${i}].fr=this.value"></td>
+      <td><input autocomplete="off" value="${esc(o.en || '')}" oninput="DTAA_EDIT.lists['${dtaaK(cur)}'][${i}].en=this.value"></td>
+      <td style="text-align:center"><input autocomplete="off" type="checkbox" ${o.hidden ? '' : 'checked'} onchange="DTAA_EDIT.lists['${dtaaK(cur)}'][${i}].hidden=!this.checked"></td></tr>`).join('');
   modal(L ? 'Listes d’options' : 'Option lists', `
     <label class="f"><span>${L ? 'Liste' : 'List'}</span><select onchange="dtaaOptEdit('${dtaaK(formId)}',this.value)">${Object.keys(keys).map(k =>
       `<option value="${k}" ${k === cur ? 'selected' : ''}>${keys[k]}</option>`).join('')}</select></label>

@@ -407,7 +407,7 @@ svg.chart .cross{stroke:var(--axis);stroke-width:1;stroke-dasharray:3 3;opacity:
    The page now states its OWN version, beside the server's, and says so out
    loud when the two do not match. A deployment that is half done should
    announce itself. */
-const PAGE_VERSION = '5.8.6';
+const PAGE_VERSION = '5.8.7';
 const API   = 'https://script.google.com/macros/s/AKfycbyAjaQ1yALvefsUxZhvQbUFPo-yXXuDguqV0ni2Iz0UQXENF-uBRNU1I4zrhtQeK-ESbQ/exec';
 const TOKEN = 'ATHECS-DASH-2026';
 
@@ -2257,6 +2257,11 @@ function draw(){
       const open = (A.cycles || []).filter(c => c.status === 'OPEN')[0];
       F.cycle = (j.cycle && j.cycle.id) || (open && open.id)
              || ((A.cycles || [])[A.cycles.length - 1] || {}).id || '';
+      /* ?district=… opens on one district (the app's district staff link) */
+      try{
+        const want = new URLSearchParams(location.search).get('district');
+        if(want && sitesAll().some(s => s.district === want)) F.district = want;
+      }catch(e){}
       draw();
     })
     .catch(e => {
