@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.11.2';
+const APP_VERSION = '5.11.3';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -4418,7 +4418,7 @@ function obList(L){
     ${o.lastError?`<div class="xs">${L?'Réponse du serveur : ':'Server answer: '}<code>${esc(o.lastError)}</code></div>`:''}
     <div class="xs">${obAdvice(o, L)}</div>
     ${o.parked?`<button class="btn sec sm" style="margin-top:4px" ${ONLINE&&DB.d.config.api?'':'disabled'} onclick="obUnpark('${o.id}')">⇅ ${L?'Renvoyer':'Send again'}</button>`:''}
-    ${o.parked && OB_ADMIN_KINDS.indexOf(o.kind)>=0?`<button class="btn sec sm" style="margin-top:4px" onclick="obDiscard('${o.id}')">✕ ${L?'Abandonner (aucune donnée de terrain)':'Discard (no field data)'}</button>`:''}
+    ${o.parked && obAdminKind(o.kind)?`<button class="btn sec sm" style="margin-top:4px" onclick="obDiscard('${o.id}')">✕ ${L?'Abandonner (aucune donnée de terrain)':'Discard (no field data)'}</button>`:''}
   </div>`).join('');
 }
 function obUnpark(id){
@@ -11514,7 +11514,33 @@ function afterRender(r, sameView){
   const app=$('#app'); if(app) app.classList.toggle('hasbar', !!$('.bottombar'));
 }
 DB.load();
-render();
+/* THE FIRST PAINT MAY NEVER STOP THE SCRIPT (v5.11.3).
+   It runs before the rest of this file has executed. An error in it used to
+   abort everything after it — later settings never set, listeners never added —
+   and the phone sat on "taking too long to open". Now it is tried again once
+   the whole script has run, and if it still fails the error is shown with the
+   way out, instead of a frozen screen. */
+try{ render(); }
+catch(e){
+  setTimeout(function(){
+    try{ render(); }
+    catch(e2){ bootFailed(e2); }
+  }, 0);
+}
+function bootFailed(e){
+  try{
+    var app = document.getElementById('app'); if(!app) return;
+    app.removeAttribute('data-boot');
+    var fr = (function(){ try{ return localStorage.getItem('ath_lang') !== 'en'; }catch(x){ return true; } })();
+    app.innerHTML = '<div style="max-width:460px;margin:40px auto;padding:20px;font:15px/1.55 system-ui,sans-serif">'
+      + '<h2 style="margin:0 0 8px">' + (fr ? 'Un écran n\u2019a pas pu s\u2019afficher' : 'A screen could not be drawn') + '</h2>'
+      + '<p style="margin:0 0 12px">' + (fr ? 'Rien n\u2019est perdu : vos données restent sur cet appareil.'
+                                            : 'Nothing is lost: your data stays on this device.') + '</p>'
+      + '<p style="margin:0 0 16px;font-size:.8rem;opacity:.75"><code>' + String(e && e.message || e).replace(/[<>&]/g, '') + '</code></p>'
+      + '<p><a href="index.html?fresh=' + Date.now() + '" style="margin-right:12px">' + (fr ? 'Réessayer' : 'Try again') + '</a>'
+      + '<a href="update.html">' + (fr ? 'Réparer et mettre à jour' : 'Repair and update') + '</a></p></div>';
+  }catch(x){}
+}
 updateNotice();
 maybeTour();
 window.addEventListener('load', ()=>{ if(ONLINE){ pullRemote(); syncNow(true); refreshAdmins(false);
@@ -12218,7 +12244,8 @@ function fmMayFill(f, siteId){
   const u = me(); if(!u || !f) return false;
   /* the district baseline is filled by district staff only, for their own district;
      everybody else who sees it reviews it (dtaaMayReview) */
-  if(dtaaIs(f)) return isDistStaff(u) && (!siteId || dtaaMyDistricts().includes(dtaaDistOf(siteId)));
+  if(dtaaIs(f)) return (isDistStaff(u) || (DEMO && isSlot(u)))
+                       && (!siteId || dtaaMyDistricts().includes(dtaaDistOf(siteId)));
   if(isDistStaff(u)) return false;
   /* Every console level — district, region, national — may open and correct an
      instrument page in its own scope. Mentorship stays read-only for them (holdsPen). */
@@ -12241,7 +12268,9 @@ function fmMayFill(f, siteId){
 }
 function fmVisible(){
   const u = me(); if(!u) return [];
-  return fmForms().filter(f => String(f.status || '') !== 'ARCHIVED')
+  /* DRAFT = in development: tried in demo mode, never shown on a live phone */
+  return fmForms().filter(f => String(f.status || '') !== 'ARCHIVED'
+                            && (DEMO || String(f.status || '').toUpperCase() !== 'DRAFT'))
                   .filter(f => (isSuper() && !isDistStaff()) || fmMayFill(f)
                                || (dtaaIs(f) && dtaaReviewer() && dtaaMyDistricts().length > 0));
 }
@@ -14558,10 +14587,15 @@ async function syncReport(force){
 /* The administrative kinds: writes that change the shape of the work, never the
    work itself. One of them set aside can be discarded — nothing from the field
    is in it. Supervisions, pages, recommendations and messages never can. */
-var OB_ADMIN_KINDS = ['cycle', 'formDelete', 'formPublish', 'sites', 'questions', 'qPublish',
-                        'siteReq', 'assign', 'release', 'scopeSet', 'recode', 'roleGrant', 'roleRevoke'];
+/* A function, not a var: the first paint runs long before this line, and the sync
+   card on that paint reads it. As a var it was still undefined there, and any phone
+   holding a set-aside item crashed at start-up (v5.11.0–5.11.2). */
+function obAdminKind(k){
+  return ['cycle', 'formDelete', 'formPublish', 'sites', 'questions', 'qPublish',
+          'siteReq', 'assign', 'release', 'scopeSet', 'recode', 'roleGrant', 'roleRevoke'].indexOf(k) >= 0;
+}
 function obDiscard(id){
-  const o = DB.d.outbox.find(x => x.id === id); if(!o || OB_ADMIN_KINDS.indexOf(o.kind) < 0) return;
+  const o = DB.d.outbox.find(x => x.id === id); if(!o || !obAdminKind(o.kind)) return;
   DB.d.outbox = DB.d.outbox.filter(x => x.id !== id);
   audit('OUTBOX_DISCARD', o.kind, String(o.lastError || '').slice(0, 120));
   DB.save(); render();
@@ -14681,7 +14715,14 @@ function demoEnter(){
   if(!demo.forms.some(f => (f.layout || {}).kind === 'dtaa'))
     demo.forms.push({id:'DTAA-DEMO', title:'Évaluation initiale du district (DTAA)', subtitle:'', status:'OPEN',
       scope:'DISTRICT', fillers:'DISTRICT', version:1, layout:JSON.parse(JSON.stringify(DTAA_DEMO_LAYOUT))});
-  demo.forms.forEach(f => { if(String(f.status) !== 'ARCHIVED') f.status = 'OPEN'; });
+  /* only what is being built or is running: an instrument in development (DRAFT)
+     or open. Closed and archived ones stay out of the demo. All of them open for
+     filling, and a facility instrument is fillable by every role that would use it. */
+  demo.forms = demo.forms.filter(f => ['DRAFT', 'OPEN'].indexOf(String(f.status || '').toUpperCase()) >= 0);
+  demo.forms.forEach(f => {
+    f.status = 'OPEN';
+    if((f.layout || {}).kind !== 'dtaa') f.fillers = 'SUPERVISOR,SITE,SUPER';
+  });
   demo.config.api = ''; demo.config.demo = true; delete demo.config.deviceId;
   const mk = (id, name, role, extra) => Object.assign({id, name, role, status:'ACTIVE', active:true, pin:'0000', hasPin:true,
     fn:'Démo', phone:'', enrolled:Date.now()}, extra || {});
@@ -14725,6 +14766,7 @@ function demoBar(){
   const L = LANG === 'fr', u = me() || {};
   return `<div style="background:#b45309;color:#fff;padding:6px 12px;font-size:.82rem;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <b>${L ? 'MODE DÉMO — rien n’est envoyé au serveur' : 'DEMO MODE — nothing is sent to the server'}</b>
+    <span style="opacity:.9">${L ? 'Instruments en développement et ouverts, remplissables.' : 'Instruments in development and open, fillable.'}</span>
     <span style="opacity:.9">${L ? 'Voir comme :' : 'View as:'}</span>
     <select style="max-width:240px" onchange="demoAs(this.value)">${(DB.d.users || []).filter(x => /^DEMO-/.test(x.id)).map(x =>
       `<option value="${esc(x.id)}" ${x.id === u.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
@@ -14956,7 +14998,7 @@ function viewDtaaList(f){
       <td>${fmChip(st)}</td>
       <td style="text-align:right;white-space:nowrap">
         ${e ? `<button class="btn sec sm" onclick="dtaaPdf('${dtaaK(f.id)}','${dtaaK(x.id)}')">PDF</button>` : ''}
-        <button class="btn sec sm" ${e ? '' : 'disabled'} onclick="go('#/fm/${dtaaK(f.id)}/${dtaaK(x.id)}')">${L ? 'Ouvrir' : 'Open'}</button></td></tr>`;
+        <button class="btn sec sm" ${e || DEMO ? '' : 'disabled'} onclick="go('#/fm/${dtaaK(f.id)}/${dtaaK(x.id)}')">${e ? (L ? 'Ouvrir' : 'Open') : (L ? 'Remplir' : 'Fill')}</button></td></tr>`;
   }).join('');
   return `<div class="inst" data-inst="fm">
     ${dtaaBar(f)}
@@ -14999,7 +15041,8 @@ function viewDtaaFill(formId, sid){
   const f = fmForms().filter(x => x.id === formId)[0];
   const d = dtaaDistOf(sid);
   if(!f || !d) return `<div class="banner b-err">${L ? 'Cette page n’est pas disponible sur cet appareil.' : 'This page is not available on this device.'}</div>`;
-  const own = isDistStaff() && dtaaMyDistricts().includes(d);
+  /* in demo the administrator fills it as the district would, to see it as they will */
+  const own = (isDistStaff() || (DEMO && isSlot(me()))) && dtaaMyDistricts().includes(d);
   const rev = dtaaMayReview(d);
   if(!own && !rev) return `<div class="banner b-err">${L ? 'Ce district n’est pas dans votre périmètre.' : 'This district is not in your scope.'}</div>`;
   const e = fmEntry(formId, sid) || {status:'', data:{}};
