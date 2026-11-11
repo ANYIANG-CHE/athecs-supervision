@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.11.3';
+const APP_VERSION = '5.11.4';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -8621,6 +8621,7 @@ function viewAdmin(tab){
     .concat([['users',L?'Utilisateurs':'Users'],['cfg',L?'Paramètres':'Settings'],
              ['audit',L?'Journal':'Audit log']])
     .concat(can('slotAssign')? [['slots', L?'Super utilisateurs':'Super users']] : [])
+    .concat(can('formPublish')? [['inst', L?'Instruments':'Instruments']] : [])
     .concat([['sync', L?'Envois & blocages':'Sync & stuck work']]);
   /* A tab reached by a stored address rather than by pressing it — the hash survives a
      reload, and a narrowing can arrive between the two. A name that is not a tab at all
@@ -8628,7 +8629,7 @@ function viewAdmin(tab){
      below, in words. Falling back for both would have hidden the explanation behind a
      screen that silently showed something else. */
   const ALL_TABS = ['supervisions','cycles','approvals','questions','sites',
-                    'users','cfg','audit','slots','sync'];
+                    'users','cfg','audit','slots','sync','inst'];
   if(!ALL_TABS.includes(tab)) tab = 'supervisions';
   return `<div class="card tight"><div class="spread">
       <h2 style="margin:0">${T('admin')}</h2>${scopeChip()}</div></div>
@@ -8641,6 +8642,7 @@ function viewAdmin(tab){
    : tab==='questions'? (can('questionEdit') ?admQuestions():scopeDenied('questionEdit'))
    : tab==='sites'?     (can('siteReqDecide')?admSites()    :scopeDenied('siteReqDecide'))
    : tab==='sync'? admSync()
+   : tab==='inst'? (can('formPublish') ? admInst() : scopeDenied('formPublish'))
    : tab==='users'?admUsers(): tab==='cfg'?admCfg(): admAudit() }`;
 }
 
@@ -14626,7 +14628,7 @@ function admSync(){
           <b>${it.parked ? '⚠ ' : ''}${esc(it.k)}</b> ${esc(it.what || '')} · ${L ? 'saisi' : 'entered'} ${ago(obN(it.ts))} · ${obN(it.tries)} ${L ? 'essai(s)' : 'attempt(s)'}
           ${it.err ? '<br><code>' + esc(it.err) + '</code>' : ''}</div>`).join('')}</details></td></tr>` : ''}`;
   }).join('');
-  return `${(me() || {}).role === 'ADMIN' && !DEMO ? `<div class="card"><div class="spread" style="flex-wrap:wrap;gap:8px">
+  return `${isSlot(me()) && !DEMO ? `<div class="card"><div class="spread" style="flex-wrap:wrap;gap:8px">
       <div style="min-width:0"><b>${L ? 'Mode démo' : 'Demo mode'}</b><div class="xs muted">${L
         ? 'Essayer chaque instrument et chaque type de compte sur cet appareil, sans rien envoyer ; puis revenir au réel.'
         : 'Try every instrument and every account type on this device, sending nothing; then go back to live.'}</div></div>
@@ -14702,7 +14704,7 @@ function admStuck(){
    ===================================================================== */
 function demoEnter(){
   const L = LANG === 'fr', u = me();
-  if(!u || u.role !== 'ADMIN') return toast(L ? 'Réservé à l’administrateur' : 'Administrator only', 3000);
+  if(!u || !isSlot(u)) return toast(L ? 'Réservé aux comptes de la console' : 'Console accounts only', 3000);
   const live = DB.d;
   const ds = [...new Set((live.sites || []).map(s => s.district).filter(Boolean))].sort();
   const d1 = ds[0] || '', d2 = ds[1] || d1;
@@ -14776,6 +14778,68 @@ function demoBar(){
 
 /* the district baseline's default lists, for the demo only — live comes from the server */
 var DTAA_DEMO_LAYOUT = {"kind":"dtaa","version":1,"lists":{"roles":[{"k":"mcd","fr":"Médecin chef de district (MCD)","en":"District medical officer (DMO)"},{"k":"cbs","fr":"Chef bureau santé (CBS)","en":"Head of health office (CBS)"},{"k":"bagf","fr":"Chef bureau des affaires générales et financières","en":"Head of general and financial affairs"},{"k":"pfgas","fr":"Point focal GAS","en":"GAS focal point"},{"k":"pfpev","fr":"Point focal PEV","en":"EPI focal point"},{"k":"pfuhc","fr":"Point focal CSU / UHC","en":"UHC focal point"},{"k":"pfpalu","fr":"Point focal Paludisme","en":"Malaria focal point"},{"k":"pfvih","fr":"Point focal VIH","en":"HIV focal point","focal":"vih"},{"k":"pfptme","fr":"Point focal PTME","en":"PMTCT focal point","focal":"ptme"},{"k":"pftb","fr":"Point focal TB","en":"TB focal point","focal":"tb"},{"k":"pffech","fr":"Point focal FECh","en":"FECh focal point","focal":"fech"},{"k":"pfmnt","fr":"Point focal MNT","en":"NCD focal point","focal":"mnt"},{"k":"chas","fr":"Chef d’aire de santé","en":"Health area head"},{"k":"drv","fr":"Chauffeur","en":"Driver"},{"k":"jan","fr":"Agent d’entretien","en":"Janitor"},{"k":"oth","fr":"Autre","en":"Other"}],"integ":[{"k":"tb","fr":"VIH – TB","en":"HIV – TB"},{"k":"ptme","fr":"VIH – PTME / SMNI","en":"HIV – PMTCT / MNCH"},{"k":"mnt","fr":"VIH – MNT","en":"HIV – NCD"},{"k":"pev","fr":"VIH – PEV","en":"HIV – EPI"}],"topics":[{"k":"pec","fr":"Prise en charge globale du VIH","en":"Comprehensive HIV care"},{"k":"coh","fr":"Suivi de cohorte","en":"Cohort monitoring"},{"k":"tpt","fr":"Traitement préventif de la tuberculose (TPT)","en":"TB preventive treatment (TPT)"},{"k":"ped","fr":"Prise en charge des enfants vivant avec le VIH","en":"Care of children living with HIV"},{"k":"idx","fr":"Dépistage par cas index","en":"Index testing"},{"k":"ahd","fr":"Maladie VIH avancée","en":"Advanced HIV disease"},{"k":"mnt","fr":"Dépistage des MNT chez les PVVIH","en":"NCD screening in PLHIV"},{"k":"heid","fr":"Suivi des nourrissons exposés au VIH","en":"HIV-exposed infant follow-up"},{"k":"arvp","fr":"Schémas ARV pédiatriques","en":"Paediatric ARV regimens"},{"k":"arva","fr":"Schémas ARV adultes","en":"Adult ARV regimens"},{"k":"sup","fr":"Supervision","en":"Supervision"},{"k":"men","fr":"Mentorat","en":"Mentoring"}],"needs":[{"k":"pc","fr":"Ordinateur","en":"Computer"},{"k":"prn","fr":"Imprimante","en":"Printer"},{"k":"a4","fr":"Papier A4 (rames)","en":"A4 paper (reams)"},{"k":"pen","fr":"Stylos (bics)","en":"Pens"},{"k":"note","fr":"Blocs-notes","en":"Notebooks"},{"k":"run","fr":"Run charts (projet CQI)","en":"Run charts (CQI project)"}],"src":[{"k":"obs","fr":"Observé","en":"Observed"},{"k":"doc","fr":"Document vu","en":"Document seen"},{"k":"dec","fr":"Déclaré","en":"Declared"}]}};
+
+
+/* =====================================================================
+   INSTRUMENTS — their status, set from the console              (v5.11.4)
+
+   In development (DRAFT): tried in demo mode, shown on no live phone.
+   Open: filled in the field. Closed: filling stops, pages stay readable and
+   exportable. Archived: off every phone, answers kept in the workbook.
+   The change republishes the instrument as the phone holds it (layout,
+   fillers and scope unchanged), so nothing but the status moves.
+   ===================================================================== */
+function instStatusLabel(st, L){
+  st = String(st || '').toUpperCase();
+  return st === 'DRAFT' ? (L ? 'En développement' : 'In development')
+       : st === 'OPEN' ? (L ? 'Ouvert' : 'Open')
+       : st === 'CLOSED' ? (L ? 'Clôturé' : 'Closed')
+       : st === 'ARCHIVED' ? (L ? 'Archivé' : 'Archived') : st;
+}
+function admInst(){
+  const L = LANG === 'fr';
+  const forms = fmForms();
+  const opts = ['DRAFT', 'OPEN', 'CLOSED', 'ARCHIVED'];
+  return `<div class="card">
+    <h3 style="margin:0 0 4px">${L ? 'Instruments' : 'Instruments'}</h3>
+    <p class="small muted" style="margin:0 0 10px">${L
+      ? '<b>En développement</b> : visible seulement en mode démo, pour le tester. <b>Ouvert</b> : rempli sur le terrain. <b>Clôturé</b> : plus de saisie, les pages restent lisibles et exportables. <b>Archivé</b> : retiré de tous les téléphones, les réponses restent dans le classeur.'
+      : '<b>In development</b>: visible only in demo mode, to test it. <b>Open</b>: filled in the field. <b>Closed</b>: no more entry, pages stay readable and exportable. <b>Archived</b>: off every phone, answers kept in the workbook.'}</p>
+    ${forms.length ? `<div class="tw"><table><thead><tr><th class="col-name">${L ? 'Instrument' : 'Instrument'}</th>
+      <th>${L ? 'Statut' : 'Status'}</th></tr></thead><tbody>${forms.map(f => `<tr>
+        <td class="stick"><b>${esc(f.title || f.id)}</b><div class="xs muted">${esc(f.id)} · v${esc(f.version || 1)}</div></td>
+        <td><select onchange="instSetStatus(${esc(JSON.stringify(String(f.id)))}, this.value)" ${DEMO ? 'disabled' : ''}>${opts.map(o =>
+          `<option value="${o}" ${String(f.status || '').toUpperCase() === o ? 'selected' : ''}>${instStatusLabel(o, L)}</option>`).join('')}</select></td>
+      </tr>`).join('')}</tbody></table></div>`
+      : `<p class="small muted" style="margin:0">${L ? 'Aucun instrument publié.' : 'No instrument published.'}</p>`}
+    ${DEMO ? `<p class="xs muted" style="margin:8px 0 0">${L ? 'En mode démo, le statut ne se change pas : revenez au réel.' : 'In demo mode the status cannot be changed: go back to live.'}</p>` : ''}
+  </div>`;
+}
+function instSetStatus(id, st){
+  const L = LANG === 'fr';
+  const f = fmForms().filter(x => x.id === id)[0]; if(!f || !can('formPublish') || DEMO) return render();
+  const was = String(f.status || '').toUpperCase(); st = String(st || '').toUpperCase();
+  if(st === was) return;
+  const warn = st === 'ARCHIVED' ? (L ? 'Il disparaîtra de tous les téléphones. Les réponses restent dans le classeur.' : 'It will leave every phone. The answers stay in the workbook.')
+             : st === 'DRAFT' ? (L ? 'Il ne sera plus visible sur les téléphones, seulement en mode démo.' : 'It will no longer show on phones, only in demo mode.')
+             : st === 'CLOSED' ? (L ? 'Plus personne ne pourra saisir ; les pages restent lisibles.' : 'Nobody will be able to enter anything; pages stay readable.')
+             : (L ? 'Il sera visible et rempli sur le terrain.' : 'It will be visible and filled in the field.');
+  modal(L ? 'Changer le statut' : 'Change the status',
+    `<p style="margin:0 0 8px"><b>${esc(f.title || f.id)}</b> : ${instStatusLabel(was, L)} → <b>${instStatusLabel(st, L)}</b></p>
+     <p class="small" style="margin:0">${warn}</p>`,
+    `<button class="btn sec" onclick="closeModal();render()">${T('cancel')}</button>
+     <button class="btn" onclick="instSetStatusDo(${esc(JSON.stringify(String(id)))}, '${st}')">${L ? 'Confirmer' : 'Confirm'}</button>`);
+}
+function instSetStatusDo(id, st){
+  const L = LANG === 'fr';
+  const f = fmForms().filter(x => x.id === id)[0]; if(!f) return;
+  f.status = st; DB.save();
+  queue('formPublish', {id:f.id, title:f.title || '', subtitle:f.subtitle || '', status:st,
+    scope:f.scope || 'SITE', fillers:f.fillers || 'SUPER', opens:f.opens || '', closes:f.closes || '',
+    version:Number(f.version) || 1, by:(me() || {}).name || '', layout:f.layout});
+  audit('FORM_STATUS', 'form', f.id + ' → ' + st);
+  closeModal(); toast(L ? '✓ Statut envoyé au serveur' : '✓ Status sent to the server', 2500); render();
+}
 
 /* =====================================================================
    THE DISTRICT BASELINE (DTAA)                                  (v5.9.0)
