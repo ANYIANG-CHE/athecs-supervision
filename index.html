@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.11.0';
+const APP_VERSION = '5.11.1';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -14558,6 +14558,8 @@ function obDiscard(id){
 }
 
 /* ---- the console tab ---- */
+/* a count from a phone's report: a number, whatever arrived */
+function obN(v){ return Math.max(0, parseInt(v, 10) || 0); }
 function admSync(){
   const L = LANG === 'fr';
   const reps = (DB.d.syncStatus || []).slice().sort((a, b) =>
@@ -14571,13 +14573,13 @@ function admSync(){
     return `<tr>
       <td class="stick"><b>${esc(r.name || r.uid)}</b><div class="xs muted">${esc(roleLabelFor(r.role))}${r.districts ? ' · ' + esc(r.districts) : ''}</div></td>
       <td><span class="chip ${old(r) ? 'a' : 'g'}" style="${old(r) ? 'background:#fde2e1;color:#b3261e' : ''}">v${esc(r.ver || '?')}</span></td>
-      <td style="text-align:center">${r.pending ? '<b>' + r.pending + '</b>' : '0'}</td>
-      <td style="text-align:center">${r.parked ? '<span class="chip a" style="background:#fde2e1;color:#b3261e">' + r.parked + '</span>' : '0'}</td>
-      <td class="xs">${ago(r.at)}</td>
+      <td style="text-align:center">${obN(r.pending) ? '<b>' + obN(r.pending) + '</b>' : '0'}</td>
+      <td style="text-align:center">${obN(r.parked) ? '<span class="chip a" style="background:#fde2e1;color:#b3261e">' + obN(r.parked) + '</span>' : '0'}</td>
+      <td class="xs">${ago(obN(r.at))}</td>
       <td style="white-space:nowrap">${tel ? `<a class="btn sec sm" href="tel:${esc(tel)}">☎</a> <a class="btn sec sm" target="_blank" rel="noopener" href="https://wa.me/${esc(tel.replace(/^\+/, '').replace(/^(6\d{8})$/, '237$1'))}">WhatsApp</a>` : ''}</td></tr>
       ${(r.items || []).length ? `<tr><td colspan="6" style="padding-top:0"><details><summary class="xs">${L ? 'Voir les éléments' : 'See the items'} (${r.items.length})</summary>
         ${(r.items || []).map(it => `<div class="xs" style="margin:4px 0;padding:6px;border-left:3px solid ${it.parked ? '#b3261e' : '#d97706'}">
-          <b>${it.parked ? '⚠ ' : ''}${esc(it.k)}</b> ${esc(it.what || '')} · ${L ? 'saisi' : 'entered'} ${ago(it.ts)} · ${it.tries} ${L ? 'essai(s)' : 'attempt(s)'}
+          <b>${it.parked ? '⚠ ' : ''}${esc(it.k)}</b> ${esc(it.what || '')} · ${L ? 'saisi' : 'entered'} ${ago(obN(it.ts))} · ${obN(it.tries)} ${L ? 'essai(s)' : 'attempt(s)'}
           ${it.err ? '<br><code>' + esc(it.err) + '</code>' : ''}</div>`).join('')}</details></td></tr>` : ''}`;
   }).join('');
   return `${(me() || {}).role === 'ADMIN' && !DEMO ? `<div class="card"><div class="spread" style="flex-wrap:wrap;gap:8px">
@@ -14625,7 +14627,7 @@ function admStuck(){
     const tel = who ? String(who.phone || '').replace(/[^\d+]/g, '') : '';
     return `<tr><td class="stick"><b>${esc(s.facility)}</b><div class="xs muted">${esc(s.district || '')}</div></td>
       <td>${esc(state)}${last && last.status === 'RETURNED' && last.reviewNote ? '<div class="xs muted">' + esc(last.reviewNote) + '</div>' : ''}</td>
-      <td>${who ? esc(who.name || '') : '—'}${rep ? `<div class="xs ${typeof verLt === 'function' && verLt(String(rep.ver), String(DB.d.config.appExpected || APP_VERSION)) ? '' : 'muted'}" style="${typeof verLt === 'function' && verLt(String(rep.ver), String(DB.d.config.appExpected || APP_VERSION)) ? 'color:#b3261e' : ''}">v${esc(rep.ver)} · ${rep.pending} ${L ? 'en attente' : 'waiting'}</div>` : (who ? `<div class="xs muted">${L ? 'pas de rapport du téléphone' : 'no report from the phone'}</div>` : '')}</td>
+      <td>${who ? esc(who.name || '') : '—'}${rep ? `<div class="xs ${typeof verLt === 'function' && verLt(String(rep.ver), String(DB.d.config.appExpected || APP_VERSION)) ? '' : 'muted'}" style="${typeof verLt === 'function' && verLt(String(rep.ver), String(DB.d.config.appExpected || APP_VERSION)) ? 'color:#b3261e' : ''}">v${esc(rep.ver)} · ${obN(rep.pending)} ${L ? 'en attente' : 'waiting'}</div>` : (who ? `<div class="xs muted">${L ? 'pas de rapport du téléphone' : 'no report from the phone'}</div>` : '')}</td>
       <td class="xs">${last ? fmtDT(last.updated || last.created || 0) : '—'}</td>
       <td style="text-align:center">${recos || '—'}</td>
       <td style="white-space:nowrap">${tel ? `<a class="btn sec sm" href="tel:${esc(tel)}">☎</a>` : ''}</td></tr>`;
