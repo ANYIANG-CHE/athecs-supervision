@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.10.0';
+const APP_VERSION = '5.10.1';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -14509,6 +14509,12 @@ async function ahdCdcReport(formId){
 
    Section V (performance data) is phase 2: imported by the regional team.
    ===================================================================== */
+/* Anything placed inside an inline handler or an option value is an id or a key the
+   app made (row ids, option keys, site and form ids) — letters, digits, _ and -. A
+   value from page data or a published layout is reduced to exactly that, so it can
+   never close the attribute or the string it sits in. */
+function dtaaK(v){ return String(v == null ? '' : v).replace(/[^A-Za-z0-9_\-]/g, ''); }
+function dtaaP(v){ return String(v == null ? '' : v).replace(/[^A-Za-z0-9_.\-]/g, ''); }
 function dtaaIs(f){ return !!f && String((f.layout || {}).kind || '') === 'dtaa'; }
 function isDistStaff(u){ u = u || me(); return !!u && u.role === 'DISTRICT'; }
 /* Declarations, not const arrows: the first paint runs before this part of the
@@ -14695,8 +14701,8 @@ function viewDtaaList(f){
         + (e.at ? ' · ' + esc(fmtDT(e.at)) : '') + '</div>' : ''}</td>
       <td>${fmChip(st)}</td>
       <td style="text-align:right;white-space:nowrap">
-        ${e ? `<button class="btn sec sm" onclick="dtaaPdf('${f.id}','${x.id}')">PDF</button>` : ''}
-        <button class="btn sec sm" ${e ? '' : 'disabled'} onclick="go('#/fm/${f.id}/${x.id}')">${L ? 'Ouvrir' : 'Open'}</button></td></tr>`;
+        ${e ? `<button class="btn sec sm" onclick="dtaaPdf('${dtaaK(f.id)}','${dtaaK(x.id)}')">PDF</button>` : ''}
+        <button class="btn sec sm" ${e ? '' : 'disabled'} onclick="go('#/fm/${dtaaK(f.id)}/${dtaaK(x.id)}')">${L ? 'Ouvrir' : 'Open'}</button></td></tr>`;
   }).join('');
   return `<div class="inst" data-inst="fm">
     ${dtaaBar(f)}
@@ -14716,8 +14722,8 @@ function viewDtaaList(f){
       <div class="spread" style="margin-bottom:8px;flex-wrap:wrap;gap:8px">
         <h4 style="margin:0">${L ? 'Districts' : 'Districts'}</h4>
         <span style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn sec sm" ${sub.length ? '' : 'disabled'} onclick="dtaaXlsx('${f.id}')">⬇ Excel (${sub.length})</button>
-          ${can('formPublish') ? `<button class="btn sec sm" onclick="dtaaOptEdit('${f.id}')">${L ? '⚙ Listes d’options' : '⚙ Option lists'}</button>` : ''}
+          <button class="btn sec sm" ${sub.length ? '' : 'disabled'} onclick="dtaaXlsx('${dtaaK(f.id)}')">⬇ Excel (${sub.length})</button>
+          ${can('formPublish') ? `<button class="btn sec sm" onclick="dtaaOptEdit('${dtaaK(f.id)}')">${L ? '⚙ Listes d’options' : '⚙ Option lists'}</button>` : ''}
         </span></div>
       ${units.length ? `<div class="tw pin"><table>
         <thead><tr><th class="col-name">District</th><th class="col-mid">${L ? 'Statut' : 'Status'}</th><th class="col-mid"></th></tr></thead>
@@ -14751,21 +14757,21 @@ function viewDtaaFill(formId, sid){
   const chk = dtaaCheck(f, d, x);
   const A = (s) => esc(String(s === undefined || s === null ? '' : s));
   const q = s => s.replace(/'/g, "\\'");
-  const set = (path, extra) => `onchange="dtaaSet('${formId}','${sid}','${path}',this.value${extra ? ',true' : ''})"`;
+  const set = (path, extra) => `onchange="dtaaSet('${dtaaK(formId)}','${dtaaK(sid)}','${dtaaP(path)}',this.value${extra ? ',true' : ''})"`;
   const inp = (path, type, ph) => `<input type="${type || 'text'}" ${type === 'number' ? 'inputmode="numeric" min="0"' : ''}
       ${type === 'date' ? 'max="' + todayISO() + '"' : ''} value="${A(dtaaGet(x, path))}" placeholder="${A(ph || '')}" ${dis} ${set(path)}>`;
   const yn = (path, repaint) => `<select ${dis} ${set(path, repaint)}>
       <option value="">${T('select')}</option>
-      ${['Oui', 'Non'].map(v => `<option value="${v}" ${dtaaGet(x, path) === v ? 'selected' : ''}>${v === 'Oui' ? (L ? 'Oui' : 'Yes') : (L ? 'Non' : 'No')}</option>`).join('')}</select>`;
+      ${['Oui', 'Non'].map(v => `<option value="${dtaaK(v)}" ${dtaaGet(x, path) === v ? 'selected' : ''}>${v === 'Oui' ? (L ? 'Oui' : 'Yes') : (L ? 'Non' : 'No')}</option>`).join('')}</select>`;
   const pick = (path, list, repaint) => `<select ${dis} ${set(path, repaint)}>
       <option value="">${T('select')}</option>
       ${dtaaList(f, list).filter(o => !o.hidden || dtaaGet(x, path) === o.k)
-        .map(o => `<option value="${o.k}" ${dtaaGet(x, path) === o.k ? 'selected' : ''}>${A(dtaaLab(o))}</option>`).join('')}</select>`;
+        .map(o => `<option value="${dtaaK(o.k)}" ${dtaaGet(x, path) === o.k ? 'selected' : ''}>${A(dtaaLab(o))}</option>`).join('')}</select>`;
   const lab = (t, inner) => `<label class="f"><span>${t}</span>${inner}</label>`;
   const note = k => {
     const v = (x.notes || {})[k] || '';
     if(rev && st === 'SUBMITTED') return `<label class="f" style="margin-top:10px"><span>${L ? '📝 Note du réviseur pour cette section' : '📝 Reviewer’s note for this section'}</span>
-      <textarea rows="2" oninput="dtaaNote('${formId}','${sid}','${k}',this.value)">${A(v)}</textarea></label>`;
+      <textarea rows="2" oninput="dtaaNote('${dtaaK(formId)}','${dtaaK(sid)}','${dtaaK(k)}',this.value)">${A(v)}</textarea></label>`;
     return v ? `<div class="banner b-warn" style="margin-top:10px">📝 ${A(v)}</div>` : '';
   };
   const sec = (k, title, body) => `<div class="card"><h4 style="margin:0 0 10px">${title}</h4>${body}${note(k)}</div>`;
@@ -14773,15 +14779,15 @@ function viewDtaaFill(formId, sid){
   /* I — general information and the staff table */
   const areasReg = new Set(dtaaFacilities(d).map(s => s.area)).size, facsReg = dtaaFacilities(d).length;
   const staffRows = (x.staff || []).map((p, i) => `<tr>
-      <td class="stick"><select ${dis} onchange="dtaaRow('${formId}','${sid}','staff',${i},'role',this.value,true)">
+      <td class="stick"><select ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'role',this.value,true)">
         <option value="">${T('select')}</option>${dtaaList(f, 'roles').filter(o => !o.hidden || p.role === o.k)
-          .map(o => `<option value="${o.k}" ${p.role === o.k ? 'selected' : ''}>${A(dtaaLab(o))}</option>`).join('')}</select></td>
-      <td><input value="${A(p.name)}" ${dis} onchange="dtaaRow('${formId}','${sid}','staff',${i},'name',this.value)"></td>
-      <td><input type="tel" value="${A(p.phone)}" ${dis} onchange="dtaaRow('${formId}','${sid}','staff',${i},'phone',this.value)"></td>
-      <td><input type="email" value="${A(p.email)}" ${dis} onchange="dtaaRow('${formId}','${sid}','staff',${i},'email',this.value)"></td>
-      <td><select ${dis} onchange="dtaaRow('${formId}','${sid}','staff',${i},'inpost',this.value,true)">
-        ${['Oui', 'Non'].map(v => `<option value="${v}" ${(p.inpost || 'Oui') === v ? 'selected' : ''}>${v === 'Oui' ? (L ? 'Oui' : 'Yes') : (L ? 'Non' : 'No')}</option>`).join('')}</select></td>
-      <td>${lock ? '' : `<button class="btn sec sm" onclick="dtaaDel('${formId}','${sid}','staff',${i})">✕</button>`}</td></tr>`).join('');
+          .map(o => `<option value="${dtaaK(o.k)}" ${p.role === o.k ? 'selected' : ''}>${A(dtaaLab(o))}</option>`).join('')}</select></td>
+      <td><input value="${A(p.name)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'name',this.value)"></td>
+      <td><input type="tel" value="${A(p.phone)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'phone',this.value)"></td>
+      <td><input type="email" value="${A(p.email)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'email',this.value)"></td>
+      <td><select ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'inpost',this.value,true)">
+        ${['Oui', 'Non'].map(v => `<option value="${dtaaK(v)}" ${(p.inpost || 'Oui') === v ? 'selected' : ''}>${v === 'Oui' ? (L ? 'Oui' : 'Yes') : (L ? 'Non' : 'No')}</option>`).join('')}</select></td>
+      <td>${lock ? '' : `<button class="btn sec sm" onclick="dtaaDel('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i})">✕</button>`}</td></tr>`).join('');
   const s1 = `<div class="grid g2">
       ${lab(L ? 'I.1 Région' : 'I.1 Region', '<input readonly class="ro" value="Ouest">')}
       ${lab('I.2 District', `<input readonly class="ro" value="${A(d)}">`)}
@@ -14795,7 +14801,7 @@ function viewDtaaFill(formId, sid){
     <div class="tw pin"><table><thead><tr><th class="col-name">${L ? 'Fonction' : 'Role'}</th><th>${T('name')}</th>
       <th>${L ? 'Téléphone' : 'Phone'}</th><th>Email</th><th class="col-mid">${L ? 'En poste' : 'In post'}</th><th></th></tr></thead>
       <tbody>${staffRows || `<tr><td colspan="6" class="muted small">${L ? 'Aucune personne ajoutée.' : 'Nobody added yet.'}</td></tr>`}</tbody></table></div>
-    ${lock ? '' : `<button class="btn sec sm" style="margin-top:8px" onclick="dtaaAdd('${formId}','${sid}','staff')">＋ ${L ? 'Ajouter une personne' : 'Add a person'}</button>`}`;
+    ${lock ? '' : `<button class="btn sec sm" style="margin-top:8px" onclick="dtaaAdd('${dtaaK(formId)}','${dtaaK(sid)}','staff')">＋ ${L ? 'Ajouter une personne' : 'Add a person'}</button>`}`;
 
   /* II — resources */
   const foc = dtaaFocal(f, x);
@@ -14806,13 +14812,13 @@ function viewDtaaFill(formId, sid){
   const pocSel = (id, k, opts, repaint, extraI) => {
     const v = extraI === undefined ? ((x.poc || {})[id] || {})[k] : ((x.pocExtra || [])[extraI] || {})[k];
     const handler = extraI === undefined
-      ? `dtaaSet('${formId}','${sid}','poc.${id}.${k}',this.value,${repaint ? 'true' : 'false'})`
-      : `dtaaRow('${formId}','${sid}','pocExtra',${extraI},'${k}',this.value,${repaint ? 'true' : 'false'})`;
+      ? `dtaaSet('${dtaaK(formId)}','${dtaaK(sid)}','poc.${dtaaK(id)}.${dtaaK(k)}',this.value,${repaint ? 'true' : 'false'})`
+      : `dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','pocExtra',${extraI},'${dtaaK(k)}',this.value,${repaint ? 'true' : 'false'})`;
     return `<select ${dis} onchange="${handler}"><option value="">—</option>${opts.map(o =>
       `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
   };
   const YN = [['Oui', L ? 'Oui' : 'Yes'], ['Non', L ? 'Non' : 'No']];
-  const SINCE = [['<3', L ? '< 3 mois' : '< 3 months'], ['3-9', L ? '3–9 mois' : '3–9 months'], ['>9', L ? '> 9 mois' : '> 9 months']];
+  const SINCE = [['lt3', L ? '< 3 mois' : '< 3 months'], ['3-9', L ? '3–9 mois' : '3–9 months'], ['gt9', L ? '> 9 mois' : '> 9 months']];
   const pocCells = (id, v, extraI) => `<td>${pocSel(id, 'present', YN, true, extraI)}</td>
       <td>${v.present === 'Oui' ? pocSel(id, 'functional', YN, true, extraI) : '—'}</td>
       <td>${v.present === 'Oui' && v.functional === 'Non' ? pocSel(id, 'since', SINCE, false, extraI) : '—'}</td>`;
@@ -14823,14 +14829,14 @@ function viewDtaaFill(formId, sid){
     lastArea = s.area;
     return head + `<tr><td class="stick">${A(s.facility)}</td>${pocCells(s.id, v)}</tr>`;
   }).join('') + (x.pocExtra || []).map((v, i) => `<tr><td class="stick"><input placeholder="${L ? 'Formation sanitaire (hors registre)' : 'Facility (not in the register)'}" value="${A(v.name)}" ${dis}
-      onchange="dtaaRow('${formId}','${sid}','pocExtra',${i},'name',this.value)">${lock ? '' : ` <button class="btn sec sm" onclick="dtaaDel('${formId}','${sid}','pocExtra',${i})">✕</button>`}</td>${pocCells('', v, i)}</tr>`).join('');
+      onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','pocExtra',${i},'name',this.value)">${lock ? '' : ` <button class="btn sec sm" onclick="dtaaDel('${dtaaK(formId)}','${dtaaK(sid)}','pocExtra',${i})">✕</button>`}</td>${pocCells('', v, i)}</tr>`).join('');
   const pc = dtaaPocCount(d, x);
   const srcSel = k => `<label class="f" style="max-width:220px"><span>Source</span>${pick('src.' + k, 'src')}</label>`;
   const r = x.res || {};
   const integ = r.integ || {};
   const integOpts = dtaaList(f, 'integ').filter(o => !o.hidden || (integ.opts || []).includes(o.k)).map(o =>
     `<label class="chk"><input type="checkbox" ${(integ.opts || []).includes(o.k) ? 'checked' : ''} ${dis}
-      onchange="dtaaTog('${formId}','${sid}','res.integ.opts','${o.k}',this.checked)"><span>${A(dtaaLab(o))}</span></label>`).join('');
+      onchange="dtaaTog('${dtaaK(formId)}','${dtaaK(sid)}','res.integ.opts','${dtaaK(o.k)}',this.checked)"><span>${A(dtaaLab(o))}</span></label>`).join('');
   const s2 = `<div class="tw"><table><tbody>${focRows}</tbody></table></div>
     <p class="xs muted" style="margin:6px 0 14px">${L ? 'Déduit du tableau I.5 : une personne en poste avec cette fonction = Oui.' : 'Derived from table I.5: a person in post with that role = Yes.'}</p>
     <p class="small" style="margin:0 0 6px"><b>${L ? 'II.6–II.7 Équipements POC (PCR) par aire de santé' : 'II.6–II.7 POC (PCR) equipment by health area'}</b> —
@@ -14838,7 +14844,7 @@ function viewDtaaFill(formId, sid){
     <div class="tw pin"><table><thead><tr><th class="col-name">${L ? 'Formation sanitaire' : 'Facility'}</th><th class="col-mid">${L ? 'POC présent' : 'POC present'}</th>
       <th class="col-mid">${L ? 'Fonctionnel' : 'Working'}</th><th class="col-mid">${L ? 'En panne depuis' : 'Broken since'}</th></tr></thead>
       <tbody>${pocRows || `<tr><td colspan="4" class="muted small">${L ? 'Aucune FOSA du district dans le registre.' : 'No facility of this district in the register.'}</td></tr>`}</tbody></table></div>
-    ${lock ? '' : `<button class="btn sec sm" style="margin-top:8px" onclick="dtaaAdd('${formId}','${sid}','pocExtra')">＋ ${L ? 'FOSA hors registre' : 'Facility not in the register'}</button>`}
+    ${lock ? '' : `<button class="btn sec sm" style="margin-top:8px" onclick="dtaaAdd('${dtaaK(formId)}','${dtaaK(sid)}','pocExtra')">＋ ${L ? 'FOSA hors registre' : 'Facility not in the register'}</button>`}
     <hr>
     ${lab(L ? 'II.8 Le district pratique-t-il l’intégration des services ?' : 'II.8 Does the district integrate services?', yn('res.integ.v', true))}
     ${integ.v === 'Oui' ? `<div style="margin:-4px 0 8px">${integOpts}
@@ -14871,7 +14877,7 @@ function viewDtaaFill(formId, sid){
       `<th class="col-num" title="${A(dtaaLab(t))}">${A(ahdShort ? ahdShort(dtaaLab(t), 22) : dtaaLab(t))}</th>`).join('')}</tr></thead>
       <tbody>${people.map(p => `<tr><td class="stick">${A(p.name)}<div class="xs muted">${A(dtaaLab(dtaaFind(f, 'roles', p.role)))}</div></td>${topics.map(t =>
         `<td><input class="fmnum" inputmode="numeric" maxlength="4" style="width:4.2em" placeholder="—" value="${A(((x.train || {})[p.id] || {})[t.k])}" ${dis}
-          onchange="dtaaSet('${formId}','${sid}','train.${p.id}.${t.k}',this.value.replace(/\\D/g,'').slice(0,4))"></td>`).join('')}</tr>`).join('')}
+          onchange="dtaaSet('${dtaaK(formId)}','${dtaaK(sid)}','train.${dtaaK(p.id)}.${dtaaK(t.k)}',this.value.replace(/\\D/g,'').slice(0,4))"></td>`).join('')}</tr>`).join('')}
         <tr><td class="stick"><b>${L ? 'Équipe : formée ?' : 'Team: trained?'}</b></td>${topics.map(t => {
           const n = trained(t.k);
           return `<td><span class="fmchip ${n ? 'c-green' : 'c-none'}">${n ? (L ? 'Oui' : 'Yes') + ' · ' + n : (L ? 'Non' : 'No')}</span></td>`; }).join('')}</tr>
@@ -14882,11 +14888,11 @@ function viewDtaaFill(formId, sid){
   const contacts = (x.staff || []).filter(p => { const ro = dtaaFind(f, 'roles', p.role); return ro && (ro.k === 'mcd' || ro.focal); });
   const rowsOf = (list, cols) => (x[list] || []).map((v, i) => `<tr>${cols.map((c, ci) =>
       `<td ${ci === 0 ? 'class="stick"' : ''}><input ${c.t ? 'type="' + c.t + '"' : ''} ${c.t === 'number' ? 'inputmode="numeric" min="0" style="width:6em"' : ''} value="${A(v[c.k])}" placeholder="${A(c.ph || '')}" ${dis}
-        onchange="dtaaRow('${formId}','${sid}','${list}',${i},'${c.k}',this.value)"></td>`).join('')}
-      <td>${lock ? '' : `<button class="btn sec sm" onclick="dtaaDel('${formId}','${sid}','${list}',${i})">✕</button>`}</td></tr>`).join('');
+        onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','${dtaaK(list)}',${i},'${dtaaK(c.k)}',this.value)"></td>`).join('')}
+      <td>${lock ? '' : `<button class="btn sec sm" onclick="dtaaDel('${dtaaK(formId)}','${dtaaK(sid)}','${dtaaK(list)}',${i})">✕</button>`}</td></tr>`).join('');
   const table = (list, cols, addLabel) => `<div class="tw pin"><table><thead><tr>${cols.map((c, i) => `<th ${i === 0 ? 'class="col-name"' : ''}>${c.h}</th>`).join('')}<th></th></tr></thead>
       <tbody>${rowsOf(list, cols) || `<tr><td colspan="${cols.length + 1}" class="muted small">—</td></tr>`}</tbody></table></div>
-      ${lock ? '' : `<button class="btn sec sm" style="margin-top:8px" onclick="dtaaAdd('${formId}','${sid}','${list}')">＋ ${addLabel}</button>`}`;
+      ${lock ? '' : `<button class="btn sec sm" style="margin-top:8px" onclick="dtaaAdd('${dtaaK(formId)}','${dtaaK(sid)}','${dtaaK(list)}')">＋ ${addLabel}</button>`}`;
   const needs = dtaaList(f, 'needs').filter(o => !o.hidden || (x.needs || {})[o.k]);
   const s4 = `<p class="small" style="margin:0 0 6px"><b>${L ? 'IV.1 Chef de district et points focaux' : 'IV.1 District head and focal points'}</b> — ${L ? 'repris de I.5' : 'taken from I.5'}</p>
     ${contacts.length ? `<div class="tw"><table><tbody>${contacts.map(p => `<tr><td class="stick">${A(dtaaLab(dtaaFind(f, 'roles', p.role)))}</td>
@@ -14897,7 +14903,7 @@ function viewDtaaFill(formId, sid){
     ${table('fech', [{k:'phone', h:L ? 'N° du téléphone FECh' : 'FECh phone number', t:'tel'}, {k:'holder', h:L ? 'Détenteur' : 'Holder'}, {k:'hphone', h:L ? 'Téléphone du détenteur' : 'Holder’s phone', t:'tel'}], L ? 'Ajouter un téléphone' : 'Add a phone')}
     <p class="small" style="margin:14px 0 6px"><b>${L ? 'IV.4 Besoins en outils et quantités' : 'IV.4 Tools needed and quantities'}</b></p>
     <div class="tw"><table><tbody>${needs.map(o => `<tr><td class="stick">${A(dtaaLab(o))}</td><td><input inputmode="numeric" type="number" min="0" style="width:6em"
-        value="${A((x.needs || {})[o.k])}" ${dis} onchange="dtaaSet('${formId}','${sid}','needs.${o.k}',this.value)"></td></tr>`).join('')}</tbody></table></div>
+        value="${A((x.needs || {})[o.k])}" ${dis} onchange="dtaaSet('${dtaaK(formId)}','${dtaaK(sid)}','needs.${dtaaK(o.k)}',this.value)"></td></tr>`).join('')}</tbody></table></div>
     ${table('needsExtra', [{k:'item', h:L ? 'Autre article' : 'Other item'}, {k:'qty', h:L ? 'Quantité' : 'Quantity', t:'number'}], L ? 'Autre article' : 'Other item')}
     <p class="small" style="margin:14px 0 6px"><b>${L ? 'IV.5 Partenaires intervenant dans le district' : 'IV.5 Partners working in the district'}</b></p>
     ${table('partners', [{k:'name', h:L ? 'Partenaire' : 'Partner', ph:'FHI'}, {k:'domain', h:L ? 'Domaine d’intervention' : 'Area of work', ph:L ? 'dépistage communautaire du VIH' : 'community HIV testing'}, {k:'areas', h:L ? 'Aires de santé' : 'Health areas'}], L ? 'Ajouter un partenaire' : 'Add a partner')}`;
@@ -14905,26 +14911,26 @@ function viewDtaaFill(formId, sid){
   /* the action bar: the district fills, the reviewer decides */
   const bar = own && !settled && String(f.status) === 'OPEN'
     ? `<div class="card"><div class="row" style="gap:8px;flex-wrap:wrap">
-        <button class="btn sec" onclick="dtaaSave('${formId}','${sid}','DRAFT')">${L ? 'Enregistrer le brouillon' : 'Save draft'}</button>
-        <button class="btn" onclick="dtaaSubmit('${formId}','${sid}')">${L ? 'Soumettre' : 'Submit'}</button></div>
+        <button class="btn sec" onclick="dtaaSave('${dtaaK(formId)}','${dtaaK(sid)}','DRAFT')">${L ? 'Enregistrer le brouillon' : 'Save draft'}</button>
+        <button class="btn" onclick="dtaaSubmit('${dtaaK(formId)}','${dtaaK(sid)}')">${L ? 'Soumettre' : 'Submit'}</button></div>
         <p class="xs muted" style="margin:8px 0 0">${L ? 'Tout est enregistré sur ce téléphone à chaque saisie, et envoyé dès qu’il y a du réseau.' : 'Everything is saved on this phone as you type, and sent as soon as there is signal.'}</p></div>`
     : rev && st === 'SUBMITTED'
     ? `<div class="card"><div class="row" style="gap:8px;flex-wrap:wrap">
-        <button class="btn sec" onclick="dtaaSendBack('${formId}','${sid}')">${L ? '↩ Renvoyer au district' : '↩ Send back to the district'}</button>
-        <button class="btn ok" onclick="fmApprove('${formId}','${sid}',true)">✓ ${L ? 'Approuver' : 'Approve'}</button></div>
+        <button class="btn sec" onclick="dtaaSendBack('${dtaaK(formId)}','${dtaaK(sid)}')">${L ? '↩ Renvoyer au district' : '↩ Send back to the district'}</button>
+        <button class="btn ok" onclick="fmApprove('${dtaaK(formId)}','${dtaaK(sid)}',true)">✓ ${L ? 'Approuver' : 'Approve'}</button></div>
         <p class="xs muted" style="margin:8px 0 0">${L ? 'Les notes écrites sous chaque section partent avec le renvoi.' : 'The notes written under each section go with the send-back.'}</p></div>`
     : rev && (st === 'APPROVED' || st === 'SIGNED') && isSlot(me())
-    ? `<div class="card"><button class="btn sec" onclick="fmApprove('${formId}','${sid}',false)">${L ? 'Retirer l’approbation' : 'Withdraw approval'}</button></div>`
+    ? `<div class="card"><button class="btn sec" onclick="fmApprove('${dtaaK(formId)}','${dtaaK(sid)}',false)">${L ? 'Retirer l’approbation' : 'Withdraw approval'}</button></div>`
     : '';
 
   return `<div class="inst" data-inst="fm">
     ${dtaaBar(f)}
     <div class="card tight fmhead">
-      <button class="btn sec sm" onclick="${isDistStaff() ? 'goHome()' : `go('#/fm/${formId}')`}">‹ ${L ? 'Retour' : 'Back'}</button>
+      <button class="btn sec sm" onclick="${isDistStaff() ? 'goHome()' : `go('#/fm/${dtaaK(formId)}')`}">‹ ${L ? 'Retour' : 'Back'}</button>
       <div class="spread" style="margin-top:8px;align-items:flex-start">
         <div style="min-width:0"><h3 style="margin:0 0 2px">${L ? 'District de santé de ' : 'Health district of '}${A(d)}</h3>
           <p class="small muted" style="margin:0">${e.by ? A(e.by) + (e.at ? ' · ' + A(fmtDT(e.at)) : '') : (L ? 'Pas encore commencé' : 'Not started yet')}</p></div>
-        <span style="display:flex;gap:6px;align-items:center">${e.id ? `<button class="btn sec sm" onclick="dtaaPdf('${formId}','${sid}')">PDF</button>` : ''}${fmChip(st)}</span>
+        <span style="display:flex;gap:6px;align-items:center">${e.id ? `<button class="btn sec sm" onclick="dtaaPdf('${dtaaK(formId)}','${dtaaK(sid)}')">PDF</button>` : ''}${fmChip(st)}</span>
       </div>
       <div class="fmbar" style="margin-top:12px"><i id="fm-bar" style="width:${chk.pct}%"></i></div>
       <p class="xs muted" style="margin:6px 0 0"><b id="fm-barlab">${chk.got} / ${chk.need}</b> ${L ? 'réponses obligatoires données' : 'required answers given'}</p>
@@ -14980,7 +14986,7 @@ function dtaaSendBack(formId, sid){
      <label class="f"><span>${L ? 'Motif (obligatoire)' : 'Reason (required)'}</span><textarea id="fm-why" rows="3"></textarea></label>
      <p class="xs muted" style="margin:0">${L ? 'Les notes écrites sous les sections partent aussi.' : 'The notes written under the sections go too.'}</p>`,
     `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
-     <button class="btn" onclick="dtaaSendBackDo('${formId}','${sid}')">${L ? 'Renvoyer' : 'Send back'}</button>`);
+     <button class="btn" onclick="dtaaSendBackDo('${dtaaK(formId)}','${dtaaK(sid)}')">${L ? 'Renvoyer' : 'Send back'}</button>`);
 }
 function dtaaSendBackDo(formId, sid){
   const why = (($('#fm-why') || {}).value || '').trim();
@@ -15002,19 +15008,19 @@ function dtaaOptEdit(formId, list){
                 topics:L ? 'Thèmes de formation' : 'Training topics', needs:L ? 'Articles (besoins)' : 'Items (needs)', src:'Sources'};
   const cur = list || DTAA_EDIT.cur || 'integ'; DTAA_EDIT.cur = cur;
   const rows = (DTAA_EDIT.lists[cur] || []).map((o, i) => `<tr>
-      <td><input value="${esc(o.fr || '')}" oninput="DTAA_EDIT.lists['${cur}'][${i}].fr=this.value"></td>
-      <td><input value="${esc(o.en || '')}" oninput="DTAA_EDIT.lists['${cur}'][${i}].en=this.value"></td>
-      <td style="text-align:center"><input type="checkbox" ${o.hidden ? '' : 'checked'} onchange="DTAA_EDIT.lists['${cur}'][${i}].hidden=!this.checked"></td></tr>`).join('');
+      <td><input value="${esc(o.fr || '')}" oninput="DTAA_EDIT.lists['${dtaaK(cur)}'][${i}].fr=this.value"></td>
+      <td><input value="${esc(o.en || '')}" oninput="DTAA_EDIT.lists['${dtaaK(cur)}'][${i}].en=this.value"></td>
+      <td style="text-align:center"><input type="checkbox" ${o.hidden ? '' : 'checked'} onchange="DTAA_EDIT.lists['${dtaaK(cur)}'][${i}].hidden=!this.checked"></td></tr>`).join('');
   modal(L ? 'Listes d’options' : 'Option lists', `
-    <label class="f"><span>${L ? 'Liste' : 'List'}</span><select onchange="dtaaOptEdit('${formId}',this.value)">${Object.keys(keys).map(k =>
+    <label class="f"><span>${L ? 'Liste' : 'List'}</span><select onchange="dtaaOptEdit('${dtaaK(formId)}',this.value)">${Object.keys(keys).map(k =>
       `<option value="${k}" ${k === cur ? 'selected' : ''}>${keys[k]}</option>`).join('')}</select></label>
     <div class="tw"><table><thead><tr><th>Français</th><th>English</th><th>${L ? 'Proposé' : 'Offered'}</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <button class="btn sec sm" style="margin-top:8px" onclick="DTAA_EDIT.lists['${cur}'].push({k:'x'+Date.now().toString(36),fr:'',en:''});dtaaOptEdit('${formId}','${cur}')">＋ ${L ? 'Ajouter' : 'Add'}</button>
+    <button class="btn sec sm" style="margin-top:8px" onclick="DTAA_EDIT.lists['${dtaaK(cur)}'].push({k:'x'+Date.now().toString(36),fr:'',en:''});dtaaOptEdit('${dtaaK(formId)}','${dtaaK(cur)}')">＋ ${L ? 'Ajouter' : 'Add'}</button>
     <p class="xs muted" style="margin:10px 0 0">${L
       ? 'Décocher retire une option des choix sans effacer les réponses déjà données. La liste est publiée à tous les téléphones au prochain envoi.'
       : 'Unticking removes an option from the choices without erasing answers already given. The list reaches every phone on the next sync.'}</p>`,
     `<button class="btn sec" onclick="DTAA_EDIT=null;closeModal()">${T('cancel')}</button>
-     <button class="btn" onclick="dtaaOptPublish('${formId}')">${L ? 'Publier' : 'Publish'}</button>`);
+     <button class="btn" onclick="dtaaOptPublish('${dtaaK(formId)}')">${L ? 'Publier' : 'Publish'}</button>`);
 }
 function dtaaOptPublish(formId){
   const L = LANG === 'fr';
