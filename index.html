@@ -1049,7 +1049,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.9.1';
+const APP_VERSION = '5.10.0';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -2192,7 +2192,7 @@ function myRegions(){
 function isDual(u){ return !!(u && u.dual === true); }
 /* Does this account carry the hat at all — regardless of which space is open. */
 function hasSupHat(u){
-  if(!u || isSlot(u)) return false;
+  if(!u || isSlot(u) || u.role === 'DISTRICT') return false;
   return u.role !== 'SITE' || isDual(u);
 }
 function hasSiteHat(u){
@@ -2646,7 +2646,12 @@ function shell(inner, navKey){
   const pend = DB.d.outbox.length;
   /* 'none' is the front step: a screen that asks which door you want should
      not also carry the app's own tabs, which are the inside of one of them. */
-  const nav = (!u || navKey === 'none') ? '' : (isSite() ? `
+  const nav = (!u || navKey === 'none') ? '' : isDistStaff(u) ? `
+   <div class="nav">
+     <a href="#/home" onclick="goHome();return false" class="${navKey==='home'?'on':''}">${LANG==='fr'?'Mon district':'My district'}</a>
+     <a href="#/chat" class="${navKey==='chat'?'on':''}">${T('chat')}${unread()?' <span class="badge">'+unread()+'</span>':''}</a>
+     ${navDash()}
+   </div>` : (isSite() ? `
    <div class="nav">
      <a href="#/home" onclick="goHome();return false" class="${navKey==='home'?'on':''}">${LANG==='fr'?'Ma formation sanitaire':'My facility'}</a>
      <a href="#/chat" class="${navKey==='chat'?'on':''}">${T('chat')}${unread()?' <span class="badge">'+unread()+'</span>':''}</a>
@@ -2934,6 +2939,18 @@ function render(){
   if(!u)          return paint(viewLogin(), undefined, r);
   if(!canWork(u)) return paint(viewGate(u), undefined, r);
   let html='', key=r[0];
+  if(isDistStaff(u)){
+    /* district staff: the district's assessments and their messages, nothing of the mentorship */
+    if(r[0]==='chat') return paint(viewChat(r[1]), 'chat', r);
+    if(r[0]==='fm' && fmVisible().length){
+      /* only the district's own instrument, whatever address is typed */
+      const fx = fmForms().filter(x => x.id === r[1])[0];
+      if(r[1] && r[2] && dtaaIs(fx)) return paint(viewFormFill(r[1], r[2]), 'home', r);
+      FM_PICK = (fx && dtaaIs(fx)) ? r[1] : '';
+      return paint(viewForms(), 'home', r);
+    }
+    return paint(viewDistHome(), 'home', r);
+  }
   if(isSite()){
     // facility staff: their own site only
     if(r[0]==='report' && mySiteIds().includes((DB.d.visits.find(v=>v.id===r[1])||{}).siteId))
@@ -2996,7 +3013,7 @@ function loginHeader(){
 
 function viewLogin(){
   if(LG_PATH==='choose') return viewLoginChooser();
-  if(!['sup','adm','site'].includes(LG_PATH)) return viewWelcome();
+  if(!['sup','adm','site','dist'].includes(LG_PATH)) return viewWelcome();
   if(LG_PATH==='adm') return viewLoginAdmin();
   return viewLoginRole(LG_PATH);
 }
@@ -3193,6 +3210,14 @@ function viewLoginChooser(){
       <span class="parr">›</span>
     </button>
 
+    <button class="pathcard" onclick="setPath('dist')">
+      <div class="pico sup">🏛</div>
+      <div class="ptxt"><b>${L?'Équipe du district':'District staff'}</b>
+        <span>${L?'Médecin chef et équipe cadre du district : évaluations du district'
+                 :'District medical officer and district team: district assessments'}</span></div>
+      <span class="parr">›</span>
+    </button>
+
     <button class="pathcard" onclick="setPath('adm')">
       <div class="pico adm">🛡</div>
       <div class="ptxt"><b>${L?'Administration':'Administration'}</b>
@@ -3223,7 +3248,8 @@ function installBanner(){
 
 function viewLoginRole(path){
   const L=LANG==='fr';
-  const want = path==='site' ? 'SITE' : 'SUPERVISOR';
+  const want = path==='site' ? 'SITE' : path==='dist' ? 'DISTRICT' : 'SUPERVISOR';
+  const isD = path==='dist';
   /* EVERY account on this device is listed, whatever its state.
      Filtering out u.active===false meant that the moment central deactivated somebody,
      their own account vanished from their own phone and the screen told them "no account
@@ -3233,7 +3259,7 @@ function viewLoginRole(path){
   /* A dual account belongs in BOTH doors, under the same PIN: the door the person
      chooses is simply the space the app opens in. */
   const users = DB.d.users.filter(u=> !isSlot(u) &&
-    (want==='SITE' ? hasSiteHat(u) : hasSupHat(u)));
+    (want==='DISTRICT' ? u.role==='DISTRICT' : want==='SITE' ? hasSiteHat(u) : hasSupHat(u)));
   const isS = path==='site';
   const stChip = u => { const st=userStatus(u);
     return st===U_ACTIVE ? '' :
@@ -3243,8 +3269,9 @@ function viewLoginRole(path){
   return `
   <div class="card" style="max-width:470px;margin:24px auto">
     ${loginHeader()}
-    <div class="pathbadge"><span class="pico ${isS?'site':'sup'} sm">${isS?'🏥':'👥'}</span> ${
-      isS ? (L?'Espace personnel du site':'Facility staff area') : (L?'Espace superviseur':'Supervisor area')}</div>
+    <div class="pathbadge"><span class="pico ${isS?'site':'sup'} sm">${isS?'🏥':isD?'🏛':'👥'}</span> ${
+      isS ? (L?'Espace personnel du site':'Facility staff area') : isD ? (L?'Espace équipe du district':'District staff area')
+          : (L?'Espace superviseur':'Supervisor area')}</div>
     <hr>
     ${users.length? `
       ${users.length>5?`<label class="f"><span>${L?'Chercher votre nom':'Search for your name'}</span>
@@ -3262,6 +3289,7 @@ function viewLoginRole(path){
       <hr>
       <button class="btn sec blk sm" onclick="enrolModal('${want}')">＋ ${
         isS ? (L?'Enrôler un autre agent du site':'Enrol another staff member')
+            : isD ? (L?'Enrôler un autre membre du district':'Enrol another district staff member')
             : (L?'Enrôler un autre superviseur':'Enrol another supervisor')}</button>
       <button class="btn sec blk sm" style="margin-top:8px" onclick="forgotPinModal()">${L?'Obtenir un code temporaire':'Get a temporary code'}</button>
       <button class="btn sec blk sm" style="margin-top:8px" ${ONLINE?'':'disabled'}
@@ -3282,6 +3310,7 @@ function viewLoginRole(path){
       <p class="small muted">${L?'Première fois ? C\'est ici :':'First time? Here:'}</p>
       <button class="btn sec blk" onclick="enrolModal('${want}')">＋ ${
         isS ? (L?'S\'enrôler comme personnel du site':'Enrol as facility staff')
+            : isD ? (L?'S\'enrôler comme équipe du district':'Enrol as district staff')
             : (L?'S\'enrôler comme superviseur':'Enrol as a supervisor')}</button>
     `}
     <hr>
@@ -3695,7 +3724,7 @@ async function doLogin(){
 
   const path = isSlot(u) ? 'adm'
              : (isDual(u) && (LG_PATH==='site'||LG_PATH==='sup')) ? LG_PATH
-             : (u.role==='SITE' ? 'site' : 'sup');
+             : (u.role==='SITE' ? 'site' : u.role==='DISTRICT' ? 'dist' : 'sup');
   try{ localStorage.setItem('ath_path', path); }catch(e){}
   LG_PATH = path;
   /* the door chosen IS the space opened — a dual account signing in at the facility
@@ -3800,16 +3829,17 @@ function saveForcedPin(uid){
 function enrolModal(role){
   ENROL_ROLE = role || 'SUPERVISOR';
   ENROL_SITES = [];
-  const isS = ENROL_ROLE==='SITE';
-  const dis = [...new Set(DB.d.sites.map(s=>s.district))].sort();
+  const isS = ENROL_ROLE==='SITE', isD = ENROL_ROLE==='DISTRICT';
+  const dis = [...new Set(DB.d.sites.map(s=>s.district))].filter(Boolean).sort();
   modal(isS ? (LANG==='fr'?'Enrôlement — personnel du site':'Enrolment — facility staff')
+            : isD ? (LANG==='fr'?'Enrôlement — équipe du district':'Enrolment — district staff')
             : (LANG==='fr'?'Enrôlement superviseur':'Supervisor enrolment'), `
    <p class="small muted">${LANG==='fr'
      ?'La pièce d\'identité est enregistrée une seule fois, ici. Elle sera référencée automatiquement à chaque demande de modification de site.'
      :'The identity document is captured once, here. It is referenced automatically on every later site-change request.'}</p>
    <label class="f"><span>${T('name')} *</span><input type="text" id="en-name"></label>
    <label class="f"><span>${LANG==='fr'?'Fonction *':'Function *'}</span>
-     <select id="en-fn">${FUNCTIONS.map(f=>`<option>${f}</option>`).join('')}</select></label>
+     <select id="en-fn">${(isD?DIST_FUNCTIONS:FUNCTIONS).map(f=>`<option>${f}</option>`).join('')}</select></label>
    <label class="f"><span>${LANG==='fr'?'Matricule (si applicable)':'Matricule (if any)'}</span><input type="text" id="en-mat"></label>
    <div class="grid g2">
      <label class="f"><span>${LANG==='fr'?'Type de pièce *':'ID type *'}</span>
@@ -3839,6 +3869,12 @@ function enrolModal(role){
    <label class="f" style="margin-top:12px"><span>${LANG==='fr'
      ?'Mes formations sanitaires *':'My facilities *'}</span></label>
    <div id="en-sitelist"></div>
+   ` : isD ? `
+   <label class="f"><span>${LANG==='fr'?'Votre district de santé *':'Your health district *'}</span>
+     <select id="en-ddis"><option value="">${T('select')}</option>${dis.map(d=>`<option>${esc(d)}</option>`).join('')}</select></label>
+   <div class="banner b-info xs">${LANG==='fr'
+     ?'Cet espace sert aux évaluations du district. Il est distinct du mentorat : vous n\'y verrez pas les supervisions des formations sanitaires.'
+     :'This space is for the district\'s assessments. It is separate from the mentorship: you will not see the facilities\' supervisions here.'}</div>
    ` : `
    <label class="f"><span>${LANG==='fr'?'District(s) couvert(s) *':'District(s) covered *'}</span>
      <select id="en-dis" multiple size="6">${dis.map(d=>`<option>${esc(d)}</option>`).join('')}</select></label>`}
@@ -3877,6 +3913,10 @@ function removeEnrolSite(i){ ENROL_SITES.splice(i,1); renderEnrolSites(); }
 function districtsOfSites(ids){
   return [...new Set(ids.map(id=>(siteById(id)||{}).district).filter(Boolean))];
 }
+const DIST_FUNCTIONS=['Médecin chef de district (MCD)','Chef bureau santé (CBS)',
+  'Chef bureau des affaires générales et financières','Point focal VIH / PTME','Point focal TB',
+  'Point focal PEV','Point focal GAS','Point focal CSU / UHC','Point focal Paludisme',
+  'Responsable données / S&E','Autre'];
 const FUNCTIONS=['Chef de Centre','Major','Cordo/Major','Point Focal UPEC','APS','Responsable données / S&E',
                  'Chef de District','Point Focal Régional','Mentor / Superviseur','Autre'];
 function enrolSiteCascade(level){
@@ -3898,9 +3938,10 @@ async function doEnrol(){
   const g=id=>$('#'+id)?$('#'+id).value.trim():'';
   const name=g('en-name'), fn=g('en-fn'), idt=g('en-idt'), idn=g('en-idn'),
         tel=g('en-tel'), pin=g('en-pin');
-  const isS = ENROL_ROLE==='SITE';
+  const isS = ENROL_ROLE==='SITE', isD = ENROL_ROLE==='DISTRICT';
   const sites = isS ? ENROL_SITES.slice() : [];
   const dis = isS ? districtsOfSites(sites)
+            : isD ? [g('en-ddis')].filter(Boolean)
                   : Array.from($('#en-dis').selectedOptions).map(o=>o.value);
   const file=$('#en-idf').files[0];
   const miss=[];
@@ -3964,6 +4005,7 @@ function roleAskFromEnrol(dup){
   if(!hit) return `<div class="banner b-info xs" style="margin-top:8px">${L
     ?'Si cette personne n\'est pas vous, appuyez sur « Non, c\'est quelqu\'un d\'autre » et dites pourquoi. Si c\'est vous mais que le numéro de téléphone diffère, appelez un super utilisateur plutôt que de créer un deuxième compte.'
     :'If that person is not you, press "No, this is somebody else" and say why. If it is you but the telephone number is different, call a super user rather than creating a second account.'}</div>`;
+  if(ENROL_ROLE==='DISTRICT' || hit.role==='DISTRICT') return '';
   if(isDual(hit) || (hit.role==='SITE') === (want==='SITE')) return '';
   ROLE_ASK_ID = hit.id;
   return `<div class="banner b-ok" style="margin-top:8px">
@@ -4008,7 +4050,7 @@ function useExisting(uid){
   /* land on the door that lists this account: for a dual account either door works,
      so stay on the one the person chose rather than overriding their choice */
   if(u) setPath(isDual(u) ? (LG_PATH==='site'||LG_PATH==='sup' ? LG_PATH : (u.role==='SITE'?'site':'sup'))
-                          : (u.role==='SITE'?'site':'sup'));
+                          : (u.role==='SITE'?'site':u.role==='DISTRICT'?'dist':'sup'));
   else render();
   setTimeout(()=>{
     const sel=$('#lg-user'); if(sel){ sel.value=uid; }
@@ -4992,7 +5034,7 @@ function adoptAccount(uid){
   DB.save(); audit('ACCOUNT_ADOPTED','user', s.name+' récupéré sur ce téléphone');
   closeModal();
   setPath(s.dual===true && (LG_PATH==='site'||LG_PATH==='sup') ? LG_PATH
-          : (s.role==='SITE'?'site':'sup'));
+          : (s.role==='SITE'?'site':s.role==='DISTRICT'?'dist':'sup'));
   setTimeout(()=>{
     const sel=$('#lg-user'); if(sel) sel.value=s.id;
     const pin=$('#lg-pin'); if(pin) pin.focus();
@@ -5363,12 +5405,13 @@ async function refreshAdmins(loud){
      · trying to enrol through the other door, which used to be a dead end.
    ===================================================================== */
 function roleLabelFor(r){ const L=LANG==='fr';
+  if(r==='DISTRICT') return L?'Équipe du district':'District staff';
   return r==='SITE' ? (L?'Personnel du site':'Facility staff')
                     : (L?'Superviseur':'Supervisor'); }
 
 /* What this person is missing, or '' when they already have both. */
 function missingHat(u){
-  if(!u || isSlot(u) || isDual(u)) return '';
+  if(!u || isSlot(u) || isDual(u) || u.role==='DISTRICT') return '';
   return u.role==='SITE' ? 'SUPERVISOR' : 'SITE';
 }
 function reqPending(u){ return !!(u && u.req && String(u.req.status||'').toUpperCase()==='PENDING'); }
@@ -9635,7 +9678,7 @@ function admApprovals(){
     <div class="spread" style="margin-bottom:8px">
       <div style="min-width:0"><b style="font-size:1rem">${esc(u.name)}</b>
         <div class="xs muted">${esc(u.fn||'')}</div></div>
-      <span class="chip ${u.role==='SITE'?'g':'n'}">${u.role==='SITE'?(L?'Personnel du site':'Facility staff'):(L?'Superviseur':'Supervisor')}</span>
+      <span class="chip ${u.role==='SITE'?'g':'n'}">${esc(roleLabelFor(u.role))}</span>
     </div>
     <div class="tw"><table><tbody>
       ${row(u.role==='SITE'?T('facility'):T('district'), scope(u))}
@@ -12144,6 +12187,10 @@ function fmCurrent(){ return fmOpenForms()[0] || null; }
    see every request in order to verify, certify and print it. */
 function fmMayFill(f, siteId){
   const u = me(); if(!u || !f) return false;
+  /* the district baseline is filled by district staff only, for their own district;
+     everybody else who sees it reviews it (dtaaMayReview) */
+  if(dtaaIs(f)) return isDistStaff(u) && (!siteId || dtaaMyDistricts().includes(dtaaDistOf(siteId)));
+  if(isDistStaff(u)) return false;
   /* Every console level — district, region, national — may open and correct an
      instrument page in its own scope. Mentorship stays read-only for them (holdsPen). */
   if(isSlot(u)) return !siteId || siteInScope(siteId);
@@ -12166,7 +12213,8 @@ function fmMayFill(f, siteId){
 function fmVisible(){
   const u = me(); if(!u) return [];
   return fmForms().filter(f => String(f.status || '') !== 'ARCHIVED')
-                  .filter(f => isSuper() || fmMayFill(f));
+                  .filter(f => (isSuper() && !isDistStaff()) || fmMayFill(f)
+                               || (dtaaIs(f) && dtaaReviewer() && dtaaMyDistricts().length > 0));
 }
 
 /* Which facilities this account fills.
@@ -12273,6 +12321,7 @@ function viewForms(){
   if(!picked && forms.length > 1) return viewFormChoose(forms);
   const f = picked || forms[0];
   FM_PICK = f.id;
+  if(dtaaIs(f)) return viewDtaaList(f);
 
   /* One facility, no list: the screen a person with a single site needs is
      that site, not a table with one row in it. */
@@ -12393,6 +12442,7 @@ function viewFormFill(formId, siteId){
   const f0 = fmForms().filter(x => x.id === formId)[0];
   /* a second instrument, answered differently, on the same road */
   if(ahdIs(f0)) return viewAhdFill(formId, siteId);
+  if(dtaaIs(f0)) return viewDtaaFill(formId, siteId);
   const f = f0;
   const s = (DB.d.sites || []).filter(x => x.id === siteId)[0];
   if(!f || !s || !f.layout) return '<div class="banner b-err">This request is not available on this device.</div>';
@@ -12681,7 +12731,7 @@ function fmApprove(formId, siteId, on){
 function fmHomeCard(){
   return fmVisible().map(f => {
     const closed = String(f.status || '') !== 'OPEN';
-    const sites = fmSitesFor();
+    const sites = dtaaIs(f) ? dtaaUnits() : fmSitesFor();
     const done = sites.filter(s => {
       const st = fmStatus(fmEntry(f.id, s.id));
       return st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED';
@@ -12693,9 +12743,9 @@ function fmHomeCard(){
       <div style="min-width:0">
         <b>${ahdIs(f) ? '🩺' : '📋'} ${esc(f.title)}</b>${closed
           ? ' <span class="fmchip c-none">Closed</span>' : ''}
-        <div class="small muted">${closed ? 'Filling closed · results and downloads · ' : ''}${isSuper() ? done + ' site page'
+        <div class="small muted">${closed ? 'Filling closed · results and downloads · ' : ''}${isSuper() && !dtaaIs(f) ? done + ' site page'
             + (done === 1 ? '' : 's') + ' submitted'
-          : done + '/' + sites.length + ' site page'
+          : done + '/' + sites.length + (dtaaIs(f) ? ' district page' : ' site page')
             + (sites.length === 1 ? '' : 's') + ' submitted'}${
           f.closes ? ' · due ' + esc(f.closes) : ''}</div></div>
       <button class="btn sm" onclick="fmOpen('${f.id}')">Open</button>
@@ -14437,6 +14487,643 @@ async function ahdCdcReport(formId){
 }
 
 /* =====================================================================
+   THE DISTRICT BASELINE (DTAA)                                  (v5.9.0)
+
+   One page per HEALTH DISTRICT — not per facility — filled by district staff
+   (role DISTRICT: the district medical officer and the district team), who
+   enrol in a space of their own and never see the mentorship. Reviewed by the
+   people who cover that district: district mentors, cluster leads, M&E
+   officers and assistants (supervisor accounts holding the district) and the
+   consoles in scope. They write notes per section, send a page back with a
+   reason, or approve it.
+
+   The page travels on the road every instrument already uses (FORM_ENTRIES),
+   keyed 'DIST-<district>' with its district in the row, which is all the
+   server needs to send it to the right phones.
+
+   The questions are written here, in French and English. The option lists
+   (staff roles, integrated services, trainings, needed items, sources) live
+   in the published layout, so the administrator edits them in the app and
+   republishes — no new release. An option is hidden, never deleted, so an
+   answer already given keeps its meaning.
+
+   Section V (performance data) is phase 2: imported by the regional team.
+   ===================================================================== */
+function dtaaIs(f){ return !!f && String((f.layout || {}).kind || '') === 'dtaa'; }
+function isDistStaff(u){ u = u || me(); return !!u && u.role === 'DISTRICT'; }
+/* Declarations, not const arrows: the first paint runs before this part of the
+   script has executed, and a const read then is a ReferenceError at start-up. */
+function dtaaLab(it){ return it ? String((LANG === 'fr' ? it.fr : it.en) || it.fr || it.k || '') : ''; }
+function dtaaList(f, k){ return (((f && f.layout && f.layout.lists) || {})[k] || []); }
+function dtaaLive(f, k){ return dtaaList(f, k).filter(x => !x.hidden); }
+function dtaaFind(f, k, key){ return dtaaList(f, k).filter(x => x.k === key)[0]; }
+function dtaaSid(d){
+  return 'DIST-' + String(d || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+/* Every district the register knows, then the ones this account covers. */
+function dtaaAllDistricts(){
+  return [...new Set((DB.d.sites || []).map(s => s.district).filter(Boolean))].sort();
+}
+function dtaaMyDistricts(){
+  const u = me(); if(!u) return [];
+  const all = dtaaAllDistricts();
+  if(isDistStaff(u)) return all.filter(d => (u.districts || []).includes(d));
+  if(!isSlot(u) && !hasSupHat(u)) return [];
+  const ds = myDistricts();
+  return ds === null ? all : all.filter(d => ds.includes(d));
+}
+function dtaaDistOf(sid){ return dtaaAllDistricts().filter(d => dtaaSid(d) === sid)[0] || ''; }
+/* the districts as page "units", so the shared counters can walk them like sites */
+function dtaaUnits(){ return dtaaMyDistricts().map(d => ({id:dtaaSid(d), district:d, facility:d})); }
+function dtaaReviewer(u){ u = u || me(); return !!u && !isDistStaff(u) && (isSlot(u) || hasSupHat(u)); }
+function dtaaMayReview(d){ return dtaaReviewer() && dtaaMyDistricts().includes(d); }
+
+/* ------------------------------------------------------------------ data */
+function dtaaTouch(formId, sid){
+  let e = fmEntry(formId, sid);
+  const d = dtaaDistOf(sid);
+  if(!e){
+    const u = me() || {};
+    e = {id:fmEntryId(formId, sid), formId, siteId:sid, district:d, status:'DRAFT',
+         by:u.name || '', uid:u.id || '', at:Date.now(), dirty:true, data:{}};
+    DB.d.formEntries.push(e);
+  }
+  const x = e.data || (e.data = {});
+  if(!x.gen) x.gen = {};
+  if(!x.gen.adate) x.gen.adate = todayISO();       /* stamped once, the day it was started */
+  ['staff', 'pocExtra', 'needsExtra', 'fech', 'partners'].forEach(k => { if(!Array.isArray(x[k])) x[k] = []; });
+  ['res', 'src', 'poc', 'train', 'needs', 'notes'].forEach(k => { if(!x[k] || typeof x[k] !== 'object') x[k] = {}; });
+  e.dirty = true; e.typed = Date.now();
+  return e;
+}
+function dtaaPath(obj, path, v){
+  const ks = path.split('.'); let o = obj;
+  for(let i = 0; i < ks.length - 1; i++) o = (o[ks[i]] && typeof o[ks[i]] === 'object') ? o[ks[i]] : (o[ks[i]] = {});
+  if(v === undefined) return o[ks[ks.length - 1]];
+  o[ks[ks.length - 1]] = v;
+}
+function dtaaGet(d, path){ try{ return path.split('.').reduce((o, k) => o == null ? undefined : o[k], d); }catch(e){ return undefined; } }
+function dtaaSet(formId, sid, path, v, repaint){
+  dtaaPath(dtaaTouch(formId, sid).data, path, v); DB.save();
+  if(repaint) render(); else dtaaPaint(formId, sid);
+}
+function dtaaTog(formId, sid, path, k, on){
+  const e = dtaaTouch(formId, sid);
+  const cur = (dtaaGet(e.data, path) || []).filter(x => x !== k);
+  if(on) cur.push(k);
+  dtaaPath(e.data, path, cur); DB.save(); dtaaPaint(formId, sid);
+}
+function dtaaAdd(formId, sid, list){
+  const e = dtaaTouch(formId, sid);
+  e.data[list].push(list === 'staff' ? {id:'r' + Date.now().toString(36), inpost:'Oui'} : {});
+  DB.save(); render();
+}
+function dtaaDel(formId, sid, list, i){
+  const e = dtaaTouch(formId, sid);
+  const gone = e.data[list].splice(i, 1)[0];
+  if(list === 'staff' && gone && gone.id) delete e.data.train[gone.id];
+  DB.save(); render();
+}
+function dtaaRow(formId, sid, list, i, k, v, repaint){
+  const e = dtaaTouch(formId, sid);
+  if(!e.data[list][i]) e.data[list][i] = {};
+  e.data[list][i][k] = v; DB.save();
+  if(repaint) render(); else dtaaPaint(formId, sid);
+}
+
+/* ------------------------------------------------- what is computed, not typed */
+function dtaaFacilities(d){
+  return (DB.d.sites || []).filter(s => s.district === d && String(s.status || '').toUpperCase() !== 'CLOSED'
+    && String(s.status || '').toUpperCase() !== 'INACTIVE')
+    .sort((a, b) => (a.area + a.facility).localeCompare(b.area + b.facility));
+}
+function dtaaFocal(f, data){
+  const out = {};
+  ['vih', 'fech', 'ptme', 'tb', 'mnt'].forEach(k => { out[k] = []; });
+  (data.staff || []).forEach(p => {
+    const r = dtaaFind(f, 'roles', p.role);
+    if(r && r.focal && out[r.focal] && p.inpost !== 'Non' && String(p.name || '').trim()) out[r.focal].push(p.name);
+  });
+  return out;
+}
+function dtaaPocCount(d, data){
+  let present = 0, working = 0, broken = 0;
+  const one = v => { if(!v || v.present !== 'Oui') return; present++;
+    if(v.functional === 'Oui') working++; else if(v.functional === 'Non') broken++; };
+  dtaaFacilities(d).forEach(s => one((data.poc || {})[s.id]));
+  (data.pocExtra || []).forEach(one);
+  return {present, working, broken};
+}
+
+/* The rules a page must meet before it can be submitted. Each problem names
+   the item, so nobody has to hunt for the blank. */
+function dtaaCheck(f, d, data){
+  const L = LANG === 'fr', out = [], today = todayISO();
+  const g = data.gen || {}, r = data.res || {}, src = data.src || {};
+  const num = v => String(v === undefined ? '' : v).trim() !== '' && isFinite(Number(v)) && Number(v) >= 0;
+  let need = 0, got = 0;
+  const req = (ok, msg) => { need++; if(ok) got++; else out.push(msg); };
+  req(num(g.nAreas), L ? 'I.3 Nombre d’aires de santé' : 'I.3 Number of health areas');
+  req(num(g.nFacs),  L ? 'I.4 Nombre de formations sanitaires' : 'I.4 Number of health facilities');
+  const staff = (data.staff || []).filter(p => p.role || String(p.name || '').trim());
+  req(staff.length > 0, L ? 'I.5 Au moins une personne dans le tableau du personnel' : 'I.5 At least one person in the staff table');
+  staff.forEach((p, i) => req(p.role && String(p.name || '').trim(),
+    (L ? 'I.5 Ligne ' : 'I.5 Row ') + (i + 1) + (L ? ' : fonction et nom' : ': role and name')));
+  const yn = (k, lab) => {
+    const v = (r[k] || {}).v;
+    req(v === 'Oui' || v === 'Non', lab);
+    req(!!src[k], lab + (L ? ' — source' : ' — source'));
+    return v === 'Oui';
+  };
+  if(yn('integ', L ? 'II.8 Intégration des services' : 'II.8 Integration of services'))
+    req(((r.integ || {}).opts || []).length || String((r.integ || {}).other || '').trim(),
+        L ? 'II.8 Quels services sont intégrés' : 'II.8 Which services are integrated');
+  if(yn('plan', L ? 'II.9 Plan de travail annuel' : 'II.9 Annual work plan'))
+    req(((r.plan || {}).seen === 'Oui' || (r.plan || {}).seen === 'Non'), L ? 'II.9 Plan vu par l’évaluateur' : 'II.9 Plan seen by the assessor');
+  [['sup3m', L ? 'II.10 Supervision intégrant le VIH (3 derniers mois)' : 'II.10 Supervision including HIV (last 3 months)'],
+   ['review', L ? 'II.11 Réunions de revue des données' : 'II.11 Data review meetings']].forEach(([k, lab]) => {
+    if(yn(k, lab)){
+      const dt = (r[k] || {}).date || '';
+      req(!!dt, lab + (L ? ' — date' : ' — date'));
+      if(dt && dt > today) out.push(lab + (L ? ' — la date est dans le futur' : ' — the date is in the future'));
+    }
+  });
+  dtaaFacilities(d).forEach(s => {
+    const v = (data.poc || {})[s.id] || {};
+    req(v.present === 'Oui' || v.present === 'Non', 'II.7 POC — ' + s.facility);
+    if(v.present === 'Oui'){
+      req(v.functional === 'Oui' || v.functional === 'Non', 'II.7 POC — ' + s.facility + (L ? ' : fonctionnel ?' : ': working?'));
+      if(v.functional === 'Non') req(!!v.since, 'II.7 POC — ' + s.facility + (L ? ' : en panne depuis' : ': broken since'));
+    }
+  });
+  return {problems:out, need, got, pct: need ? Math.round(got / need * 100) : 0};
+}
+function dtaaPaint(formId, sid){
+  const f = fmForms().filter(x => x.id === formId)[0]; const e = fmEntry(formId, sid);
+  if(!f || !e) return;
+  const c = dtaaCheck(f, dtaaDistOf(sid), e.data || {});
+  const bar = $('#fm-bar'), lab = $('#fm-barlab');
+  if(bar) bar.style.width = c.pct + '%';
+  if(lab) lab.textContent = c.got + ' / ' + c.need;
+}
+
+/* ------------------------------------------------------------------ screens */
+function viewDistHome(){
+  const L = LANG === 'fr', u = me() || {};
+  const cards = (typeof fmHomeCard === 'function') ? fmHomeCard() : '';
+  return `<div class="card">
+      <h3 style="margin:0 0 4px">${L ? 'Équipe cadre du district' : 'District team'} — ${esc((u.districts || []).join(', '))}</h3>
+      <p class="small muted" style="margin:0">${L
+        ? 'Cet espace sert aux évaluations du district. Le mentorat des formations sanitaires n’y apparaît pas.'
+        : 'This space is for the district’s assessments. The facilities’ mentorship does not appear here.'}</p>
+    </div>
+    ${cards || `<div class="card"><p class="muted" style="margin:0">${L
+      ? 'Aucune évaluation n’est ouverte pour votre district pour le moment.'
+      : 'No assessment is open for your district at the moment.'}</p></div>`}`;
+}
+
+function viewDtaaList(f){
+  const L = LANG === 'fr';
+  const units = dtaaUnits();
+  if(isDistStaff() && units.length === 1) return viewDtaaFill(f.id, units[0].id);
+  const n = st => units.filter(x => fmStatus(fmEntry(f.id, x.id)) === st).length;
+  const sub = units.filter(x => ['SUBMITTED', 'APPROVED', 'SIGNED'].includes(fmStatus(fmEntry(f.id, x.id))));
+  const rows = units.map(x => {
+    const e = fmEntry(f.id, x.id), st = fmStatus(e);
+    return `<tr><td class="stick"><b>${esc(x.district)}</b>${e && e.by ? '<div class="xs muted">' + esc(e.by)
+        + (e.at ? ' · ' + esc(fmtDT(e.at)) : '') + '</div>' : ''}</td>
+      <td>${fmChip(st)}</td>
+      <td style="text-align:right;white-space:nowrap">
+        ${e ? `<button class="btn sec sm" onclick="dtaaPdf('${f.id}','${x.id}')">PDF</button>` : ''}
+        <button class="btn sec sm" ${e ? '' : 'disabled'} onclick="go('#/fm/${f.id}/${x.id}')">${L ? 'Ouvrir' : 'Open'}</button></td></tr>`;
+  }).join('');
+  return `<div class="inst" data-inst="fm">
+    ${dtaaBar(f)}
+    <div class="card">
+      ${String(f.status) !== 'OPEN' ? `<div class="banner b-warn" style="margin:0 0 10px">${L
+        ? 'Le remplissage est fermé. Les pages restent lisibles et exportables.'
+        : 'Filling is closed. Pages can still be read and exported.'}</div>` : ''}
+      <div class="fmcount"><span>${units.length} district${units.length === 1 ? '' : 's'}</span>
+        <span>${n('DRAFT')} ${L ? 'en cours' : 'in progress'}</span>
+        <span>${n('SUBMITTED')} ${L ? 'à revoir' : 'to review'}</span>
+        <span>${n('APPROVED') + n('SIGNED')} ${L ? 'approuvés' : 'approved'}</span></div>
+      <p class="xs muted" style="margin:8px 0 0">${L
+        ? 'Les districts que vous couvrez. Une page est remplie par l’équipe du district ; vous la revoyez, la renvoyez avec un motif ou l’approuvez.'
+        : 'The districts you cover. Each page is filled by the district team; you review it, send it back with a reason, or approve it.'}</p>
+    </div>
+    <div class="card">
+      <div class="spread" style="margin-bottom:8px;flex-wrap:wrap;gap:8px">
+        <h4 style="margin:0">${L ? 'Districts' : 'Districts'}</h4>
+        <span style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn sec sm" ${sub.length ? '' : 'disabled'} onclick="dtaaXlsx('${f.id}')">⬇ Excel (${sub.length})</button>
+          ${can('formPublish') ? `<button class="btn sec sm" onclick="dtaaOptEdit('${f.id}')">${L ? '⚙ Listes d’options' : '⚙ Option lists'}</button>` : ''}
+        </span></div>
+      ${units.length ? `<div class="tw pin"><table>
+        <thead><tr><th class="col-name">District</th><th class="col-mid">${L ? 'Statut' : 'Status'}</th><th class="col-mid"></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`
+        : `<p class="small muted" style="margin:0">${L ? 'Aucun district dans votre périmètre.' : 'No district in your scope.'}</p>`}
+      <p class="xs muted" style="margin:8px 0 0">${L
+        ? 'L’Excel réunit les pages soumises ou approuvées, une ligne par district, en-têtes figés.'
+        : 'The Excel gathers submitted or approved pages, one row per district, with frozen headers.'}</p>
+    </div></div>`;
+}
+function dtaaBar(f){
+  return '<div class="instbar"><div class="ico">🏛</div><div style="min-width:0"><b>' + esc(f.title)
+    + '</b><span>' + esc(LANG === 'fr' ? 'Une page par district de santé' : 'One page per health district')
+    + '</span></div></div>';
+}
+
+function viewDtaaFill(formId, sid){
+  const L = LANG === 'fr';
+  const f = fmForms().filter(x => x.id === formId)[0];
+  const d = dtaaDistOf(sid);
+  if(!f || !d) return `<div class="banner b-err">${L ? 'Cette page n’est pas disponible sur cet appareil.' : 'This page is not available on this device.'}</div>`;
+  const own = isDistStaff() && dtaaMyDistricts().includes(d);
+  const rev = dtaaMayReview(d);
+  if(!own && !rev) return `<div class="banner b-err">${L ? 'Ce district n’est pas dans votre périmètre.' : 'This district is not in your scope.'}</div>`;
+  const e = fmEntry(formId, sid) || {status:'', data:{}};
+  const x = e.data || {};
+  const st = fmStatus(e.id ? e : null);
+  const settled = st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED';
+  const lock = !own || settled || String(f.status) !== 'OPEN';
+  const dis = lock ? 'disabled' : '';
+  const chk = dtaaCheck(f, d, x);
+  const A = (s) => esc(String(s === undefined || s === null ? '' : s));
+  const q = s => s.replace(/'/g, "\\'");
+  const set = (path, extra) => `onchange="dtaaSet('${formId}','${sid}','${path}',this.value${extra ? ',true' : ''})"`;
+  const inp = (path, type, ph) => `<input type="${type || 'text'}" ${type === 'number' ? 'inputmode="numeric" min="0"' : ''}
+      ${type === 'date' ? 'max="' + todayISO() + '"' : ''} value="${A(dtaaGet(x, path))}" placeholder="${A(ph || '')}" ${dis} ${set(path)}>`;
+  const yn = (path, repaint) => `<select ${dis} ${set(path, repaint)}>
+      <option value="">${T('select')}</option>
+      ${['Oui', 'Non'].map(v => `<option value="${v}" ${dtaaGet(x, path) === v ? 'selected' : ''}>${v === 'Oui' ? (L ? 'Oui' : 'Yes') : (L ? 'Non' : 'No')}</option>`).join('')}</select>`;
+  const pick = (path, list, repaint) => `<select ${dis} ${set(path, repaint)}>
+      <option value="">${T('select')}</option>
+      ${dtaaList(f, list).filter(o => !o.hidden || dtaaGet(x, path) === o.k)
+        .map(o => `<option value="${o.k}" ${dtaaGet(x, path) === o.k ? 'selected' : ''}>${A(dtaaLab(o))}</option>`).join('')}</select>`;
+  const lab = (t, inner) => `<label class="f"><span>${t}</span>${inner}</label>`;
+  const note = k => {
+    const v = (x.notes || {})[k] || '';
+    if(rev && st === 'SUBMITTED') return `<label class="f" style="margin-top:10px"><span>${L ? '📝 Note du réviseur pour cette section' : '📝 Reviewer’s note for this section'}</span>
+      <textarea rows="2" oninput="dtaaNote('${formId}','${sid}','${k}',this.value)">${A(v)}</textarea></label>`;
+    return v ? `<div class="banner b-warn" style="margin-top:10px">📝 ${A(v)}</div>` : '';
+  };
+  const sec = (k, title, body) => `<div class="card"><h4 style="margin:0 0 10px">${title}</h4>${body}${note(k)}</div>`;
+
+  /* I — general information and the staff table */
+  const areasReg = new Set(dtaaFacilities(d).map(s => s.area)).size, facsReg = dtaaFacilities(d).length;
+  const staffRows = (x.staff || []).map((p, i) => `<tr>
+      <td class="stick"><select ${dis} onchange="dtaaRow('${formId}','${sid}','staff',${i},'role',this.value,true)">
+        <option value="">${T('select')}</option>${dtaaList(f, 'roles').filter(o => !o.hidden || p.role === o.k)
+          .map(o => `<option value="${o.k}" ${p.role === o.k ? 'selected' : ''}>${A(dtaaLab(o))}</option>`).join('')}</select></td>
+      <td><input value="${A(p.name)}" ${dis} onchange="dtaaRow('${formId}','${sid}','staff',${i},'name',this.value)"></td>
+      <td><input type="tel" value="${A(p.phone)}" ${dis} onchange="dtaaRow('${formId}','${sid}','staff',${i},'phone',this.value)"></td>
+      <td><input type="email" value="${A(p.email)}" ${dis} onchange="dtaaRow('${formId}','${sid}','staff',${i},'email',this.value)"></td>
+      <td><select ${dis} onchange="dtaaRow('${formId}','${sid}','staff',${i},'inpost',this.value,true)">
+        ${['Oui', 'Non'].map(v => `<option value="${v}" ${(p.inpost || 'Oui') === v ? 'selected' : ''}>${v === 'Oui' ? (L ? 'Oui' : 'Yes') : (L ? 'Non' : 'No')}</option>`).join('')}</select></td>
+      <td>${lock ? '' : `<button class="btn sec sm" onclick="dtaaDel('${formId}','${sid}','staff',${i})">✕</button>`}</td></tr>`).join('');
+  const s1 = `<div class="grid g2">
+      ${lab(L ? 'I.1 Région' : 'I.1 Region', '<input readonly class="ro" value="Ouest">')}
+      ${lab('I.2 District', `<input readonly class="ro" value="${A(d)}">`)}
+      ${lab(L ? 'I.3 Nombre d’aires de santé' : 'I.3 Number of health areas', inp('gen.nAreas', 'number', L ? 'registre : ' + areasReg : 'register: ' + areasReg))}
+      ${lab(L ? 'I.4 Nombre de formations sanitaires' : 'I.4 Number of health facilities', inp('gen.nFacs', 'number', L ? 'registre : ' + facsReg : 'register: ' + facsReg))}
+      ${lab(L ? 'Date de l’évaluation' : 'Assessment date', `<input readonly class="ro" value="${A((x.gen || {}).adate || todayISO())}">`)}
+    </div>
+    <p class="small" style="margin:12px 0 6px"><b>${L ? 'I.5 Personnel du district' : 'I.5 District staff'}</b> — ${L
+      ? 'une ligne par personne. Les points focaux (II.1–II.5) et les contacts (IV.1) se déduisent de ce tableau.'
+      : 'one row per person. Focal points (II.1–II.5) and contacts (IV.1) are derived from this table.'}</p>
+    <div class="tw pin"><table><thead><tr><th class="col-name">${L ? 'Fonction' : 'Role'}</th><th>${T('name')}</th>
+      <th>${L ? 'Téléphone' : 'Phone'}</th><th>Email</th><th class="col-mid">${L ? 'En poste' : 'In post'}</th><th></th></tr></thead>
+      <tbody>${staffRows || `<tr><td colspan="6" class="muted small">${L ? 'Aucune personne ajoutée.' : 'Nobody added yet.'}</td></tr>`}</tbody></table></div>
+    ${lock ? '' : `<button class="btn sec sm" style="margin-top:8px" onclick="dtaaAdd('${formId}','${sid}','staff')">＋ ${L ? 'Ajouter une personne' : 'Add a person'}</button>`}`;
+
+  /* II — resources */
+  const foc = dtaaFocal(f, x);
+  const focLab = {vih:L ? 'VIH' : 'HIV', fech:'FECh', ptme:L ? 'PTME' : 'PMTCT', tb:'TB', mnt:L ? 'MNT' : 'NCD'};
+  const focRows = Object.keys(foc).map((k, i) => `<tr><td class="stick">II.${i + 1} ${L ? 'Point focal' : 'Focal point'} ${focLab[k]}</td>
+      <td>${foc[k].length ? '<span class="fmchip c-green">' + (L ? 'Oui' : 'Yes') + '</span> ' + A(foc[k].join(', '))
+                          : '<span class="fmchip c-none">' + (L ? 'Non' : 'No') + '</span>'}</td></tr>`).join('');
+  const pocSel = (id, k, opts, repaint, extraI) => {
+    const v = extraI === undefined ? ((x.poc || {})[id] || {})[k] : ((x.pocExtra || [])[extraI] || {})[k];
+    const handler = extraI === undefined
+      ? `dtaaSet('${formId}','${sid}','poc.${id}.${k}',this.value,${repaint ? 'true' : 'false'})`
+      : `dtaaRow('${formId}','${sid}','pocExtra',${extraI},'${k}',this.value,${repaint ? 'true' : 'false'})`;
+    return `<select ${dis} onchange="${handler}"><option value="">—</option>${opts.map(o =>
+      `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
+  };
+  const YN = [['Oui', L ? 'Oui' : 'Yes'], ['Non', L ? 'Non' : 'No']];
+  const SINCE = [['<3', L ? '< 3 mois' : '< 3 months'], ['3-9', L ? '3–9 mois' : '3–9 months'], ['>9', L ? '> 9 mois' : '> 9 months']];
+  const pocCells = (id, v, extraI) => `<td>${pocSel(id, 'present', YN, true, extraI)}</td>
+      <td>${v.present === 'Oui' ? pocSel(id, 'functional', YN, true, extraI) : '—'}</td>
+      <td>${v.present === 'Oui' && v.functional === 'Non' ? pocSel(id, 'since', SINCE, false, extraI) : '—'}</td>`;
+  let lastArea = null;
+  const pocRows = dtaaFacilities(d).map(s => {
+    const v = (x.poc || {})[s.id] || {};
+    const head = s.area !== lastArea ? `<tr><td colspan="4" class="xs muted" style="background:var(--surface-3)"><b>${A(s.area || '—')}</b></td></tr>` : '';
+    lastArea = s.area;
+    return head + `<tr><td class="stick">${A(s.facility)}</td>${pocCells(s.id, v)}</tr>`;
+  }).join('') + (x.pocExtra || []).map((v, i) => `<tr><td class="stick"><input placeholder="${L ? 'Formation sanitaire (hors registre)' : 'Facility (not in the register)'}" value="${A(v.name)}" ${dis}
+      onchange="dtaaRow('${formId}','${sid}','pocExtra',${i},'name',this.value)">${lock ? '' : ` <button class="btn sec sm" onclick="dtaaDel('${formId}','${sid}','pocExtra',${i})">✕</button>`}</td>${pocCells('', v, i)}</tr>`).join('');
+  const pc = dtaaPocCount(d, x);
+  const srcSel = k => `<label class="f" style="max-width:220px"><span>Source</span>${pick('src.' + k, 'src')}</label>`;
+  const r = x.res || {};
+  const integ = r.integ || {};
+  const integOpts = dtaaList(f, 'integ').filter(o => !o.hidden || (integ.opts || []).includes(o.k)).map(o =>
+    `<label class="chk"><input type="checkbox" ${(integ.opts || []).includes(o.k) ? 'checked' : ''} ${dis}
+      onchange="dtaaTog('${formId}','${sid}','res.integ.opts','${o.k}',this.checked)"><span>${A(dtaaLab(o))}</span></label>`).join('');
+  const s2 = `<div class="tw"><table><tbody>${focRows}</tbody></table></div>
+    <p class="xs muted" style="margin:6px 0 14px">${L ? 'Déduit du tableau I.5 : une personne en poste avec cette fonction = Oui.' : 'Derived from table I.5: a person in post with that role = Yes.'}</p>
+    <p class="small" style="margin:0 0 6px"><b>${L ? 'II.6–II.7 Équipements POC (PCR) par aire de santé' : 'II.6–II.7 POC (PCR) equipment by health area'}</b> —
+      ${pc.present} ${L ? 'FOSA équipée(s)' : 'facility(ies) equipped'}, ${pc.working} ${L ? 'fonctionnel(s)' : 'working'}, ${pc.broken} ${L ? 'en panne' : 'broken'}</p>
+    <div class="tw pin"><table><thead><tr><th class="col-name">${L ? 'Formation sanitaire' : 'Facility'}</th><th class="col-mid">${L ? 'POC présent' : 'POC present'}</th>
+      <th class="col-mid">${L ? 'Fonctionnel' : 'Working'}</th><th class="col-mid">${L ? 'En panne depuis' : 'Broken since'}</th></tr></thead>
+      <tbody>${pocRows || `<tr><td colspan="4" class="muted small">${L ? 'Aucune FOSA du district dans le registre.' : 'No facility of this district in the register.'}</td></tr>`}</tbody></table></div>
+    ${lock ? '' : `<button class="btn sec sm" style="margin-top:8px" onclick="dtaaAdd('${formId}','${sid}','pocExtra')">＋ ${L ? 'FOSA hors registre' : 'Facility not in the register'}</button>`}
+    <hr>
+    ${lab(L ? 'II.8 Le district pratique-t-il l’intégration des services ?' : 'II.8 Does the district integrate services?', yn('res.integ.v', true))}
+    ${integ.v === 'Oui' ? `<div style="margin:-4px 0 8px">${integOpts}
+      ${lab(L ? 'Autre (préciser)' : 'Other (specify)', inp('res.integ.other'))}</div>` : ''}
+    ${srcSel('integ')}
+    <hr>
+    ${lab(L ? 'II.9 Le DS dispose-t-il d’un plan de travail annuel avec des objectifs VIH/PTME clairs ?' : 'II.9 Does the district have an annual work plan with clear HIV/PMTCT objectives?', yn('res.plan.v', true))}
+    ${(r.plan || {}).v === 'Oui' ? `<div class="grid g2">${lab(L ? 'Plan vu par l’évaluateur' : 'Plan seen by the assessor', yn('res.plan.seen'))}
+      ${lab(L ? 'Période couverte' : 'Period covered', inp('res.plan.period', 'text', L ? 'janvier–décembre 2026' : 'January–December 2026'))}</div>` : ''}
+    ${srcSel('plan')}
+    <hr>
+    ${lab(L ? 'II.10 L’équipe cadre a-t-elle fait des visites de supervision/mentorat intégrant le VIH au cours des 3 derniers mois ?' : 'II.10 Has the district team made supervision/mentoring visits including HIV in the last 3 months?', yn('res.sup3m.v', true))}
+    ${(r.sup3m || {}).v === 'Oui' ? `<div class="grid g2">${lab(L ? 'Date de la dernière visite' : 'Date of the last visit', inp('res.sup3m.date', 'date'))}
+      ${lab(L ? 'Rapport vu' : 'Report seen', yn('res.sup3m.seen'))}</div>` : ''}
+    ${srcSel('sup3m')}
+    <hr>
+    ${lab(L ? 'II.11 Les réunions de revue des données de district avec les sites sont-elles effectives ?' : 'II.11 Are district data review meetings with the sites held?', yn('res.review.v', true))}
+    ${(r.review || {}).v === 'Oui' ? `<div class="grid g2">${lab(L ? 'II.12 Date de la dernière réunion' : 'II.12 Date of the last meeting', inp('res.review.date', 'date'))}
+      ${lab(L ? 'Rapport vu' : 'Report seen', yn('res.review.seen'))}</div>` : ''}
+    ${srcSel('review')}`;
+
+  /* III — trainings: a matrix, one tick (year) per person and topic */
+  const topics = dtaaList(f, 'topics').filter(o => !o.hidden);
+  const people = (x.staff || []).filter(p => p.id && String(p.name || '').trim());
+  const trained = k => people.filter(p => String(((x.train || {})[p.id] || {})[k] || '').trim()).length;
+  const s3 = people.length ? `<p class="xs muted" style="margin:0 0 8px">${L
+      ? 'Pour chaque personne, l’année de la dernière formation reçue sur le thème. Vide = pas formée.'
+      : 'For each person, the year of their last training on the topic. Blank = not trained.'}</p>
+    <div class="tw pin"><table class="dash"><thead><tr><th class="col-name">${T('name')}</th>${topics.map(t =>
+      `<th class="col-num" title="${A(dtaaLab(t))}">${A(ahdShort ? ahdShort(dtaaLab(t), 22) : dtaaLab(t))}</th>`).join('')}</tr></thead>
+      <tbody>${people.map(p => `<tr><td class="stick">${A(p.name)}<div class="xs muted">${A(dtaaLab(dtaaFind(f, 'roles', p.role)))}</div></td>${topics.map(t =>
+        `<td><input class="fmnum" inputmode="numeric" maxlength="4" style="width:4.2em" placeholder="—" value="${A(((x.train || {})[p.id] || {})[t.k])}" ${dis}
+          onchange="dtaaSet('${formId}','${sid}','train.${p.id}.${t.k}',this.value.replace(/\\D/g,'').slice(0,4))"></td>`).join('')}</tr>`).join('')}
+        <tr><td class="stick"><b>${L ? 'Équipe : formée ?' : 'Team: trained?'}</b></td>${topics.map(t => {
+          const n = trained(t.k);
+          return `<td><span class="fmchip ${n ? 'c-green' : 'c-none'}">${n ? (L ? 'Oui' : 'Yes') + ' · ' + n : (L ? 'Non' : 'No')}</span></td>`; }).join('')}</tr>
+      </tbody></table></div>`
+    : `<p class="small muted" style="margin:0">${L ? 'Ajoutez d’abord le personnel en I.5 : la matrice se construit à partir de lui.' : 'Add the staff in I.5 first: the matrix is built from it.'}</p>`;
+
+  /* IV — lists */
+  const contacts = (x.staff || []).filter(p => { const ro = dtaaFind(f, 'roles', p.role); return ro && (ro.k === 'mcd' || ro.focal); });
+  const rowsOf = (list, cols) => (x[list] || []).map((v, i) => `<tr>${cols.map((c, ci) =>
+      `<td ${ci === 0 ? 'class="stick"' : ''}><input ${c.t ? 'type="' + c.t + '"' : ''} ${c.t === 'number' ? 'inputmode="numeric" min="0" style="width:6em"' : ''} value="${A(v[c.k])}" placeholder="${A(c.ph || '')}" ${dis}
+        onchange="dtaaRow('${formId}','${sid}','${list}',${i},'${c.k}',this.value)"></td>`).join('')}
+      <td>${lock ? '' : `<button class="btn sec sm" onclick="dtaaDel('${formId}','${sid}','${list}',${i})">✕</button>`}</td></tr>`).join('');
+  const table = (list, cols, addLabel) => `<div class="tw pin"><table><thead><tr>${cols.map((c, i) => `<th ${i === 0 ? 'class="col-name"' : ''}>${c.h}</th>`).join('')}<th></th></tr></thead>
+      <tbody>${rowsOf(list, cols) || `<tr><td colspan="${cols.length + 1}" class="muted small">—</td></tr>`}</tbody></table></div>
+      ${lock ? '' : `<button class="btn sec sm" style="margin-top:8px" onclick="dtaaAdd('${formId}','${sid}','${list}')">＋ ${addLabel}</button>`}`;
+  const needs = dtaaList(f, 'needs').filter(o => !o.hidden || (x.needs || {})[o.k]);
+  const s4 = `<p class="small" style="margin:0 0 6px"><b>${L ? 'IV.1 Chef de district et points focaux' : 'IV.1 District head and focal points'}</b> — ${L ? 'repris de I.5' : 'taken from I.5'}</p>
+    ${contacts.length ? `<div class="tw"><table><tbody>${contacts.map(p => `<tr><td class="stick">${A(dtaaLab(dtaaFind(f, 'roles', p.role)))}</td>
+      <td>${A(p.name)}</td><td>${A(p.phone)}</td><td>${A(p.email)}</td></tr>`).join('')}</tbody></table></div>`
+      : `<p class="small muted">${L ? 'Aucun chef de district ni point focal dans I.5.' : 'No district head or focal point in I.5.'}</p>`}
+    <p class="small" style="margin:14px 0 6px"><b>${L ? 'IV.2 Équipements POC' : 'IV.2 POC equipment'}</b> — ${L ? 'repris de II.6–II.7' : 'taken from II.6–II.7'}: ${pc.present} / ${pc.working} / ${pc.broken}</p>
+    <p class="small" style="margin:14px 0 6px"><b>${L ? 'IV.3 Téléphones FECh' : 'IV.3 FECh phones'}</b></p>
+    ${table('fech', [{k:'phone', h:L ? 'N° du téléphone FECh' : 'FECh phone number', t:'tel'}, {k:'holder', h:L ? 'Détenteur' : 'Holder'}, {k:'hphone', h:L ? 'Téléphone du détenteur' : 'Holder’s phone', t:'tel'}], L ? 'Ajouter un téléphone' : 'Add a phone')}
+    <p class="small" style="margin:14px 0 6px"><b>${L ? 'IV.4 Besoins en outils et quantités' : 'IV.4 Tools needed and quantities'}</b></p>
+    <div class="tw"><table><tbody>${needs.map(o => `<tr><td class="stick">${A(dtaaLab(o))}</td><td><input inputmode="numeric" type="number" min="0" style="width:6em"
+        value="${A((x.needs || {})[o.k])}" ${dis} onchange="dtaaSet('${formId}','${sid}','needs.${o.k}',this.value)"></td></tr>`).join('')}</tbody></table></div>
+    ${table('needsExtra', [{k:'item', h:L ? 'Autre article' : 'Other item'}, {k:'qty', h:L ? 'Quantité' : 'Quantity', t:'number'}], L ? 'Autre article' : 'Other item')}
+    <p class="small" style="margin:14px 0 6px"><b>${L ? 'IV.5 Partenaires intervenant dans le district' : 'IV.5 Partners working in the district'}</b></p>
+    ${table('partners', [{k:'name', h:L ? 'Partenaire' : 'Partner', ph:'FHI'}, {k:'domain', h:L ? 'Domaine d’intervention' : 'Area of work', ph:L ? 'dépistage communautaire du VIH' : 'community HIV testing'}, {k:'areas', h:L ? 'Aires de santé' : 'Health areas'}], L ? 'Ajouter un partenaire' : 'Add a partner')}`;
+
+  /* the action bar: the district fills, the reviewer decides */
+  const bar = own && !settled && String(f.status) === 'OPEN'
+    ? `<div class="card"><div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="btn sec" onclick="dtaaSave('${formId}','${sid}','DRAFT')">${L ? 'Enregistrer le brouillon' : 'Save draft'}</button>
+        <button class="btn" onclick="dtaaSubmit('${formId}','${sid}')">${L ? 'Soumettre' : 'Submit'}</button></div>
+        <p class="xs muted" style="margin:8px 0 0">${L ? 'Tout est enregistré sur ce téléphone à chaque saisie, et envoyé dès qu’il y a du réseau.' : 'Everything is saved on this phone as you type, and sent as soon as there is signal.'}</p></div>`
+    : rev && st === 'SUBMITTED'
+    ? `<div class="card"><div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="btn sec" onclick="dtaaSendBack('${formId}','${sid}')">${L ? '↩ Renvoyer au district' : '↩ Send back to the district'}</button>
+        <button class="btn ok" onclick="fmApprove('${formId}','${sid}',true)">✓ ${L ? 'Approuver' : 'Approve'}</button></div>
+        <p class="xs muted" style="margin:8px 0 0">${L ? 'Les notes écrites sous chaque section partent avec le renvoi.' : 'The notes written under each section go with the send-back.'}</p></div>`
+    : rev && (st === 'APPROVED' || st === 'SIGNED') && isSlot(me())
+    ? `<div class="card"><button class="btn sec" onclick="fmApprove('${formId}','${sid}',false)">${L ? 'Retirer l’approbation' : 'Withdraw approval'}</button></div>`
+    : '';
+
+  return `<div class="inst" data-inst="fm">
+    ${dtaaBar(f)}
+    <div class="card tight fmhead">
+      <button class="btn sec sm" onclick="${isDistStaff() ? 'goHome()' : `go('#/fm/${formId}')`}">‹ ${L ? 'Retour' : 'Back'}</button>
+      <div class="spread" style="margin-top:8px;align-items:flex-start">
+        <div style="min-width:0"><h3 style="margin:0 0 2px">${L ? 'District de santé de ' : 'Health district of '}${A(d)}</h3>
+          <p class="small muted" style="margin:0">${e.by ? A(e.by) + (e.at ? ' · ' + A(fmtDT(e.at)) : '') : (L ? 'Pas encore commencé' : 'Not started yet')}</p></div>
+        <span style="display:flex;gap:6px;align-items:center">${e.id ? `<button class="btn sec sm" onclick="dtaaPdf('${formId}','${sid}')">PDF</button>` : ''}${fmChip(st)}</span>
+      </div>
+      <div class="fmbar" style="margin-top:12px"><i id="fm-bar" style="width:${chk.pct}%"></i></div>
+      <p class="xs muted" style="margin:6px 0 0"><b id="fm-barlab">${chk.got} / ${chk.need}</b> ${L ? 'réponses obligatoires données' : 'required answers given'}</p>
+    </div>
+    ${(e.sentBack && st === 'DRAFT') ? `<div class="banner b-warn"><b>${L ? 'Renvoyé par ' : 'Sent back by '}${A(e.sentBack.by || '')}</b>${
+        e.sentBack.at ? ' · ' + A(fmtDT(e.sentBack.at)) : ''}${e.sentBack.why ? '<br>' + A(e.sentBack.why) : ''}
+        <br><span class="xs">${L ? 'Les notes du réviseur sont sous chaque section concernée. Corrigez et soumettez à nouveau.' : 'The reviewer’s notes are under each section concerned. Correct and submit again.'}</span></div>` : ''}
+    ${sec('s1', L ? 'I. Informations générales' : 'I. General information', s1)}
+    ${sec('s2', L ? 'II. Ressources disponibles' : 'II. Available resources', s2)}
+    ${sec('s3', L ? 'III. Formations reçues par l’équipe cadre du district' : 'III. Training received by the district management team', s3)}
+    ${sec('s4', L ? 'IV. Listes à fournir' : 'IV. Lists to provide', s4)}
+    <div class="card"><p class="small muted" style="margin:0">${L
+      ? 'V. Performance : les données sont fournies par l’équipe régionale (ATHECS et GTR) et chargées séparément. Rien à remplir ici.'
+      : 'V. Performance: the data are supplied by the regional team (ATHECS and GTR) and loaded separately. Nothing to fill here.'}</p></div>
+    ${bar}
+  </div>`;
+}
+
+/* ------------------------------------------------------------- the actions */
+function dtaaQueue(e, extra){
+  queue('formEntry', Object.assign({id:e.id, formId:e.formId, siteId:e.siteId, status:e.status,
+    by:e.by, uid:e.uid, at:e.at, data:e.data,
+    /* a district page has no facility: the server files it under its district */
+    district:dtaaDistOf(e.siteId), facility:'District ' + dtaaDistOf(e.siteId)}, extra || {}));
+}
+function dtaaSave(formId, sid, status, quiet){
+  const e = dtaaTouch(formId, sid), u = me() || {};
+  e.status = status; e.by = u.name || ''; e.uid = u.id || ''; e.at = Date.now(); e.dirty = false;
+  DB.save(); dtaaQueue(e);
+  if(!quiet){ toast(status === 'DRAFT' ? (LANG === 'fr' ? '✓ Brouillon enregistré' : '✓ Draft saved') : (LANG === 'fr' ? '✓ Soumis' : '✓ Submitted'), 2500); render(); }
+}
+function dtaaSubmit(formId, sid){
+  const L = LANG === 'fr';
+  const f = fmForms().filter(x => x.id === formId)[0]; const e = dtaaTouch(formId, sid);
+  const c = dtaaCheck(f, dtaaDistOf(sid), e.data);
+  if(c.problems.length) return modal(L ? 'Pas encore prêt à soumettre' : 'Not ready to submit yet',
+    `<p class="small" style="margin:0 0 8px">${L ? 'Il manque ou il faut corriger :' : 'Missing or to correct:'}</p>
+     <ul class="small" style="margin:0;padding-left:18px">${c.problems.slice(0, 25).map(p => '<li>' + esc(p) + '</li>').join('')}</ul>
+     ${c.problems.length > 25 ? '<p class="xs muted">… +' + (c.problems.length - 25) + '</p>' : ''}
+     <p class="xs muted" style="margin:10px 0 0">${L ? 'Rien n’est perdu : tout reste enregistré sur ce téléphone.' : 'Nothing is lost: everything stays saved on this phone.'}</p>`,
+    `<button class="btn" onclick="closeModal()">${L ? 'Compléter' : 'Finish it'}</button>`);
+  dtaaSave(formId, sid, 'SUBMITTED');
+}
+function dtaaNote(formId, sid, k, v){
+  const e = fmEntry(formId, sid); if(!e) return;
+  if(!e.data.notes) e.data.notes = {};
+  e.data.notes[k] = v; DB.save();
+}
+function dtaaSendBack(formId, sid){
+  const L = LANG === 'fr';
+  modal(L ? 'Renvoyer au district' : 'Send back to the district',
+    `<p style="margin:0 0 10px"><b>${esc(dtaaDistOf(sid))}</b> ${L ? 'redevient modifiable par l’équipe du district.' : 'becomes editable again for the district team.'}</p>
+     <label class="f"><span>${L ? 'Motif (obligatoire)' : 'Reason (required)'}</span><textarea id="fm-why" rows="3"></textarea></label>
+     <p class="xs muted" style="margin:0">${L ? 'Les notes écrites sous les sections partent aussi.' : 'The notes written under the sections go too.'}</p>`,
+    `<button class="btn sec" onclick="closeModal()">${T('cancel')}</button>
+     <button class="btn" onclick="dtaaSendBackDo('${formId}','${sid}')">${L ? 'Renvoyer' : 'Send back'}</button>`);
+}
+function dtaaSendBackDo(formId, sid){
+  const why = (($('#fm-why') || {}).value || '').trim();
+  if(!why) return toast(LANG === 'fr' ? 'Un motif est obligatoire' : 'A reason is required', 2500);
+  const e = fmEntry(formId, sid); if(!e) return;
+  const u = me() || {};
+  e.status = 'DRAFT'; e.sentBack = {by:u.name || '', uid:u.id || '', at:Date.now(), why}; e.dirty = true;
+  DB.save(); dtaaQueue(e, {sentBack:e.sentBack});
+  closeModal(); toast(LANG === 'fr' ? 'Renvoyé au district' : 'Sent back to the district', 3000); render();
+}
+
+/* ------------------------------------------- the administrator's option lists */
+var DTAA_EDIT = null;
+function dtaaOptEdit(formId, list){
+  const L = LANG === 'fr';
+  const f = fmForms().filter(x => x.id === formId)[0]; if(!f) return;
+  if(!DTAA_EDIT || DTAA_EDIT.formId !== formId) DTAA_EDIT = {formId, lists:JSON.parse(JSON.stringify((f.layout || {}).lists || {}))};
+  const keys = {roles:L ? 'Fonctions du personnel' : 'Staff roles', integ:L ? 'Services intégrés' : 'Integrated services',
+                topics:L ? 'Thèmes de formation' : 'Training topics', needs:L ? 'Articles (besoins)' : 'Items (needs)', src:'Sources'};
+  const cur = list || DTAA_EDIT.cur || 'integ'; DTAA_EDIT.cur = cur;
+  const rows = (DTAA_EDIT.lists[cur] || []).map((o, i) => `<tr>
+      <td><input value="${esc(o.fr || '')}" oninput="DTAA_EDIT.lists['${cur}'][${i}].fr=this.value"></td>
+      <td><input value="${esc(o.en || '')}" oninput="DTAA_EDIT.lists['${cur}'][${i}].en=this.value"></td>
+      <td style="text-align:center"><input type="checkbox" ${o.hidden ? '' : 'checked'} onchange="DTAA_EDIT.lists['${cur}'][${i}].hidden=!this.checked"></td></tr>`).join('');
+  modal(L ? 'Listes d’options' : 'Option lists', `
+    <label class="f"><span>${L ? 'Liste' : 'List'}</span><select onchange="dtaaOptEdit('${formId}',this.value)">${Object.keys(keys).map(k =>
+      `<option value="${k}" ${k === cur ? 'selected' : ''}>${keys[k]}</option>`).join('')}</select></label>
+    <div class="tw"><table><thead><tr><th>Français</th><th>English</th><th>${L ? 'Proposé' : 'Offered'}</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <button class="btn sec sm" style="margin-top:8px" onclick="DTAA_EDIT.lists['${cur}'].push({k:'x'+Date.now().toString(36),fr:'',en:''});dtaaOptEdit('${formId}','${cur}')">＋ ${L ? 'Ajouter' : 'Add'}</button>
+    <p class="xs muted" style="margin:10px 0 0">${L
+      ? 'Décocher retire une option des choix sans effacer les réponses déjà données. La liste est publiée à tous les téléphones au prochain envoi.'
+      : 'Unticking removes an option from the choices without erasing answers already given. The list reaches every phone on the next sync.'}</p>`,
+    `<button class="btn sec" onclick="DTAA_EDIT=null;closeModal()">${T('cancel')}</button>
+     <button class="btn" onclick="dtaaOptPublish('${formId}')">${L ? 'Publier' : 'Publish'}</button>`);
+}
+function dtaaOptPublish(formId){
+  const L = LANG === 'fr';
+  const f = fmForms().filter(x => x.id === formId)[0]; if(!f || !DTAA_EDIT) return;
+  for(const k of Object.keys(DTAA_EDIT.lists)){
+    const bad = DTAA_EDIT.lists[k].filter(o => !String(o.fr || '').trim());
+    if(bad.length) return toast(L ? 'Chaque option a besoin d’un libellé en français' : 'Every option needs a French label', 3500);
+  }
+  f.layout = Object.assign({}, f.layout, {lists:DTAA_EDIT.lists});
+  f.version = (Number(f.version) || 1) + 1;
+  DB.save();
+  queue('formPublish', {id:f.id, title:f.title, subtitle:f.subtitle || '', status:f.status, scope:'DISTRICT',
+    fillers:'DISTRICT', opens:f.opens || '', closes:f.closes || '', version:f.version, by:(me() || {}).name || '', layout:f.layout});
+  audit('FORM_OPTIONS', 'form', f.id + ' v' + f.version);
+  DTAA_EDIT = null; closeModal(); toast(L ? '✓ Listes publiées' : '✓ Lists published', 2500); render();
+}
+
+/* ------------------------------------------------------------------ exports */
+function dtaaFlat(f, e){
+  const L = LANG === 'fr', x = (e && e.data) || {}, d = dtaaDistOf(e.siteId);
+  const r = x.res || {}, foc = dtaaFocal(f, x), pc = dtaaPocCount(d, x);
+  const yn = v => v === 'Oui' ? (L ? 'Oui' : 'Yes') : v === 'Non' ? (L ? 'Non' : 'No') : '';
+  const people = (x.staff || []).filter(p => p.id && String(p.name || '').trim());
+  const row = [
+    [L ? 'District' : 'District', d], [L ? 'Statut' : 'Status', fmStatus(e)], [L ? 'Rempli par' : 'Filled by', e.by || ''],
+    [L ? 'Date' : 'Date', (x.gen || {}).adate || ''], [L ? 'Aires de santé' : 'Health areas', (x.gen || {}).nAreas || ''],
+    [L ? 'Formations sanitaires' : 'Facilities', (x.gen || {}).nFacs || ''],
+    [L ? 'Personnel (en poste)' : 'Staff (in post)', (x.staff || []).filter(p => p.inpost !== 'Non').length]
+  ];
+  Object.keys(foc).forEach(k => row.push([(L ? 'PF ' : 'FP ') + k.toUpperCase(), foc[k].length ? (L ? 'Oui' : 'Yes') : (L ? 'Non' : 'No')]));
+  row.push([L ? 'POC présents' : 'POC present', pc.present], [L ? 'POC fonctionnels' : 'POC working', pc.working], [L ? 'POC en panne' : 'POC broken', pc.broken]);
+  row.push([L ? 'Intégration' : 'Integration', yn((r.integ || {}).v)],
+    [L ? 'Services intégrés' : 'Services integrated', ((r.integ || {}).opts || []).map(k => dtaaLab(dtaaFind(f, 'integ', k))).concat((r.integ || {}).other ? [(r.integ || {}).other] : []).join('; ')],
+    [L ? 'Plan annuel' : 'Annual plan', yn((r.plan || {}).v)], [L ? 'Plan vu' : 'Plan seen', yn((r.plan || {}).seen)],
+    [L ? 'Supervision 3 mois' : 'Supervision 3 months', yn((r.sup3m || {}).v)], [L ? 'Dernière supervision' : 'Last supervision', (r.sup3m || {}).date || ''],
+    [L ? 'Revues de données' : 'Data reviews', yn((r.review || {}).v)], [L ? 'Dernière revue' : 'Last review', (r.review || {}).date || '']);
+  dtaaList(f, 'topics').forEach(t => row.push([(L ? 'Formés : ' : 'Trained: ') + dtaaLab(t),
+    people.filter(p => String(((x.train || {})[p.id] || {})[t.k] || '').trim()).length]));
+  dtaaList(f, 'needs').forEach(o => row.push([(L ? 'Besoin : ' : 'Need: ') + dtaaLab(o), (x.needs || {})[o.k] || '']));
+  row.push([L ? 'Partenaires' : 'Partners', (x.partners || []).filter(p => String(p.name || '').trim()).map(p => p.name + (p.domain ? ' (' + p.domain + ')' : '')).join('; ')]);
+  return row;
+}
+function dtaaPdf(formId, sid){
+  const L = LANG === 'fr';
+  const f = fmForms().filter(x => x.id === formId)[0]; const e = fmEntry(formId, sid);
+  if(!f || !e) return toast(L ? 'Rien à exporter pour ce district' : 'Nothing to export for this district', 2500);
+  const d = dtaaDistOf(sid), x = e.data || {};
+  const doc = fmpdfDoc({onPage:(dd, n) => { dd.text('ATHECS · ' + f.title + ' · ' + d, dd.left, 8, {color:[0.4, 0.4, 0.4]}); dd.gap(14); }});
+  doc.newPage();
+  doc.text((L ? 'District de santé de ' : 'Health district of ') + d, doc.left, 15, {bold:true}); doc.gap(20);
+  doc.text(fmStatus(e) + ' · ' + (e.by || '') + (e.at ? ' · ' + fmtDT(e.at) : ''), doc.left, 9); doc.gap(16);
+  const W = doc.width;
+  fmpdfTable(doc, [{w:W * 0.45, bold:true}, {w:W * 0.55}],
+    [{head:true, cells:[L ? 'Élément' : 'Item', L ? 'Réponse' : 'Answer']}].concat(dtaaFlat(f, e).map(r => ({cells:[String(r[0]), String(r[1])]}))), {size:9, headFill:[0.88, 0.92, 0.97]});
+  doc.gap(14);
+  const staff = (x.staff || []).filter(p => String(p.name || '').trim());
+  if(staff.length){
+    doc.need(40); doc.text(L ? 'Personnel du district' : 'District staff', doc.left, 11, {bold:true}); doc.gap(16);
+    fmpdfTable(doc, [{w:W * 0.34}, {w:W * 0.3}, {w:W * 0.22}, {w:W * 0.14}],
+      [{head:true, cells:[L ? 'Fonction' : 'Role', T('name'), L ? 'Téléphone' : 'Phone', L ? 'En poste' : 'In post']}]
+        .concat(staff.map(p => ({cells:[dtaaLab(dtaaFind(f, 'roles', p.role)), p.name || '', p.phone || '', p.inpost || 'Oui']}))), {size:9, headFill:[0.88, 0.92, 0.97]});
+  }
+  const notes = Object.keys(x.notes || {}).filter(k => String(x.notes[k] || '').trim());
+  if(notes.length){ doc.gap(14); doc.need(40); doc.text(L ? 'Notes du réviseur' : 'Reviewer notes', doc.left, 11, {bold:true}); doc.gap(16);
+    notes.forEach(k => { doc.para(k.toUpperCase() + ' — ' + x.notes[k], doc.left, W, 9); doc.gap(6); }); }
+  fmpdfSave(doc.build(), 'DTAA_' + d.replace(/[^\w\-]+/g, '-') + '_' + todayISO() + '.pdf');
+}
+/* One row per district, frozen header and first column, written by the app
+   itself (no library), so it works offline on the console. */
+async function dtaaXlsx(formId){
+  const L = LANG === 'fr';
+  const f = fmForms().filter(x => x.id === formId)[0]; if(!f) return;
+  const es = dtaaUnits().map(u => fmEntry(formId, u.id)).filter(e => e && ['SUBMITTED', 'APPROVED', 'SIGNED'].includes(fmStatus(e)));
+  if(!es.length) return toast(L ? 'Aucune page soumise' : 'No page submitted', 2500);
+  const flats = es.map(e => dtaaFlat(f, e));
+  const head = flats[0].map(c => c[0]);
+  const col = n => { let s = ''; for(; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; };
+  const cell = (r, c, v, s) => {
+    const ref = col(c) + r;
+    if(typeof v === 'number' || (/^\d+(\.\d+)?$/.test(String(v)) && String(v).length < 12))
+      return '<c r="' + ref + '"' + (s ? ' s="' + s + '"' : '') + '><v>' + v + '</v></c>';
+    return '<c r="' + ref + '"' + (s ? ' s="' + s + '"' : '') + ' t="inlineStr"><is><t xml:space="preserve">' + xlEsc(v) + '</t></is></c>';
+  };
+  const sheet = (rows) => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<sheetViews><sheetView workbookViewId="0"><pane xSplit="1" ySplit="1" topLeftCell="B2" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>'
+    + '<cols><col min="1" max="1" width="22" customWidth="1"/><col min="2" max="' + (rows[0].length) + '" width="16" customWidth="1"/></cols><sheetData>'
+    + rows.map((r, i) => '<row r="' + (i + 1) + '">' + r.map((v, j) => cell(i + 1, j + 1, v, i === 0 ? 1 : 0)).join('') + '</row>').join('')
+    + '</sheetData><autoFilter ref="A1:' + col(rows[0].length) + rows.length + '"/></worksheet>';
+  const staffRows = [[L ? 'District' : 'District', L ? 'Fonction' : 'Role', T('name'), L ? 'Téléphone' : 'Phone', 'Email', L ? 'En poste' : 'In post']];
+  es.forEach(e => ((e.data || {}).staff || []).filter(p => String(p.name || '').trim()).forEach(p =>
+    staffRows.push([dtaaDistOf(e.siteId), dtaaLab(dtaaFind(f, 'roles', p.role)), p.name || '', p.phone || '', p.email || '', p.inpost || 'Oui'])));
+  const files = [
+    {name:'[Content_Types].xml', text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
+    {name:'_rels/.rels', text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+    {name:'xl/workbook.xml', text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Districts" sheetId="1" r:id="rId1"/><sheet name="' + (L ? 'Personnel' : 'Staff') + '" sheetId="2" r:id="rId2"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">Districts!$A$1:$' + col(head.length) + '$' + (flats.length + 1) + '</definedName></definedNames></workbook>'},
+    {name:'xl/_rels/workbook.xml.rels', text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+    {name:'xl/styles.xml', text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0B3C71"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf fontId="0" fillId="0" borderId="0"/><xf fontId="1" fillId="2" borderId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf></cellXfs></styleSheet>'},
+    {name:'xl/worksheets/sheet1.xml', text:sheet([head].concat(flats.map(fl => fl.map(c => c[1]))))},
+    {name:'xl/worksheets/sheet2.xml', text:sheet(staffRows)}
+  ];
+  const bytes = await zipWrite(files);
+  const url = URL.createObjectURL(new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  const a = document.createElement('a'); a.href = url; a.download = 'DTAA_Ouest_' + todayISO() + '.xlsx';
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+  toast('✓ ' + es.length + (L ? ' district(s) exporté(s)' : ' district(s) exported'), 3000);
+}
+
+/* =====================================================================
    READINESS AT A GLANCE
 
    The workbook's own dashboard is one site per file. Here the question is
@@ -14588,7 +15275,7 @@ function viewFormChoose(forms){
       <p class="small muted" style="margin:0">${forms.length} requests are open.</p>
     </div>
     ${forms.map(f => {
-      const sites = fmSitesFor();
+      const sites = dtaaIs(f) ? dtaaUnits() : fmSitesFor();
       const done = sites.filter(s => {
         const st = fmStatus(fmEntry(f.id, s.id));
         return st === 'SUBMITTED' || st === 'APPROVED' || st === 'SIGNED';
