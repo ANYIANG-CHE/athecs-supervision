@@ -494,6 +494,20 @@ select[multiple] option{padding:6px 8px;border-radius:6px}
 .col-top{width:106px;min-width:106px}   /* a cell holding a Yes/Partial/No */
 .col-date{width:168px;min-width:168px}  /* a cell holding a date input */
 @media(min-width:900px){ .col-name{width:200px;min-width:200px} }
+/* I.5 district staff: one block per person, labelled fields that wrap —
+   one line on a laptop, stacked on a phone. A table squeezed its inputs to nothing. */
+.dstaff{display:grid;gap:4px 10px;align-items:end;padding:8px 0;border-bottom:1px solid var(--line);
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-auto-flow:row dense}
+.dstaff .f{margin:0;min-width:0}
+.dstaff .f>span{white-space:normal}
+.dstaff input,.dstaff select{width:100%;min-width:0}
+.dstaff .ds-wide{grid-column:1/-1}
+.dstaff .ds-del{grid-column:-2;justify-self:end;align-self:end}
+@media(min-width:760px){
+  .dstaff{grid-template-columns:minmax(0,2.2fr) minmax(0,2fr) minmax(0,1.3fr) minmax(0,1.7fr) minmax(0,.9fr) auto}
+  .dstaff .ds-wide{grid-column:auto}
+  .dstaff .ds-del{grid-column:auto}
+}
 /* fixed layout clips nothing, so what sits in a cell must fit the cell */
 .tw.pin td>input,.tw.pin td>select{max-width:100%}
 
@@ -1049,7 +1063,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.11.5';
+const APP_VERSION = '5.11.6';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -3235,8 +3249,8 @@ function viewLoginChooser(){
     <button class="pathcard" onclick="setPath('dist')">
       <div class="pico sup">🏛</div>
       <div class="ptxt"><b>${L?'Équipe du district':'District staff'}</b>
-        <span>${L?'Médecin chef et équipe cadre du district : évaluations du district'
-                 :'District medical officer and district team: district assessments'}</span></div>
+        <span>${L?'Chef de district et équipe cadre du district : évaluations du district'
+                 :'Head of district and district team: district assessments'}</span></div>
       <span class="parr">›</span>
     </button>
 
@@ -3935,7 +3949,7 @@ function removeEnrolSite(i){ ENROL_SITES.splice(i,1); renderEnrolSites(); }
 function districtsOfSites(ids){
   return [...new Set(ids.map(id=>(siteById(id)||{}).district).filter(Boolean))];
 }
-const DIST_FUNCTIONS=['Médecin chef de district (MCD)','Chef bureau santé (CBS)',
+const DIST_FUNCTIONS=['Chef de district de santé (CDS)','Chef bureau santé (CBS)',
   'Chef bureau des affaires générales et financières','Point focal VIH / PTME','Point focal TB',
   'Point focal PEV','Point focal GAS','Point focal CSU / UHC','Point focal Paludisme',
   'Responsable données / S&E','Autre'];
@@ -14778,7 +14792,7 @@ function demoBar(){
 }
 
 /* the district baseline's default lists, for the demo only — live comes from the server */
-var DTAA_DEMO_LAYOUT = {"kind":"dtaa","version":1,"lists":{"roles":[{"k":"mcd","fr":"Médecin chef de district (MCD)","en":"District medical officer (DMO)"},{"k":"cbs","fr":"Chef bureau santé (CBS)","en":"Head of health office (CBS)"},{"k":"bagf","fr":"Chef bureau des affaires générales et financières","en":"Head of general and financial affairs"},{"k":"pfgas","fr":"Point focal GAS","en":"GAS focal point"},{"k":"pfpev","fr":"Point focal PEV","en":"EPI focal point"},{"k":"pfuhc","fr":"Point focal CSU / UHC","en":"UHC focal point"},{"k":"pfpalu","fr":"Point focal Paludisme","en":"Malaria focal point"},{"k":"pfvih","fr":"Point focal VIH","en":"HIV focal point","focal":"vih"},{"k":"pfptme","fr":"Point focal PTME","en":"PMTCT focal point","focal":"ptme"},{"k":"pftb","fr":"Point focal TB","en":"TB focal point","focal":"tb"},{"k":"pffech","fr":"Point focal FECh","en":"FECh focal point","focal":"fech"},{"k":"pfmnt","fr":"Point focal MNT","en":"NCD focal point","focal":"mnt"},{"k":"chas","fr":"Chef d’aire de santé","en":"Health area head"},{"k":"drv","fr":"Chauffeur","en":"Driver"},{"k":"jan","fr":"Agent d’entretien","en":"Janitor"},{"k":"oth","fr":"Autre","en":"Other"}],"integ":[{"k":"tb","fr":"VIH – TB","en":"HIV – TB"},{"k":"ptme","fr":"VIH – PTME / SMNI","en":"HIV – PMTCT / MNCH"},{"k":"mnt","fr":"VIH – MNT","en":"HIV – NCD"},{"k":"pev","fr":"VIH – PEV","en":"HIV – EPI"}],"topics":[{"k":"pec","fr":"Prise en charge globale du VIH","en":"Comprehensive HIV care"},{"k":"coh","fr":"Suivi de cohorte","en":"Cohort monitoring"},{"k":"tpt","fr":"Traitement préventif de la tuberculose (TPT)","en":"TB preventive treatment (TPT)"},{"k":"ped","fr":"Prise en charge des enfants vivant avec le VIH","en":"Care of children living with HIV"},{"k":"idx","fr":"Dépistage par cas index","en":"Index testing"},{"k":"ahd","fr":"Maladie VIH avancée","en":"Advanced HIV disease"},{"k":"mnt","fr":"Dépistage des MNT chez les PVVIH","en":"NCD screening in PLHIV"},{"k":"heid","fr":"Suivi des nourrissons exposés au VIH","en":"HIV-exposed infant follow-up"},{"k":"arvp","fr":"Schémas ARV pédiatriques","en":"Paediatric ARV regimens"},{"k":"arva","fr":"Schémas ARV adultes","en":"Adult ARV regimens"},{"k":"sup","fr":"Supervision","en":"Supervision"},{"k":"men","fr":"Mentorat","en":"Mentoring"}],"needs":[{"k":"pc","fr":"Ordinateur","en":"Computer"},{"k":"prn","fr":"Imprimante","en":"Printer"},{"k":"a4","fr":"Papier A4 (rames)","en":"A4 paper (reams)"},{"k":"pen","fr":"Stylos (bics)","en":"Pens"},{"k":"note","fr":"Blocs-notes","en":"Notebooks"},{"k":"run","fr":"Run charts (projet CQI)","en":"Run charts (CQI project)"}],"src":[{"k":"obs","fr":"Observé","en":"Observed"},{"k":"doc","fr":"Document vu","en":"Document seen"},{"k":"dec","fr":"Déclaré","en":"Declared"}]}};
+var DTAA_DEMO_LAYOUT = {"kind":"dtaa","version":1,"lists":{"roles":[{"k":"mcd","fr":"Chef de district de santé (CDS)","en":"Head of health district"},{"k":"cbs","fr":"Chef bureau santé (CBS)","en":"Head of health office (CBS)"},{"k":"bagf","fr":"Chef bureau des affaires générales et financières","en":"Head of general and financial affairs"},{"k":"pfgas","fr":"Point focal GAS","en":"GAS focal point"},{"k":"pfpev","fr":"Point focal PEV","en":"EPI focal point"},{"k":"pfuhc","fr":"Point focal CSU / UHC","en":"UHC focal point"},{"k":"pfpalu","fr":"Point focal Paludisme","en":"Malaria focal point"},{"k":"pfvih","fr":"Point focal VIH","en":"HIV focal point","focal":"vih"},{"k":"pfptme","fr":"Point focal PTME","en":"PMTCT focal point","focal":"ptme"},{"k":"pftb","fr":"Point focal TB","en":"TB focal point","focal":"tb"},{"k":"pffech","fr":"Point focal FECh","en":"FECh focal point","focal":"fech"},{"k":"pfmnt","fr":"Point focal MNT","en":"NCD focal point","focal":"mnt"},{"k":"chas","fr":"Chef d’aire de santé","en":"Health area head"},{"k":"drv","fr":"Chauffeur","en":"Driver"},{"k":"jan","fr":"Agent d’entretien","en":"Janitor"},{"k":"oth","fr":"Autre","en":"Other"}],"integ":[{"k":"tb","fr":"VIH – TB","en":"HIV – TB"},{"k":"ptme","fr":"VIH – PTME / SMNI","en":"HIV – PMTCT / MNCH"},{"k":"mnt","fr":"VIH – MNT","en":"HIV – NCD"},{"k":"pev","fr":"VIH – PEV","en":"HIV – EPI"}],"topics":[{"k":"pec","fr":"Prise en charge globale du VIH","en":"Comprehensive HIV care"},{"k":"coh","fr":"Suivi de cohorte","en":"Cohort monitoring"},{"k":"tpt","fr":"Traitement préventif de la tuberculose (TPT)","en":"TB preventive treatment (TPT)"},{"k":"ped","fr":"Prise en charge des enfants vivant avec le VIH","en":"Care of children living with HIV"},{"k":"idx","fr":"Dépistage par cas index","en":"Index testing"},{"k":"ahd","fr":"Maladie VIH avancée","en":"Advanced HIV disease"},{"k":"mnt","fr":"Dépistage des MNT chez les PVVIH","en":"NCD screening in PLHIV"},{"k":"heid","fr":"Suivi des nourrissons exposés au VIH","en":"HIV-exposed infant follow-up"},{"k":"arvp","fr":"Schémas ARV pédiatriques","en":"Paediatric ARV regimens"},{"k":"arva","fr":"Schémas ARV adultes","en":"Adult ARV regimens"},{"k":"sup","fr":"Supervision","en":"Supervision"},{"k":"men","fr":"Mentorat","en":"Mentoring"}],"needs":[{"k":"pc","fr":"Ordinateur","en":"Computer"},{"k":"prn","fr":"Imprimante","en":"Printer"},{"k":"a4","fr":"Papier A4 (rames)","en":"A4 paper (reams)"},{"k":"pen","fr":"Stylos (bics)","en":"Pens"},{"k":"note","fr":"Blocs-notes","en":"Notebooks"},{"k":"run","fr":"Run charts (projet CQI)","en":"Run charts (CQI project)"}],"src":[{"k":"obs","fr":"Observé","en":"Observed"},{"k":"doc","fr":"Document vu","en":"Document seen"},{"k":"dec","fr":"Déclaré","en":"Declared"}]}};
 
 
 /* =====================================================================
@@ -14846,7 +14860,7 @@ function instSetStatusDo(id, st){
    THE DISTRICT BASELINE (DTAA)                                  (v5.9.0)
 
    One page per HEALTH DISTRICT — not per facility — filled by district staff
-   (role DISTRICT: the district medical officer and the district team), who
+   (role DISTRICT: the head of district and the district team), who
    enrol in a space of their own and never see the mentorship. Reviewed by the
    people who cover that district: district mentors, cluster leads, M&E
    officers and assistants (supervisor accounts holding the district) and the
@@ -14875,7 +14889,10 @@ function dtaaIs(f){ return !!f && String((f.layout || {}).kind || '') === 'dtaa'
 function isDistStaff(u){ u = u || me(); return !!u && u.role === 'DISTRICT'; }
 /* Declarations, not const arrows: the first paint runs before this part of the
    script has executed, and a const read then is a ReferenceError at start-up. */
-function dtaaLab(it){ return it ? String((LANG === 'fr' ? it.fr : it.en) || it.fr || it.k || '') : ''; }
+/* The head of a district is not always a medical doctor: the old default title is
+   shown neutrally; a title the administrator typed is shown as typed. */
+const DTAA_RENAME = {'Médecin chef de district (MCD)':'Chef de district de santé (CDS)', 'District medical officer (DMO)':'Head of health district'};
+function dtaaLab(it){ const t = it ? String((LANG === 'fr' ? it.fr : it.en) || it.fr || it.k || '') : ''; return DTAA_RENAME[t] || t; }
 function dtaaList(f, k){ return (((f && f.layout && f.layout.lists) || {})[k] || []); }
 function dtaaLive(f, k){ return dtaaList(f, k).filter(x => !x.hidden); }
 function dtaaFind(f, k, key){ return dtaaList(f, k).filter(x => x.k === key)[0]; }
@@ -15140,16 +15157,16 @@ function viewDtaaFill(formId, sid){
 
   /* I — general information and the staff table */
   const areasReg = new Set(dtaaFacilities(d).map(s => s.area)).size, facsReg = dtaaFacilities(d).length;
-  const staffRows = (x.staff || []).map((p, i) => `<tr>
-      <td class="stick"><select ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'role',this.value,true)">
+  const staffRows = (x.staff || []).map((p, i) => `<div class="dstaff">
+      <label class="f ds-wide"><span>${L ? 'Fonction' : 'Role'}</span><select ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'role',this.value,true)">
         <option value="">${T('select')}</option>${dtaaList(f, 'roles').filter(o => !o.hidden || p.role === o.k)
-          .map(o => `<option value="${dtaaK(o.k)}" ${p.role === o.k ? 'selected' : ''}>${A(dtaaLab(o))}</option>`).join('')}</select></td>
-      <td><input autocomplete="off" value="${A(p.name)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'name',this.value)"></td>
-      <td><input autocomplete="off" type="tel" value="${A(p.phone)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'phone',this.value)"></td>
-      <td><input autocomplete="off" type="email" value="${A(p.email)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'email',this.value)"></td>
-      <td><select ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'inpost',this.value,true)">
-        ${['Oui', 'Non'].map(v => `<option value="${dtaaK(v)}" ${(p.inpost || 'Oui') === v ? 'selected' : ''}>${v === 'Oui' ? (L ? 'Oui' : 'Yes') : (L ? 'Non' : 'No')}</option>`).join('')}</select></td>
-      <td>${lock ? '' : `<button class="btn sec sm" onclick="dtaaDel('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i})">✕</button>`}</td></tr>`).join('');
+          .map(o => `<option value="${dtaaK(o.k)}" ${p.role === o.k ? 'selected' : ''}>${A(dtaaLab(o))}</option>`).join('')}</select></label>
+      <label class="f ds-wide"><span>${T('name')}</span><input autocomplete="off" type="text" value="${A(p.name)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'name',this.value)"></label>
+      <label class="f"><span>${L ? 'Téléphone' : 'Phone'}</span><input autocomplete="off" type="tel" inputmode="tel" value="${A(p.phone)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'phone',this.value)"></label>
+      <label class="f ds-wide"><span>Email</span><input autocomplete="off" type="email" value="${A(p.email)}" ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'email',this.value)"></label>
+      <label class="f"><span>${L ? 'En poste' : 'In post'}</span><select ${dis} onchange="dtaaRow('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i},'inpost',this.value,true)">
+        ${['Oui', 'Non'].map(v => `<option value="${dtaaK(v)}" ${(p.inpost || 'Oui') === v ? 'selected' : ''}>${v === 'Oui' ? (L ? 'Oui' : 'Yes') : (L ? 'Non' : 'No')}</option>`).join('')}</select></label>
+      ${lock ? '' : `<button class="btn sec sm ds-del" title="${L ? 'Retirer cette personne' : 'Remove this person'}" onclick="dtaaDel('${dtaaK(formId)}','${dtaaK(sid)}','staff',${i})">✕</button>`}</div>`).join('');
   const s1 = `<div class="grid g2">
       ${lab(L ? 'I.1 Région' : 'I.1 Region', '<input autocomplete="off" readonly class="ro" value="Ouest">')}
       ${lab('I.2 District', `<input autocomplete="off" readonly class="ro" value="${A(d)}">`)}
@@ -15160,9 +15177,7 @@ function viewDtaaFill(formId, sid){
     <p class="small" style="margin:12px 0 6px"><b>${L ? 'I.5 Personnel du district' : 'I.5 District staff'}</b> — ${L
       ? 'une ligne par personne. Les points focaux (II.1–II.5) et les contacts (IV.1) se déduisent de ce tableau.'
       : 'one row per person. Focal points (II.1–II.5) and contacts (IV.1) are derived from this table.'}</p>
-    <div class="tw pin"><table><thead><tr><th class="col-name">${L ? 'Fonction' : 'Role'}</th><th>${T('name')}</th>
-      <th>${L ? 'Téléphone' : 'Phone'}</th><th>Email</th><th class="col-mid">${L ? 'En poste' : 'In post'}</th><th></th></tr></thead>
-      <tbody>${staffRows || `<tr><td colspan="6" class="muted small">${L ? 'Aucune personne ajoutée.' : 'Nobody added yet.'}</td></tr>`}</tbody></table></div>
+    ${staffRows || `<p class="muted small">${L ? 'Aucune personne ajoutée.' : 'Nobody added yet.'}</p>`}
     ${lock ? '' : `<button class="btn sec sm" style="margin-top:8px" onclick="dtaaAdd('${dtaaK(formId)}','${dtaaK(sid)}','staff')">＋ ${L ? 'Ajouter une personne' : 'Add a person'}</button>`}`;
 
   /* II — resources */
