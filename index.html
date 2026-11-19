@@ -1063,7 +1063,7 @@ tbody tr:hover{background:var(--brand-tint)}
    NACC powered by ICAP Global Health  © 2025-2026
    ===================================================================== */
 const SHEET_ID = '1tmejPIhf6L2mkL7CkZZ_0Sllcz8-So96Qh4v-SewqAo';
-const APP_VERSION = '5.11.6';
+const APP_VERSION = '5.11.7';
 /* The public dashboard. A separate, online-only page: nothing of it is downloaded
    to a phone. Central level can override this per console in Réglages. */
 /* Relative on purpose. dashboard.html sits beside index.html, so this
@@ -9243,11 +9243,11 @@ function penRefuse(vid){
    missing data — which is the class of problem this release exists to end.
    ═══════════════════════════════════════════════════════════════════════════ */
 var FILT = {};
-function filt(g){ return FILT[g] || (FILT[g] = {q:'', district:'', site:'', status:'', cycle:'', theme:''}); }
+function filt(g){ return FILT[g] || (FILT[g] = {q:'', district:'', site:'', status:'', cycle:'', theme:'', kind:''}); }
 function filtSet(g, k, v){ filt(g)[k] = v; render(); }
 function filtClear(g){ delete FILT[g]; render(); }
 function filtOn(g){ const f = filt(g);
-  return !!(f.q || f.district || f.site || f.status || f.cycle || f.theme); }
+  return !!(f.q || f.district || f.site || f.status || f.cycle || f.theme || f.kind); }
 /* One haystack per row: whatever a person might reasonably type. */
 function filtHit(g, hay){
   const q = String(filt(g).q || '').trim().toLowerCase();
@@ -9633,6 +9633,7 @@ function admApprovals(){
     if(f.district && !(Array.isArray(u.districts) && u.districts.includes(f.district)))
       return false;
     if(f.status && userStatus(u)!==f.status) return false;
+    if(f.kind && userKind(u)!==f.kind) return false;
     if(!themeKeep('appr', f.theme, u, every)) return false;
     const sites=(Array.isArray(u.sites)?u.sites:[])
       .map(id=>(siteById(id)||{}).facility||'').join(' ');
@@ -9650,6 +9651,7 @@ function admApprovals(){
   const apprBar=filtBar(G, [
     filtSel(G,'theme', L?'Ce qui demande attention':'Needs attention',
       themeOpts('appr', every, every)),
+    filtSel(G,'kind', L?'Type de compte':'Account type', userKinds(false)),
     filtSel(G,'district', L?'District':'District', Object.keys(dsts).sort()),
     filtSel(G,'status', L?'État':'Status', [
       {v:U_PENDING, t:L?'En attente':'Pending'},
@@ -10200,7 +10202,23 @@ function scopeCell(u){
   if(hasSiteHat(u)) out += line('🏥', L?'FOSA :':'Facilities:', ss, 'SITE');
   return out || '—';
 }
-let USR_FILTER='';
+let USR_FILTER='', USR_KIND='';
+/* What kind of account this is, for the filters: one answer per account. */
+function userKind(u){
+  if(!u) return '';
+  if(isSlot(u)) return 'console';
+  if(u.role === 'DISTRICT') return 'district';
+  if(isDual(u)) return 'dual';
+  return u.role === 'SITE' ? 'site' : 'sup';
+}
+function userKinds(withConsole){
+  const L = LANG === 'fr';
+  return [{v:'district', t:L ? 'Équipe du district' : 'District staff'},
+          {v:'site',     t:L ? 'Personnel du site seulement' : 'Facility staff only'},
+          {v:'sup',      t:L ? 'Superviseur seulement' : 'Supervisor only'},
+          {v:'dual',     t:L ? 'Superviseur + personnel du site' : 'Supervisor + facility staff'}]
+    .concat(withConsole ? [{v:'console', t:L ? 'Console (super utilisateur / admin)' : 'Console (super user / admin)'}] : []);
+}
 function usrFilter(k){ USR_FILTER = (USR_FILTER===k?'':k); render(); }
 
 function admUsers(){
@@ -10217,12 +10235,17 @@ function admUsers(){
         <button class="btn sec sm ${USR_FILTER==='dual'?'sel-y':''}" onclick="usrFilter('dual')">
           👥🏥 ${L?'Deux rôles':'Two roles'} <span class="badge">${nd}</span></button>
         <button class="btn sec sm ${USR_FILTER===''?'sel-y':''}" onclick="usrFilter('')">${L?'Tous':'All'}</button>
+        <select onchange="USR_KIND=this.value;render()" title="${L?'Type de compte':'Account type'}">
+          <option value="">${L?'Tous les types de compte':'Every account type'}</option>
+          ${userKinds(true).map(k=>`<option value="${k.v}" ${USR_KIND===k.v?'selected':''}>${esc(k.t)} (${
+            DB.d.users.filter(u=>userKind(u)===k.v).length})</option>`).join('')}</select>
       </div>`; })()}
     <div class="tw"><table>
       <thead><tr><th>${T('name')}</th><th>${T('role')}</th><th>${LANG==='fr'?'Fonction':'Function'}</th>
         <th>${LANG==='fr'?'Pièce':'ID'}</th><th>${LANG==='fr'?'Portée':'Scope'}</th>
         <th>${T('status')}</th><th>PIN</th></tr></thead>
-      <tbody>${DB.d.users.filter(u=>USR_FILTER==='dual'?isDual(u):USR_FILTER==='help'?(!isSlot(u)&&u.pinHelp):true)
+      <tbody>${DB.d.users.filter(u=>!USR_KIND || userKind(u)===USR_KIND)
+        .filter(u=>USR_FILTER==='dual'?isDual(u):USR_FILTER==='help'?(!isSlot(u)&&u.pinHelp):true)
         .sort((a,b)=>(b.pinHelp?1:0)-(a.pinHelp?1:0)).map(u=>`<tr class="${u.active===false?'muted':''} ${u.pinHelp&&!isSlot(u)?'fill-a':''}">
         <td class="small">${esc(u.name)}</td>
         <td>${isDual(u)||isSlot(u)
@@ -14943,15 +14966,32 @@ function dtaaPath(obj, path, v){
   o[ks[ks.length - 1]] = v;
 }
 function dtaaGet(d, path){ try{ return path.split('.').reduce((o, k) => o == null ? undefined : o[k], d); }catch(e){ return undefined; } }
-function dtaaSet(formId, sid, path, v, repaint){
-  dtaaPath(dtaaTouch(formId, sid).data, path, v); DB.save();
-  if(repaint) render(); else dtaaPaint(formId, sid);
+/* EVERY ANSWER FEEDS THE PAGE AT ONCE (v5.11.7).
+   Some answers used to repaint and others did not, so a name typed in the staff
+   table reached the focal points (II.1-II.5), the contacts (IV.1) and the training
+   matrix only at the next repaint. Every change now repaints; each field carries a
+   stable id (dtaaIds) so the cursor stays where it was.
+   And a follow-up belongs to its answer: switching a question to No clears what
+   only made sense under Yes, so nothing hidden stays in the data. */
+function dtaaCascade(o, k, v){
+  if(!o) return;
+  if(k === 'present' && v !== 'Oui'){ delete o.functional; delete o.since; }
+  if(k === 'functional' && v !== 'Non'){ delete o.since; }
+}
+function dtaaSet(formId, sid, path, v){
+  const data = dtaaTouch(formId, sid).data;
+  dtaaPath(data, path, v);
+  const m = /^res\.(\w+)\.v$/.exec(path);
+  if(m && v !== 'Oui' && data.res && data.res[m[1]]) data.res[m[1]] = {v:v};
+  const pm = /^poc\.([\w-]+)\.(present|functional)$/.exec(path);
+  if(pm) dtaaCascade((data.poc || {})[pm[1]], pm[2], v);
+  DB.save(); render();
 }
 function dtaaTog(formId, sid, path, k, on){
   const e = dtaaTouch(formId, sid);
   const cur = (dtaaGet(e.data, path) || []).filter(x => x !== k);
   if(on) cur.push(k);
-  dtaaPath(e.data, path, cur); DB.save(); dtaaPaint(formId, sid);
+  dtaaPath(e.data, path, cur); DB.save(); render();
 }
 function dtaaAdd(formId, sid, list){
   const e = dtaaTouch(formId, sid);
@@ -14964,11 +15004,12 @@ function dtaaDel(formId, sid, list, i){
   if(list === 'staff' && gone && gone.id) delete e.data.train[gone.id];
   DB.save(); render();
 }
-function dtaaRow(formId, sid, list, i, k, v, repaint){
+function dtaaRow(formId, sid, list, i, k, v){
   const e = dtaaTouch(formId, sid);
   if(!e.data[list][i]) e.data[list][i] = {};
-  e.data[list][i][k] = v; DB.save();
-  if(repaint) render(); else dtaaPaint(formId, sid);
+  e.data[list][i][k] = v;
+  if(list === 'pocExtra') dtaaCascade(e.data[list][i], k, v);
+  DB.save(); render();
 }
 
 /* ------------------------------------------------- what is computed, not typed */
@@ -15118,7 +15159,15 @@ function dtaaBar(f){
     + '</span></div></div>';
 }
 
-function viewDtaaFill(formId, sid){
+function dtaaIds(html){
+  return html.replace(/<(input|select|textarea)\b(?![^>]*\sid=)([^>]*?)\son(change|input)="([^"]*)"/g,
+    (all, tag, attrs, ev, h) => {
+      let x = 5381; for(let i = 0; i < h.length; i++) x = ((x << 5) + x + h.charCodeAt(i)) >>> 0;
+      return '<' + tag + ' id="dt' + x.toString(36) + '"' + attrs + ' on' + ev + '="' + h + '"';
+    });
+}
+function viewDtaaFill(formId, sid){ return dtaaIds(viewDtaaFill0(formId, sid)); }
+function viewDtaaFill0(formId, sid){
   const L = LANG === 'fr';
   const f = fmForms().filter(x => x.id === formId)[0];
   const d = dtaaDistOf(sid);
@@ -15430,10 +15479,10 @@ function dtaaFlat(f, e){
   Object.keys(foc).forEach(k => row.push([(L ? 'PF ' : 'FP ') + k.toUpperCase(), foc[k].length ? (L ? 'Oui' : 'Yes') : (L ? 'Non' : 'No')]));
   row.push([L ? 'POC présents' : 'POC present', pc.present], [L ? 'POC fonctionnels' : 'POC working', pc.working], [L ? 'POC en panne' : 'POC broken', pc.broken]);
   row.push([L ? 'Intégration' : 'Integration', yn((r.integ || {}).v)],
-    [L ? 'Services intégrés' : 'Services integrated', ((r.integ || {}).opts || []).map(k => dtaaLab(dtaaFind(f, 'integ', k))).concat((r.integ || {}).other ? [(r.integ || {}).other] : []).join('; ')],
-    [L ? 'Plan annuel' : 'Annual plan', yn((r.plan || {}).v)], [L ? 'Plan vu' : 'Plan seen', yn((r.plan || {}).seen)],
-    [L ? 'Supervision 3 mois' : 'Supervision 3 months', yn((r.sup3m || {}).v)], [L ? 'Dernière supervision' : 'Last supervision', (r.sup3m || {}).date || ''],
-    [L ? 'Revues de données' : 'Data reviews', yn((r.review || {}).v)], [L ? 'Dernière revue' : 'Last review', (r.review || {}).date || '']);
+    [L ? 'Services intégrés' : 'Services integrated', ((r.integ || {}).v !== 'Oui' ? [] : ((r.integ || {}).opts || [])).map(k => dtaaLab(dtaaFind(f, 'integ', k))).concat((r.integ || {}).other ? [(r.integ || {}).other] : []).join('; ')],
+    [L ? 'Plan annuel' : 'Annual plan', yn((r.plan || {}).v)], [L ? 'Plan vu' : 'Plan seen', (r.plan || {}).v === 'Oui' ? yn((r.plan || {}).seen) : ''],
+    [L ? 'Supervision 3 mois' : 'Supervision 3 months', yn((r.sup3m || {}).v)], [L ? 'Dernière supervision' : 'Last supervision', (r.sup3m || {}).v === 'Oui' ? ((r.sup3m || {}).date || '') : ''],
+    [L ? 'Revues de données' : 'Data reviews', yn((r.review || {}).v)], [L ? 'Dernière revue' : 'Last review', (r.review || {}).v === 'Oui' ? ((r.review || {}).date || '') : '']);
   dtaaList(f, 'topics').forEach(t => row.push([(L ? 'Formés : ' : 'Trained: ') + dtaaLab(t),
     people.filter(p => String(((x.train || {})[p.id] || {})[t.k] || '').trim()).length]));
   dtaaList(f, 'needs').forEach(o => row.push([(L ? 'Besoin : ' : 'Need: ') + dtaaLab(o), (x.needs || {})[o.k] || '']));
